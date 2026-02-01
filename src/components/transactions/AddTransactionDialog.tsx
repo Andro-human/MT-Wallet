@@ -3,7 +3,8 @@ import { format } from 'date-fns';
 import { CalendarIcon, Plus, Clock } from 'lucide-react';
 import { useCategories } from '@/hooks/useCategories';
 import { useTransactionGroups } from '@/hooks/useTransactionGroups';
-import { usePaymentMethods, useBankNames } from '@/hooks/usePaymentMethods';
+import { usePaymentMethods } from '@/hooks/usePaymentMethods';
+import { useBankAccounts, parseBankAccount } from '@/hooks/useBankAccounts';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
@@ -47,7 +48,7 @@ export function AddTransactionDialog({ open, onOpenChange }: AddTransactionDialo
   const { data: categories = [] } = useCategories();
   const { data: groups = [] } = useTransactionGroups();
   const { data: paymentMethods = [] } = usePaymentMethods();
-  const { data: bankNames = [] } = useBankNames();
+  const { data: bankAccounts = [] } = useBankAccounts();
 
   const [merchant, setMerchant] = useState('');
   const [amount, setAmount] = useState('');
@@ -55,11 +56,11 @@ export function AddTransactionDialog({ open, onOpenChange }: AddTransactionDialo
   const [transactedAt, setTransactedAt] = useState<Date>(new Date());
   const [timeValue, setTimeValue] = useState(format(new Date(), 'HH:mm'));
   const [paymentMethod, setPaymentMethod] = useState('');
-  const [bankName, setBankName] = useState('');
-  const [accountLast4, setAccountLast4] = useState('');
+  const [bankAccount, setBankAccount] = useState('');
   const [categoryId, setCategoryId] = useState('none');
   const [groupId, setGroupId] = useState('none');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [datePickerOpen, setDatePickerOpen] = useState(false);
   
   const [showCreateCategory, setShowCreateCategory] = useState(false);
   const [showCreateGroup, setShowCreateGroup] = useState(false);
@@ -71,8 +72,7 @@ export function AddTransactionDialog({ open, onOpenChange }: AddTransactionDialo
     setTransactedAt(new Date());
     setTimeValue(format(new Date(), 'HH:mm'));
     setPaymentMethod('');
-    setBankName('');
-    setAccountLast4('');
+    setBankAccount('');
     setCategoryId('none');
     setGroupId('none');
   };
@@ -82,6 +82,7 @@ export function AddTransactionDialog({ open, onOpenChange }: AddTransactionDialo
       const [hours, minutes] = timeValue.split(':').map(Number);
       date.setHours(hours, minutes);
       setTransactedAt(date);
+      setDatePickerOpen(false);
     }
   };
 
@@ -110,6 +111,9 @@ export function AddTransactionDialog({ open, onOpenChange }: AddTransactionDialo
       return;
     }
 
+    // Parse combined bank account field
+    const { bankName, accountLast4 } = parseBankAccount(bankAccount);
+
     setIsSubmitting(true);
     try {
       const { error } = await supabase
@@ -121,8 +125,8 @@ export function AddTransactionDialog({ open, onOpenChange }: AddTransactionDialo
           direction,
           transacted_at: transactedAt.toISOString(),
           payment_method: paymentMethod.trim() || null,
-          bank_name: bankName.trim() || null,
-          account_last4: accountLast4.trim() || null,
+          bank_name: bankName || null,
+          account_last4: accountLast4 || null,
           category_id: categoryId === 'none' ? null : categoryId,
           group_id: groupId === 'none' ? null : groupId,
         } as any);
@@ -130,10 +134,9 @@ export function AddTransactionDialog({ open, onOpenChange }: AddTransactionDialo
       if (error) throw error;
 
       toast({ title: 'Transaction added' });
-      // Invalidate queries to refresh payment methods and bank names
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
       queryClient.invalidateQueries({ queryKey: ['payment-methods'] });
-      queryClient.invalidateQueries({ queryKey: ['bank-names'] });
+      queryClient.invalidateQueries({ queryKey: ['bank-accounts'] });
       resetForm();
       onOpenChange(false);
     } catch (err) {
@@ -143,6 +146,8 @@ export function AddTransactionDialog({ open, onOpenChange }: AddTransactionDialo
       setIsSubmitting(false);
     }
   };
+
+  const bankAccountOptions = bankAccounts.map(a => a.display);
 
   return (
     <>
@@ -208,7 +213,7 @@ export function AddTransactionDialog({ open, onOpenChange }: AddTransactionDialo
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
                 <Label className="text-sm text-muted-foreground">Date</Label>
-                <Popover>
+                <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
                   <PopoverTrigger asChild>
                     <Button
                       variant="outline"
@@ -235,12 +240,12 @@ export function AddTransactionDialog({ open, onOpenChange }: AddTransactionDialo
               <div className="space-y-2">
                 <Label className="text-sm text-muted-foreground">Time</Label>
                 <div className="relative">
-                  <Clock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Clock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-foreground pointer-events-none z-10" />
                   <Input
                     type="time"
                     value={timeValue}
                     onChange={handleTimeChange}
-                    className="bg-muted/30 border-border/50 rounded-xl pl-10"
+                    className="bg-muted/30 border-border/50 rounded-xl pl-10 [&::-webkit-calendar-picker-indicator]:hidden"
                   />
                 </div>
               </div>
@@ -314,28 +319,15 @@ export function AddTransactionDialog({ open, onOpenChange }: AddTransactionDialo
               />
             </div>
 
-            {/* Bank Name */}
+            {/* Bank Account (combined) */}
             <div className="space-y-2">
-              <Label className="text-sm text-muted-foreground">Bank Name</Label>
+              <Label className="text-sm text-muted-foreground">Bank Account</Label>
               <ComboboxSelect
-                value={bankName}
-                onChange={setBankName}
-                options={bankNames}
-                placeholder="Select or add..."
+                value={bankAccount}
+                onChange={setBankAccount}
+                options={bankAccountOptions}
+                placeholder="e.g., HDFC ••1234"
                 allowCustom
-              />
-            </div>
-
-            {/* Account Last 4 */}
-            <div className="space-y-2">
-              <Label htmlFor="accountLast4" className="text-sm text-muted-foreground">Account Last 4 Digits</Label>
-              <Input
-                id="accountLast4"
-                value={accountLast4}
-                onChange={(e) => setAccountLast4(e.target.value.slice(0, 4))}
-                placeholder="e.g., 1234"
-                maxLength={4}
-                className="bg-muted/30 border-border/50 rounded-xl"
               />
             </div>
           </div>

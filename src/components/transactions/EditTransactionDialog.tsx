@@ -4,7 +4,8 @@ import { CalendarIcon, Plus, Clock } from 'lucide-react';
 import { TransactionWithCategory } from '@/types/database';
 import { useCategories } from '@/hooks/useCategories';
 import { useTransactionGroups } from '@/hooks/useTransactionGroups';
-import { usePaymentMethods, useBankNames } from '@/hooks/usePaymentMethods';
+import { usePaymentMethods } from '@/hooks/usePaymentMethods';
+import { useBankAccounts, parseBankAccount } from '@/hooks/useBankAccounts';
 import { useUpdateTransaction } from '@/hooks/useTransactions';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
@@ -49,7 +50,7 @@ export function EditTransactionDialog({
   const { data: categories = [] } = useCategories();
   const { data: groups = [] } = useTransactionGroups();
   const { data: paymentMethods = [] } = usePaymentMethods();
-  const { data: bankNames = [] } = useBankNames();
+  const { data: bankAccounts = [] } = useBankAccounts();
   const updateMutation = useUpdateTransaction();
 
   const [merchant, setMerchant] = useState(transaction.merchant || '');
@@ -58,10 +59,10 @@ export function EditTransactionDialog({
   const [transactedAt, setTransactedAt] = useState<Date>(new Date(transaction.transacted_at));
   const [timeValue, setTimeValue] = useState(format(new Date(transaction.transacted_at), 'HH:mm'));
   const [paymentMethod, setPaymentMethod] = useState(transaction.payment_method || '');
-  const [bankName, setBankName] = useState(transaction.bank_name || '');
-  const [accountLast4, setAccountLast4] = useState(transaction.account_last4 || '');
+  const [bankAccount, setBankAccount] = useState('');
   const [categoryId, setCategoryId] = useState(transaction.category_id || 'none');
   const [groupId, setGroupId] = useState((transaction as any).group_id || 'none');
+  const [datePickerOpen, setDatePickerOpen] = useState(false);
   
   const [showCreateCategory, setShowCreateCategory] = useState(false);
   const [showCreateGroup, setShowCreateGroup] = useState(false);
@@ -75,8 +76,18 @@ export function EditTransactionDialog({
       setTransactedAt(date);
       setTimeValue(format(date, 'HH:mm'));
       setPaymentMethod(transaction.payment_method || '');
-      setBankName(transaction.bank_name || '');
-      setAccountLast4(transaction.account_last4 || '');
+      
+      // Combine bank name and account for display
+      let combined = '';
+      if (transaction.bank_name && transaction.account_last4) {
+        combined = `${transaction.bank_name} ••${transaction.account_last4}`;
+      } else if (transaction.bank_name) {
+        combined = transaction.bank_name;
+      } else if (transaction.account_last4) {
+        combined = `••${transaction.account_last4}`;
+      }
+      setBankAccount(combined);
+      
       setCategoryId(transaction.category_id || 'none');
       setGroupId((transaction as any).group_id || 'none');
     }
@@ -87,6 +98,7 @@ export function EditTransactionDialog({
       const [hours, minutes] = timeValue.split(':').map(Number);
       date.setHours(hours, minutes);
       setTransactedAt(date);
+      setDatePickerOpen(false);
     }
   };
 
@@ -105,6 +117,9 @@ export function EditTransactionDialog({
       return;
     }
 
+    // Parse combined bank account field
+    const { bankName, accountLast4 } = parseBankAccount(bankAccount);
+
     try {
       await updateMutation.mutateAsync({
         id: transaction.id,
@@ -114,8 +129,8 @@ export function EditTransactionDialog({
           direction,
           transacted_at: transactedAt.toISOString(),
           payment_method: paymentMethod.trim() || null,
-          bank_name: bankName.trim() || null,
-          account_last4: accountLast4.trim() || null,
+          bank_name: bankName || null,
+          account_last4: accountLast4 || null,
           category_id: categoryId === 'none' ? null : categoryId,
           group_id: groupId === 'none' ? null : groupId,
         } as any,
@@ -126,6 +141,8 @@ export function EditTransactionDialog({
       toast({ title: 'Failed to update transaction', variant: 'destructive' });
     }
   };
+
+  const bankAccountOptions = bankAccounts.map(a => a.display);
 
   return (
     <>
@@ -190,7 +207,7 @@ export function EditTransactionDialog({
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
                 <Label className="text-sm text-muted-foreground">Date</Label>
-                <Popover>
+                <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
                   <PopoverTrigger asChild>
                     <Button
                       variant="outline"
@@ -217,12 +234,12 @@ export function EditTransactionDialog({
               <div className="space-y-2">
                 <Label className="text-sm text-muted-foreground">Time</Label>
                 <div className="relative">
-                  <Clock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Clock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-foreground pointer-events-none z-10" />
                   <Input
                     type="time"
                     value={timeValue}
                     onChange={handleTimeChange}
-                    className="bg-muted/30 border-border/50 rounded-xl pl-10"
+                    className="bg-muted/30 border-border/50 rounded-xl pl-10 [&::-webkit-calendar-picker-indicator]:hidden"
                   />
                 </div>
               </div>
@@ -296,26 +313,14 @@ export function EditTransactionDialog({
               />
             </div>
 
-            {/* Bank Name */}
+            {/* Bank Account (combined) */}
             <div className="space-y-2">
-              <Label className="text-sm text-muted-foreground">Bank Name</Label>
+              <Label className="text-sm text-muted-foreground">Bank Account</Label>
               <ComboboxSelect
-                value={bankName}
-                onChange={setBankName}
-                options={bankNames}
-                placeholder="Select or add..."
-                allowCustom
-              />
-            </div>
-
-            {/* Account Last 4 */}
-            <div className="space-y-2">
-              <Label className="text-sm text-muted-foreground">Account Last 4 Digits</Label>
-              <ComboboxSelect
-                value={accountLast4}
-                onChange={setAccountLast4}
-                options={[]} // No predefined options, just allow custom entry
-                placeholder="e.g., 1234"
+                value={bankAccount}
+                onChange={setBankAccount}
+                options={bankAccountOptions}
+                placeholder="e.g., HDFC ••1234"
                 allowCustom
               />
             </div>

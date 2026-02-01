@@ -8,6 +8,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface ComboboxSelectProps {
   value: string;
@@ -59,8 +60,11 @@ export function ComboboxSelect({
           <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[--radix-popover-trigger-width] p-0 glass-elevated border-border/50" align="start">
-        <div className="max-h-[200px] overflow-y-auto">
+      <PopoverContent 
+        className="w-[--radix-popover-trigger-width] p-0 glass-elevated border-border/50" 
+        align="start"
+      >
+        <ScrollArea className="max-h-[200px]">
           {options.length > 0 && (
             <div className="p-1">
               {options.map((option) => (
@@ -80,35 +84,35 @@ export function ComboboxSelect({
               ))}
             </div>
           )}
-          
-          {allowCustom && (
-            <div className="border-t border-border/50 p-2">
-              <div className="flex gap-2">
-                <Input
-                  placeholder="Add custom..."
-                  value={customValue}
-                  onChange={(e) => setCustomValue(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      handleAddCustom();
-                    }
-                  }}
-                  className="bg-muted/30 border-border/50 rounded-lg h-8 text-sm"
-                />
-                <Button
-                  type="button"
-                  size="sm"
-                  onClick={handleAddCustom}
-                  disabled={!customValue.trim()}
-                  className="rounded-lg h-8 px-2"
-                >
-                  <Plus className="h-4 w-4" />
-                </Button>
-              </div>
+        </ScrollArea>
+        
+        {allowCustom && (
+          <div className="border-t border-border/50 p-2">
+            <div className="flex gap-2">
+              <Input
+                placeholder="Add custom..."
+                value={customValue}
+                onChange={(e) => setCustomValue(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    handleAddCustom();
+                  }
+                }}
+                className="bg-muted/30 border-border/50 rounded-lg h-8 text-sm"
+              />
+              <Button
+                type="button"
+                size="sm"
+                onClick={handleAddCustom}
+                disabled={!customValue.trim()}
+                className="rounded-lg h-8 px-2"
+              >
+                <Plus className="h-4 w-4" />
+              </Button>
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </PopoverContent>
     </Popover>
   );

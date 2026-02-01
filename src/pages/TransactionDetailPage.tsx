@@ -5,7 +5,10 @@ import { ArrowLeft, Edit2, Check, MessageSquare, EyeOff, Eye, TrendingUp, Trendi
 import { format } from 'date-fns';
 import { useTransaction, useUpdateTransaction } from '@/hooks/useTransactions';
 import { useTransactionGroups } from '@/hooks/useTransactionGroups';
+import { useCategories } from '@/hooks/useCategories';
 import { useRefundTransactions } from '@/hooks/useRefundLinks';
+import { usePaymentMethods } from '@/hooks/usePaymentMethods';
+import { useBankAccounts, parseBankAccount } from '@/hooks/useBankAccounts';
 import { formatINR } from '@/lib/formatCurrency';
 import { Textarea } from '@/components/ui/textarea';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -15,6 +18,8 @@ import { EditTransactionDialog } from '@/components/transactions/EditTransaction
 import { DeleteTransactionDialog } from '@/components/transactions/DeleteTransactionDialog';
 import { LinkRefundDialog } from '@/components/transactions/LinkRefundDialog';
 import { InlineEditableField } from '@/components/transactions/InlineEditableField';
+import { InlineSelectField } from '@/components/transactions/InlineSelectField';
+import { InlineDateField } from '@/components/transactions/InlineDateField';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -29,7 +34,10 @@ export default function TransactionDetailPage() {
   
   const { data: transaction, isLoading } = useTransaction(id!);
   const { data: groups = [] } = useTransactionGroups();
+  const { data: categories = [] } = useCategories();
   const { data: linkedRefunds = [] } = useRefundTransactions(id!);
+  const { data: paymentMethods = [] } = usePaymentMethods();
+  const { data: bankAccounts = [] } = useBankAccounts();
   const updateMutation = useUpdateTransaction();
 
   const transactionGroup = groups.find(g => g.id === (transaction as any)?.group_id);
@@ -47,6 +55,40 @@ export default function TransactionDetailPage() {
   );
   
   const netAmount = transaction ? Number(transaction.amount) - totalRefunded : 0;
+
+  // Get combined bank account display
+  const bankAccountDisplay = useMemo(() => {
+    if (!transaction) return '';
+    if (transaction.bank_name && transaction.account_last4) {
+      return `${transaction.bank_name} ••${transaction.account_last4}`;
+    } else if (transaction.bank_name) {
+      return transaction.bank_name;
+    } else if (transaction.account_last4) {
+      return `••${transaction.account_last4}`;
+    }
+    return '';
+  }, [transaction]);
+
+  // Prepare options for inline selects
+  const categoryOptions = useMemo(() => [
+    { value: 'none', label: 'No category' },
+    ...categories.map(c => ({ value: c.id, label: c.name, icon: c.icon, color: c.color }))
+  ], [categories]);
+
+  const groupOptions = useMemo(() => [
+    { value: 'none', label: 'No group' },
+    ...groups.map(g => ({ value: g.id, label: g.name, icon: g.icon, color: g.color }))
+  ], [groups]);
+
+  const paymentMethodOptions = useMemo(() => [
+    { value: '', label: 'None' },
+    ...paymentMethods.map(pm => ({ value: pm, label: pm }))
+  ], [paymentMethods]);
+
+  const bankAccountOptions = useMemo(() => [
+    { value: '', label: 'None' },
+    ...bankAccounts.map(ba => ({ value: ba.display, label: ba.display }))
+  ], [bankAccounts]);
 
   if (isLoading) {
     return (
@@ -96,9 +138,10 @@ export default function TransactionDetailPage() {
     }
   };
 
-  const handleUpdateField = async (field: string, value: string) => {
+  const handleUpdateField = async (field: string, value: any) => {
     try {
       const updates: Record<string, any> = {};
+      
       if (field === 'amount') {
         const parsedAmount = parseFloat(value);
         if (isNaN(parsedAmount) || parsedAmount <= 0) {
@@ -107,6 +150,18 @@ export default function TransactionDetailPage() {
         updates.amount = parsedAmount;
       } else if (field === 'merchant') {
         updates.merchant = value.trim() || null;
+      } else if (field === 'transacted_at') {
+        updates.transacted_at = value.toISOString();
+      } else if (field === 'category_id') {
+        updates.category_id = value === 'none' ? null : value;
+      } else if (field === 'group_id') {
+        updates.group_id = value === 'none' ? null : value;
+      } else if (field === 'payment_method') {
+        updates.payment_method = value || null;
+      } else if (field === 'bank_account') {
+        const { bankName, accountLast4 } = parseBankAccount(value);
+        updates.bank_name = bankName || null;
+        updates.account_last4 = accountLast4 || null;
       }
       
       await updateMutation.mutateAsync({
@@ -147,29 +202,6 @@ export default function TransactionDetailPage() {
               {isCredit ? 'Credit Transaction' : 'Debit Transaction'}
             </h1>
           </div>
-          
-          {/* Hamburger Menu */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button className="w-8 h-8 rounded-lg bg-muted/50 flex items-center justify-center hover:bg-muted transition-colors">
-                <MoreVertical className="w-5 h-5 text-foreground" />
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48 glass-elevated border-border/50">
-              <DropdownMenuItem onClick={() => setLinkRefundOpen(true)} className="gap-2">
-                <RefreshCw className="w-4 h-4" />
-                Link Refund
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setEditDialogOpen(true)} className="gap-2">
-                <Pencil className="w-4 h-4" />
-                Edit
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setDeleteDialogOpen(true)} className="gap-2 text-destructive focus:text-destructive">
-                <Trash2 className="w-4 h-4" />
-                Delete
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
         </div>
       </div>
 
@@ -198,11 +230,36 @@ export default function TransactionDetailPage() {
                 {isCredit ? 'Credit' : 'Debit'}
               </div>
             </div>
-            {transaction.is_excluded && (
-              <span className="text-2xs bg-muted/50 px-2.5 py-1 rounded-full text-muted-foreground font-medium uppercase tracking-wide">
-                Excluded
-              </span>
-            )}
+            
+            {/* Hamburger Menu + Excluded - in top right of main content */}
+            <div className="flex items-center gap-2">
+              {transaction.is_excluded && (
+                <span className="text-2xs bg-muted/50 px-2.5 py-1 rounded-full text-muted-foreground font-medium uppercase tracking-wide">
+                  Excluded
+                </span>
+              )}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button className="w-8 h-8 rounded-lg bg-muted/50 flex items-center justify-center hover:bg-muted transition-colors">
+                    <MoreVertical className="w-5 h-5 text-foreground" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48 glass-elevated border-border/50">
+                  <DropdownMenuItem onClick={() => setLinkRefundOpen(true)} className="gap-2">
+                    <RefreshCw className="w-4 h-4" />
+                    Link Refund
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setEditDialogOpen(true)} className="gap-2">
+                    <Pencil className="w-4 h-4" />
+                    Edit
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setDeleteDialogOpen(true)} className="gap-2 text-destructive focus:text-destructive">
+                    <Trash2 className="w-4 h-4" />
+                    Delete
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
           </div>
 
           {/* Merchant - inline editable */}
@@ -264,45 +321,55 @@ export default function TransactionDetailPage() {
           )}
 
           <div className="mt-6 space-y-3 text-sm">
+            {/* Date - inline editable */}
             <div className="flex justify-between items-center p-3 rounded-xl bg-muted/30">
               <span className="text-muted-foreground">Date</span>
-              <span className="text-foreground font-medium">
-                {format(new Date(transaction.transacted_at), 'PPP p')}
-              </span>
+              <InlineDateField
+                value={new Date(transaction.transacted_at)}
+                onSave={(date) => handleUpdateField('transacted_at', date)}
+                className="text-foreground font-medium"
+              />
             </div>
-            {transaction.payment_method && (
-              <div className="flex justify-between items-center p-3 rounded-xl bg-muted/30">
-                <span className="text-muted-foreground">Payment Method</span>
-                <span className="text-foreground font-medium">{transaction.payment_method}</span>
-              </div>
-            )}
-            {transaction.account_last4 && (
-              <div className="flex justify-between items-center p-3 rounded-xl bg-muted/30">
-                <span className="text-muted-foreground">Account</span>
-                <span className="text-foreground font-medium">••••{transaction.account_last4}</span>
-              </div>
-            )}
-            {transaction.bank_name && (
-              <div className="flex justify-between items-center p-3 rounded-xl bg-muted/30">
-                <span className="text-muted-foreground">Bank</span>
-                <span className="text-foreground font-medium">{transaction.bank_name}</span>
-              </div>
-            )}
+            
+            {/* Payment Method - inline editable */}
+            <div className="flex justify-between items-center p-3 rounded-xl bg-muted/30">
+              <span className="text-muted-foreground">Payment Method</span>
+              <InlineSelectField
+                value={transaction.payment_method || ''}
+                onSave={(value) => handleUpdateField('payment_method', value)}
+                options={paymentMethodOptions}
+                allowCustom
+                emptyLabel="None"
+                className="text-foreground font-medium"
+              />
+            </div>
+            
+            {/* Bank Account (combined) - inline editable */}
+            <div className="flex justify-between items-center p-3 rounded-xl bg-muted/30">
+              <span className="text-muted-foreground">Bank Account</span>
+              <InlineSelectField
+                value={bankAccountDisplay}
+                onSave={(value) => handleUpdateField('bank_account', value)}
+                options={bankAccountOptions}
+                allowCustom
+                emptyLabel="None"
+                placeholder="e.g., HDFC ••1234"
+                className="text-foreground font-medium"
+              />
+            </div>
           </div>
         </motion.div>
 
-        {/* Category - clickable to filter */}
+        {/* Category - inline editable */}
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1, duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+          className="glass-card p-5"
         >
-          {transaction.categories ? (
-            <Link 
-              to={`/transactions?category=${transaction.category_id}`}
-              className="glass-card p-5 flex items-center justify-between group"
-            >
-              <div className="flex items-center gap-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              {transaction.categories && (
                 <div
                   className="w-10 h-10 flex items-center justify-center rounded-xl text-base"
                   style={{
@@ -312,19 +379,25 @@ export default function TransactionDetailPage() {
                 >
                   {transaction.categories.icon}
                 </div>
-                <div>
-                  <span className="text-sm font-semibold text-foreground block">Category</span>
-                  <span className="text-sm text-muted-foreground">{transaction.categories.name}</span>
-                </div>
+              )}
+              <div>
+                <span className="text-sm font-semibold text-foreground block">Category</span>
+                <InlineSelectField
+                  value={transaction.category_id || 'none'}
+                  displayValue={transaction.categories?.name}
+                  onSave={(value) => handleUpdateField('category_id', value)}
+                  options={categoryOptions}
+                  emptyLabel="No category"
+                  className="text-sm text-muted-foreground"
+                />
               </div>
-              <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-foreground transition-colors" />
-            </Link>
-          ) : (
-            <div className="glass-card p-5">
-              <span className="text-sm font-semibold text-foreground mb-1 block">Category</span>
-              <p className="text-sm text-muted-foreground">No category</p>
             </div>
-          )}
+            {transaction.category_id && (
+              <Link to={`/transactions?category=${transaction.category_id}`}>
+                <ChevronRight className="w-5 h-5 text-muted-foreground hover:text-foreground transition-colors" />
+              </Link>
+            )}
+          </div>
         </motion.div>
 
         {/* Merchant - clickable to filter */}
@@ -350,38 +423,45 @@ export default function TransactionDetailPage() {
           </motion.div>
         )}
 
-        {/* Group */}
-        {transactionGroup && (
-          <motion.div
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.13, duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-          >
-            <Link 
-              to={`/transactions?group=${transactionGroup.id}`}
-              className="glass-card p-5 flex items-center justify-between group"
-            >
-              <div className="flex items-center gap-3">
+        {/* Group - inline editable */}
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.13, duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+          className="glass-card p-5"
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              {transactionGroup && (
                 <div 
                   className="w-10 h-10 rounded-xl flex items-center justify-center text-lg"
                   style={{ backgroundColor: transactionGroup.color + '20' }}
                 >
                   {transactionGroup.icon}
                 </div>
-                <div>
-                  <span className="text-sm font-semibold text-foreground block">{transactionGroup.name}</span>
-                  {transactionGroup.description && (
-                    <p className="text-xs text-muted-foreground">{transactionGroup.description}</p>
-                  )}
+              )}
+              <div>
+                <span className="text-sm font-semibold text-foreground block">Group</span>
+                <InlineSelectField
+                  value={(transaction as any).group_id || 'none'}
+                  displayValue={transactionGroup?.name}
+                  onSave={(value) => handleUpdateField('group_id', value)}
+                  options={groupOptions}
+                  emptyLabel="No group"
+                  className="text-sm text-muted-foreground"
+                />
+              </div>
+            </div>
+            {transactionGroup && (
+              <Link to={`/transactions?group=${transactionGroup.id}`}>
+                <div className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors">
+                  <Folder className="w-4 h-4" />
+                  <ChevronRight className="w-5 h-5" />
                 </div>
-              </div>
-              <div className="flex items-center gap-2 text-muted-foreground group-hover:text-foreground transition-colors">
-                <Folder className="w-4 h-4" />
-                <ChevronRight className="w-5 h-5" />
-              </div>
-            </Link>
-          </motion.div>
-        )}
+              </Link>
+            )}
+          </div>
+        </motion.div>
 
         {/* Notes */}
         <motion.div
@@ -426,7 +506,7 @@ export default function TransactionDetailPage() {
           )}
         </motion.div>
 
-        {/* Actions - Only Exclude toggle now, others moved to hamburger */}
+        {/* Actions - Exclude toggle */}
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}

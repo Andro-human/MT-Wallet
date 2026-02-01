@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface LinkRefundDialogProps {
   open: boolean;
@@ -54,10 +55,15 @@ export function LinkRefundDialog({
       .filter(t => t.id !== transactionId) // Exclude current transaction
       .filter(t => {
         if (!search) return true;
-        const searchLower = search.toLowerCase();
+        // Search by amount (primary) and merchant (secondary)
+        const searchLower = search.toLowerCase().trim();
+        const amountStr = t.amount.toString();
+        const formattedAmount = formatINR(t.amount).replace('₹', '').replace(',', '');
+        
         return (
-          t.merchant?.toLowerCase().includes(searchLower) ||
-          t.amount.toString().includes(search)
+          amountStr.includes(searchLower) ||
+          formattedAmount.includes(searchLower) ||
+          t.merchant?.toLowerCase().includes(searchLower)
         );
       });
   }, [allTransactions, transactionId, search]);
@@ -121,40 +127,42 @@ export function LinkRefundDialog({
         {linkedRefunds.length > 0 && (
           <div className="space-y-2">
             <p className="text-sm text-muted-foreground">Linked Refunds</p>
-            <div className="space-y-1.5 max-h-[120px] overflow-y-auto">
-              {linkedRefunds.map((refund) => (
-                <div
-                  key={refund.id}
-                  className="flex items-center justify-between p-3 rounded-xl bg-success/10 border border-success/20"
-                >
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{refund.merchant || 'Refund'}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {format(new Date(refund.transacted_at), 'MMM d, yyyy')}
-                    </p>
+            <ScrollArea className="max-h-[120px]">
+              <div className="space-y-1.5 pr-2">
+                {linkedRefunds.map((refund) => (
+                  <div
+                    key={refund.id}
+                    className="flex items-center justify-between p-3 rounded-xl bg-success/10 border border-success/20"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{refund.merchant || 'Refund'}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {format(new Date(refund.transacted_at), 'MMM d, yyyy')}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-semibold text-success">
+                        +₹{formatINR(Number(refund.amount)).replace('₹', '')}
+                      </span>
+                      <button
+                        onClick={() => handleUnlink(refund.id)}
+                        className="w-7 h-7 rounded-lg bg-destructive/10 flex items-center justify-center text-destructive hover:bg-destructive/20 transition-colors"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-semibold text-success">
-                      +₹{formatINR(Number(refund.amount)).replace('₹', '')}
-                    </span>
-                    <button
-                      onClick={() => handleUnlink(refund.id)}
-                      className="w-7 h-7 rounded-lg bg-destructive/10 flex items-center justify-center text-destructive hover:bg-destructive/20 transition-colors"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            </ScrollArea>
           </div>
         )}
 
-        {/* Search */}
+        {/* Search - search by amount */}
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
-            placeholder="Search credit transactions..."
+            placeholder="Search by amount (e.g., 100) or merchant..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-10 bg-muted/30 border-border/50 rounded-xl"
@@ -162,45 +170,47 @@ export function LinkRefundDialog({
         </div>
 
         {/* Available transactions */}
-        <div className="flex-1 overflow-y-auto space-y-1.5 min-h-[200px]">
-          {filteredTransactions.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-8">
-              No credit transactions found
-            </p>
-          ) : (
-            filteredTransactions.map((tx) => {
-              const isLinked = linkedRefundIds.has(tx.id);
-              return (
-                <button
-                  key={tx.id}
-                  onClick={() => isLinked ? handleUnlink(tx.id) : handleLink(tx.id)}
-                  disabled={createLink.isPending || deleteLink.isPending}
-                  className={cn(
-                    "w-full flex items-center justify-between p-3 rounded-xl transition-colors text-left",
-                    isLinked
-                      ? "bg-success/10 border border-success/20"
-                      : "bg-muted/30 hover:bg-muted/50"
-                  )}
-                >
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{tx.merchant || 'Unknown'}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {format(new Date(tx.transacted_at), 'MMM d, yyyy h:mm a')}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-semibold text-success">
-                      +₹{formatINR(tx.amount).replace('₹', '')}
-                    </span>
-                    {isLinked && (
-                      <Check className="w-4 h-4 text-success" />
+        <ScrollArea className="flex-1 min-h-[200px]">
+          <div className="space-y-1.5 pr-2">
+            {filteredTransactions.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-8">
+                No credit transactions found
+              </p>
+            ) : (
+              filteredTransactions.map((tx) => {
+                const isLinked = linkedRefundIds.has(tx.id);
+                return (
+                  <button
+                    key={tx.id}
+                    onClick={() => isLinked ? handleUnlink(tx.id) : handleLink(tx.id)}
+                    disabled={createLink.isPending || deleteLink.isPending}
+                    className={cn(
+                      "w-full flex items-center justify-between p-3 rounded-xl transition-colors text-left",
+                      isLinked
+                        ? "bg-success/10 border border-success/20"
+                        : "bg-muted/30 hover:bg-muted/50"
                     )}
-                  </div>
-                </button>
-              );
-            })
-          )}
-        </div>
+                  >
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{tx.merchant || 'Unknown'}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {format(new Date(tx.transacted_at), 'MMM d, yyyy h:mm a')}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-semibold text-success">
+                        +₹{formatINR(tx.amount).replace('₹', '')}
+                      </span>
+                      {isLinked && (
+                        <Check className="w-4 h-4 text-success" />
+                      )}
+                    </div>
+                  </button>
+                );
+              })
+            )}
+          </div>
+        </ScrollArea>
 
         <Button
           variant="outline"
