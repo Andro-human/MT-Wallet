@@ -201,7 +201,7 @@ export default function SettingsPage() {
           <Button
             variant="outline"
             size="sm"
-            className="w-full gap-2 rounded-xl border-destructive/30 text-destructive hover:bg-destructive/10 hover:text-destructive"
+            className="gap-2 rounded-xl border-destructive/30 text-destructive hover:bg-destructive/10 hover:text-destructive"
             onClick={handleLogout}
           >
             <LogOut className="w-4 h-4" />
