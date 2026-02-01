@@ -1,18 +1,26 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ArrowLeft, Edit2, Check, MessageSquare, EyeOff, Eye, Pencil, TrendingUp, TrendingDown, ChevronRight, Folder } from 'lucide-react';
+import { ArrowLeft, Edit2, Check, MessageSquare, EyeOff, Eye, TrendingUp, TrendingDown, ChevronRight, Folder, MoreVertical, RefreshCw, Pencil, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { useTransaction, useUpdateTransaction } from '@/hooks/useTransactions';
 import { useTransactionGroups } from '@/hooks/useTransactionGroups';
+import { useRefundTransactions } from '@/hooks/useRefundLinks';
 import { formatINR } from '@/lib/formatCurrency';
-import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { EditTransactionDialog } from '@/components/transactions/EditTransactionDialog';
 import { DeleteTransactionDialog } from '@/components/transactions/DeleteTransactionDialog';
+import { LinkRefundDialog } from '@/components/transactions/LinkRefundDialog';
+import { InlineEditableField } from '@/components/transactions/InlineEditableField';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 export default function TransactionDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -21,6 +29,7 @@ export default function TransactionDetailPage() {
   
   const { data: transaction, isLoading } = useTransaction(id!);
   const { data: groups = [] } = useTransactionGroups();
+  const { data: linkedRefunds = [] } = useRefundTransactions(id!);
   const updateMutation = useUpdateTransaction();
 
   const transactionGroup = groups.find(g => g.id === (transaction as any)?.group_id);
@@ -28,6 +37,16 @@ export default function TransactionDetailPage() {
   const [editingNotes, setEditingNotes] = useState(false);
   const [notes, setNotes] = useState('');
   const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [linkRefundOpen, setLinkRefundOpen] = useState(false);
+
+  // Calculate net amount after refunds
+  const totalRefunded = useMemo(() => 
+    linkedRefunds.reduce((sum, r) => sum + Number(r.amount), 0),
+    [linkedRefunds]
+  );
+  
+  const netAmount = transaction ? Number(transaction.amount) - totalRefunded : 0;
 
   if (isLoading) {
     return (
@@ -49,7 +68,6 @@ export default function TransactionDetailPage() {
   }
 
   const isCredit = transaction.direction === 'credit';
-
 
   const handleNotesSubmit = async () => {
     try {
@@ -78,6 +96,30 @@ export default function TransactionDetailPage() {
     }
   };
 
+  const handleUpdateField = async (field: string, value: string) => {
+    try {
+      const updates: Record<string, any> = {};
+      if (field === 'amount') {
+        const parsedAmount = parseFloat(value);
+        if (isNaN(parsedAmount) || parsedAmount <= 0) {
+          throw new Error('Invalid amount');
+        }
+        updates.amount = parsedAmount;
+      } else if (field === 'merchant') {
+        updates.merchant = value.trim() || null;
+      }
+      
+      await updateMutation.mutateAsync({
+        id: transaction.id,
+        updates,
+      });
+      toast({ title: 'Updated' });
+    } catch {
+      toast({ title: 'Failed to update', variant: 'destructive' });
+      throw new Error('Failed');
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background">
       {/* Background gradient */}
@@ -98,8 +140,36 @@ export default function TransactionDetailPage() {
             >
               <ArrowLeft className="w-5 h-5 text-foreground" />
             </button>
-            <h1 className="text-base font-semibold text-foreground">Transaction Details</h1>
+            <h1 className={cn(
+              "text-base font-semibold",
+              isCredit ? "text-success" : "text-foreground"
+            )}>
+              {isCredit ? 'Credit Transaction' : 'Debit Transaction'}
+            </h1>
           </div>
+          
+          {/* Hamburger Menu */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button className="w-8 h-8 rounded-lg bg-muted/50 flex items-center justify-center hover:bg-muted transition-colors">
+                <MoreVertical className="w-5 h-5 text-foreground" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48 glass-elevated border-border/50">
+              <DropdownMenuItem onClick={() => setLinkRefundOpen(true)} className="gap-2">
+                <RefreshCw className="w-4 h-4" />
+                Link Refund
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setEditDialogOpen(true)} className="gap-2">
+                <Pencil className="w-4 h-4" />
+                Edit
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setDeleteDialogOpen(true)} className="gap-2 text-destructive focus:text-destructive">
+                <Trash2 className="w-4 h-4" />
+                Delete
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 
@@ -135,11 +205,14 @@ export default function TransactionDetailPage() {
             )}
           </div>
 
-          <h2 className="text-xl font-bold text-foreground mb-2">
-            {transaction.merchant || 'Unknown Merchant'}
-          </h2>
+          {/* Merchant - inline editable */}
+          <InlineEditableField
+            value={transaction.merchant || 'Unknown Merchant'}
+            onSave={(value) => handleUpdateField('merchant', value)}
+            className="text-xl font-bold text-foreground mb-2 block"
+          />
           
-          {/* Amount with category emoji */}
+          {/* Amount with category emoji - inline editable */}
           <div className="flex items-center gap-3">
             {transaction.categories && (
               <div
@@ -152,15 +225,43 @@ export default function TransactionDetailPage() {
                 {transaction.categories.icon}
               </div>
             )}
-            <p className={cn(
+            <div className={cn(
               'text-display currency-display',
               isCredit ? 'text-success' : 'text-foreground'
             )}>
               {isCredit ? '+' : '−'}
               <span className="text-[0.6em] opacity-70 mr-1">₹</span>
-              {formatINR(Number(transaction.amount)).replace('₹', '')}
-            </p>
+              <InlineEditableField
+                value={transaction.amount.toString()}
+                onSave={(value) => handleUpdateField('amount', value)}
+                type="number"
+                className="inline"
+                inputClassName="w-32 text-2xl font-bold"
+                formatDisplay={(val) => formatINR(Number(val)).replace('₹', '')}
+              />
+            </div>
           </div>
+
+          {/* Refund indicator */}
+          {linkedRefunds.length > 0 && (
+            <div className="mt-4 p-3 rounded-xl bg-success/10 border border-success/20">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Refunded</span>
+                <span className="font-medium text-success">
+                  ₹{formatINR(totalRefunded).replace('₹', '')}
+                </span>
+              </div>
+              <div className="flex items-center justify-between mt-1">
+                <span className="text-sm font-medium">Net Contribution</span>
+                <span className={cn(
+                  "font-bold",
+                  netAmount === 0 ? "text-muted-foreground line-through" : "text-foreground"
+                )}>
+                  {netAmount === 0 ? '₹0' : `₹${formatINR(netAmount).replace('₹', '')}`}
+                </span>
+              </div>
+            </div>
+          )}
 
           <div className="mt-6 space-y-3 text-sm">
             <div className="flex justify-between items-center p-3 rounded-xl bg-muted/30">
@@ -188,16 +289,6 @@ export default function TransactionDetailPage() {
               </div>
             )}
           </div>
-
-          {/* Edit button in main content */}
-          <Button
-            variant="outline"
-            className="w-full mt-5 justify-center gap-2 h-11 rounded-xl border-primary/30 text-primary hover:bg-primary/10"
-            onClick={() => setEditDialogOpen(true)}
-          >
-            <Pencil className="w-4 h-4" />
-            Edit Transaction
-          </Button>
         </motion.div>
 
         {/* Category - clickable to filter */}
@@ -335,35 +426,28 @@ export default function TransactionDetailPage() {
           )}
         </motion.div>
 
-        {/* Actions */}
+        {/* Actions - Only Exclude toggle now, others moved to hamburger */}
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2, duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-          className="space-y-3"
         >
-          <Button
-            variant="outline"
-            className="w-full justify-start gap-3 h-12 rounded-xl border-border/50 hover:bg-muted/50"
+          <button
             onClick={toggleExcluded}
+            className="w-full flex items-center justify-start gap-3 h-12 px-4 rounded-xl border border-border/50 hover:bg-muted/50 transition-colors"
           >
             {transaction.is_excluded ? (
               <>
                 <Eye className="w-4 h-4" />
-                Include in Analytics
+                <span className="text-sm">Include in Analytics</span>
               </>
             ) : (
               <>
                 <EyeOff className="w-4 h-4" />
-                Exclude from Analytics
+                <span className="text-sm">Exclude from Analytics</span>
               </>
             )}
-          </Button>
-
-          <DeleteTransactionDialog 
-            transactionId={transaction.id} 
-            merchantName={transaction.merchant || undefined} 
-          />
+          </button>
         </motion.div>
 
         {/* Raw SMS */}
@@ -387,6 +471,22 @@ export default function TransactionDetailPage() {
         transaction={transaction}
         open={editDialogOpen}
         onOpenChange={setEditDialogOpen}
+      />
+
+      {/* Delete Dialog */}
+      <DeleteTransactionDialog
+        transactionId={transaction.id}
+        merchantName={transaction.merchant || undefined}
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+      />
+
+      {/* Link Refund Dialog */}
+      <LinkRefundDialog
+        open={linkRefundOpen}
+        onOpenChange={setLinkRefundOpen}
+        transactionId={transaction.id}
+        transactionAmount={Number(transaction.amount)}
       />
     </div>
   );

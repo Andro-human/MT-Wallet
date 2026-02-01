@@ -20,13 +20,26 @@ import { Button } from '@/components/ui/button';
 interface DeleteTransactionDialogProps {
   transactionId: string;
   merchantName?: string;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
-export function DeleteTransactionDialog({ transactionId, merchantName }: DeleteTransactionDialogProps) {
+export function DeleteTransactionDialog({ 
+  transactionId, 
+  merchantName,
+  open,
+  onOpenChange,
+}: DeleteTransactionDialogProps) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [isDeleting, setIsDeleting] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+
+  // Support both controlled and uncontrolled modes
+  const isControlled = open !== undefined;
+  const isOpen = isControlled ? open : internalOpen;
+  const setIsOpen = isControlled ? onOpenChange! : setInternalOpen;
 
   const handleDelete = async () => {
     setIsDeleting(true);
@@ -49,8 +62,36 @@ export function DeleteTransactionDialog({ transactionId, merchantName }: DeleteT
     }
   };
 
+  // Controlled mode - no trigger button
+  if (isControlled) {
+    return (
+      <AlertDialog open={isOpen} onOpenChange={setIsOpen}>
+        <AlertDialogContent className="glass-elevated border-border/50">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Transaction</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this transaction
+              {merchantName ? ` from "${merchantName}"` : ''}? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="rounded-xl">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              disabled={isDeleting}
+              className="rounded-xl bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDeleting ? 'Deleting...' : 'Delete'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    );
+  }
+
+  // Uncontrolled mode - with trigger button
   return (
-    <AlertDialog>
+    <AlertDialog open={isOpen} onOpenChange={setIsOpen}>
       <AlertDialogTrigger asChild>
         <Button
           variant="outline"

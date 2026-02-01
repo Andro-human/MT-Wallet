@@ -4,6 +4,7 @@ import { CalendarIcon, Plus, Clock } from 'lucide-react';
 import { TransactionWithCategory } from '@/types/database';
 import { useCategories } from '@/hooks/useCategories';
 import { useTransactionGroups } from '@/hooks/useTransactionGroups';
+import { usePaymentMethods, useBankNames } from '@/hooks/usePaymentMethods';
 import { useUpdateTransaction } from '@/hooks/useTransactions';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
@@ -29,6 +30,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
+import { ComboboxSelect } from '@/components/ui/ComboboxSelect';
 import { CreateCategoryDialog } from './CreateCategoryDialog';
 import { CreateGroupDialog } from './CreateGroupDialog';
 
@@ -46,6 +48,8 @@ export function EditTransactionDialog({
   const { toast } = useToast();
   const { data: categories = [] } = useCategories();
   const { data: groups = [] } = useTransactionGroups();
+  const { data: paymentMethods = [] } = usePaymentMethods();
+  const { data: bankNames = [] } = useBankNames();
   const updateMutation = useUpdateTransaction();
 
   const [merchant, setMerchant] = useState(transaction.merchant || '');
@@ -282,38 +286,37 @@ export function EditTransactionDialog({
 
             {/* Payment Method */}
             <div className="space-y-2">
-              <Label htmlFor="paymentMethod" className="text-sm text-muted-foreground">Payment Method</Label>
-              <Input
-                id="paymentMethod"
+              <Label className="text-sm text-muted-foreground">Payment Method</Label>
+              <ComboboxSelect
                 value={paymentMethod}
-                onChange={(e) => setPaymentMethod(e.target.value)}
-                placeholder="e.g., UPI, Card, Cash"
-                className="bg-muted/30 border-border/50 rounded-xl"
+                onChange={setPaymentMethod}
+                options={paymentMethods}
+                placeholder="Select or add..."
+                allowCustom
               />
             </div>
 
             {/* Bank Name */}
             <div className="space-y-2">
-              <Label htmlFor="bankName" className="text-sm text-muted-foreground">Bank Name</Label>
-              <Input
-                id="bankName"
+              <Label className="text-sm text-muted-foreground">Bank Name</Label>
+              <ComboboxSelect
                 value={bankName}
-                onChange={(e) => setBankName(e.target.value)}
-                placeholder="e.g., HDFC, ICICI"
-                className="bg-muted/30 border-border/50 rounded-xl"
+                onChange={setBankName}
+                options={bankNames}
+                placeholder="Select or add..."
+                allowCustom
               />
             </div>
 
             {/* Account Last 4 */}
             <div className="space-y-2">
-              <Label htmlFor="accountLast4" className="text-sm text-muted-foreground">Account Last 4 Digits</Label>
-              <Input
-                id="accountLast4"
+              <Label className="text-sm text-muted-foreground">Account Last 4 Digits</Label>
+              <ComboboxSelect
                 value={accountLast4}
-                onChange={(e) => setAccountLast4(e.target.value.slice(0, 4))}
+                onChange={setAccountLast4}
+                options={[]} // No predefined options, just allow custom entry
                 placeholder="e.g., 1234"
-                maxLength={4}
-                className="bg-muted/30 border-border/50 rounded-xl"
+                allowCustom
               />
             </div>
           </div>
