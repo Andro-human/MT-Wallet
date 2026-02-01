@@ -211,9 +211,9 @@ export default function TransactionsPage() {
                 <p className="text-2xs text-muted-foreground uppercase tracking-extra-wide font-medium mb-2.5 px-1">
                   {format(new Date(date), 'EEEE, MMM d')}
                 </p>
-                <div className="space-y-3">
+                <div className="flex flex-col gap-3">
                   {txns.map((txn, i) => (
-                    <Link key={txn.id} to={`/transactions/${txn.id}`}>
+                    <Link key={txn.id} to={`/transactions/${txn.id}`} className="block">
                       <TransactionCard transaction={txn} index={i} />
                     </Link>
                   ))}
