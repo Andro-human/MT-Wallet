@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { User, Key, Copy, RefreshCw, LogOut, Check, Loader2 } from 'lucide-react';
+import { User, Key, Copy, RefreshCw, LogOut, Check, Loader2, Sparkles } from 'lucide-react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { useAuth } from '@/hooks/useAuth';
 import { useProfile, useRegenerateApiKey } from '@/hooks/useProfile';
@@ -42,38 +42,46 @@ export default function SettingsPage() {
 
   return (
     <AppLayout>
-      <div className="px-4 pt-6 pb-4 safe-area-top">
+      <div className="px-5 pt-8 pb-4 safe-area-top">
         {/* Header */}
         <motion.div
-          initial={{ opacity: 0, y: -10 }}
+          initial={{ opacity: 0, y: -12 }}
           animate={{ opacity: 1, y: 0 }}
-          className="mb-6"
+          transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+          className="mb-8"
         >
           <h1 className="text-2xl font-bold text-foreground">Settings</h1>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm text-muted-foreground mt-0.5">
             Manage your account
           </p>
         </motion.div>
 
         {/* Profile Card */}
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
-          className="rounded-2xl bg-card p-6 mb-4"
+          transition={{ delay: 0.1, duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+          className="glass-elevated p-6 mb-4"
         >
           <div className="flex items-center gap-4">
-            <div className="w-14 h-14 rounded-full gradient-primary flex items-center justify-center">
-              <User className="w-7 h-7 text-primary-foreground" />
+            <div 
+              className="w-16 h-16 rounded-2xl flex items-center justify-center"
+              style={{
+                background: 'linear-gradient(135deg, hsl(252 87% 64%), hsl(280 85% 55%))',
+                boxShadow: '0 8px 24px -8px hsl(252 87% 64% / 0.4)',
+              }}
+            >
+              <User className="w-8 h-8 text-white" />
             </div>
             <div className="flex-1 min-w-0">
               {isLoading ? (
                 <>
-                  <Skeleton className="h-5 w-32 mb-1" />
+                  <Skeleton className="h-6 w-32 mb-2" />
                   <Skeleton className="h-4 w-48" />
                 </>
               ) : (
                 <>
-                  <h2 className="font-semibold text-foreground truncate">
+                  <h2 className="font-bold text-lg text-foreground truncate">
                     {profile?.full_name || 'User'}
                   </h2>
                   <p className="text-sm text-muted-foreground truncate">
@@ -87,13 +95,15 @@ export default function SettingsPage() {
 
         {/* API Key Section */}
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-          className="rounded-2xl bg-card p-4 mb-4"
+          transition={{ delay: 0.15, duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+          className="glass-card p-5 mb-4"
         >
           <div className="flex items-center gap-3 mb-4">
-            <Key className="w-5 h-5 text-primary" />
+            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+              <Key className="w-5 h-5 text-primary" />
+            </div>
             <div>
               <h3 className="font-semibold text-foreground">API Key</h3>
               <p className="text-xs text-muted-foreground">
@@ -103,16 +113,16 @@ export default function SettingsPage() {
           </div>
 
           {isLoading ? (
-            <Skeleton className="h-12 rounded-xl" />
+            <Skeleton className="h-14 rounded-xl" />
           ) : (
             <>
-              <div className="flex items-center gap-2 p-3 rounded-xl bg-muted mb-3">
+              <div className="flex items-center gap-2 p-4 rounded-xl bg-muted/30 border border-border/50 mb-4">
                 <code className="flex-1 text-xs text-foreground font-mono truncate">
                   {showApiKey ? profile?.api_key : '••••••••••••••••••••••••••••••••'}
                 </code>
                 <button
                   onClick={() => setShowApiKey(!showApiKey)}
-                  className="text-xs text-primary hover:underline"
+                  className="text-xs text-primary font-medium hover:underline shrink-0"
                 >
                   {showApiKey ? 'Hide' : 'Show'}
                 </button>
@@ -123,9 +133,9 @@ export default function SettingsPage() {
                   variant="outline"
                   size="sm"
                   onClick={handleCopyApiKey}
-                  className="flex-1 gap-2"
+                  className="flex-1 gap-2 rounded-xl border-border/50 h-10"
                 >
-                  {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                  {copied ? <Check className="w-4 h-4 text-success" /> : <Copy className="w-4 h-4" />}
                   {copied ? 'Copied!' : 'Copy'}
                 </Button>
                 <Button
@@ -133,7 +143,7 @@ export default function SettingsPage() {
                   size="sm"
                   onClick={handleRegenerateApiKey}
                   disabled={regenerateApiKey.isPending}
-                  className="flex-1 gap-2"
+                  className="flex-1 gap-2 rounded-xl border-border/50 h-10"
                 >
                   {regenerateApiKey.isPending ? (
                     <Loader2 className="w-4 h-4 animate-spin" />
@@ -149,36 +159,48 @@ export default function SettingsPage() {
 
         {/* App Info */}
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.15 }}
-          className="rounded-2xl bg-card p-4 mb-4"
+          transition={{ delay: 0.2, duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+          className="glass-card p-5 mb-4"
         >
-          <div className="space-y-3 text-sm">
-            <div className="flex justify-between items-center">
-              <span className="text-muted-foreground">Demo Data</span>
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+              <Sparkles className="w-5 h-5 text-primary" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-foreground">App Info</h3>
+              <p className="text-xs text-muted-foreground">
+                Version and demo data
+              </p>
+            </div>
+          </div>
+          
+          <div className="space-y-3">
+            <div className="flex justify-between items-center p-3 rounded-xl bg-muted/30">
+              <span className="text-sm text-muted-foreground">Demo Data</span>
               <SeedDataButton />
             </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">App Version</span>
-              <span className="text-foreground">1.0.0</span>
+            <div className="flex justify-between items-center p-3 rounded-xl bg-muted/30">
+              <span className="text-sm text-muted-foreground">App Version</span>
+              <span className="text-sm text-foreground font-medium">1.0.0</span>
             </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Build</span>
-              <span className="text-foreground">MTWallet PWA</span>
+            <div className="flex justify-between items-center p-3 rounded-xl bg-muted/30">
+              <span className="text-sm text-muted-foreground">Build</span>
+              <span className="text-sm text-foreground font-medium">MTWallet PWA</span>
             </div>
           </div>
         </motion.div>
 
         {/* Logout */}
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
+          transition={{ delay: 0.25, duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
         >
           <Button
-            variant="destructive"
-            className="w-full gap-2"
+            variant="outline"
+            className="w-full gap-2 h-12 rounded-xl border-destructive/30 text-destructive hover:bg-destructive/10 hover:text-destructive"
             onClick={handleLogout}
           >
             <LogOut className="w-4 h-4" />

@@ -36,7 +36,6 @@ export default function AuthPage() {
     e.preventDefault();
     setErrors({});
     
-    // Validate input
     const result = authSchema.safeParse({ email, password });
     if (!result.success) {
       const fieldErrors: Record<string, string> = {};
@@ -105,110 +104,134 @@ export default function AuthPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6">
+    <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6 relative overflow-hidden">
+      {/* Background gradient */}
+      <div 
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          background: 'radial-gradient(ellipse 100% 80% at 50% 0%, hsl(252 87% 64% / 0.12), transparent 60%)',
+        }}
+      />
+      
       <motion.div
-        initial={{ opacity: 0, y: 20 }}
+        initial={{ opacity: 0, y: 24 }}
         animate={{ opacity: 1, y: 0 }}
-        className="w-full max-w-sm"
+        transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+        className="w-full max-w-sm relative"
       >
         {/* Logo */}
-        <div className="text-center mb-8">
+        <div className="text-center mb-10">
           <motion.div
-            initial={{ scale: 0.8 }}
-            animate={{ scale: 1 }}
-            transition={{ delay: 0.1, type: 'spring' }}
-            className="inline-flex items-center justify-center w-16 h-16 rounded-2xl gradient-primary mb-4"
+            initial={{ scale: 0.8, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ delay: 0.1, duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+            className="inline-flex items-center justify-center w-18 h-18 rounded-3xl mb-5"
+            style={{
+              background: 'linear-gradient(135deg, hsl(252 87% 64%), hsl(280 85% 55%))',
+              boxShadow: '0 12px 32px -8px hsl(252 87% 64% / 0.5)',
+            }}
           >
-            <Wallet className="w-8 h-8 text-primary-foreground" />
+            <Wallet className="w-9 h-9 text-white" />
           </motion.div>
           <h1 className="text-2xl font-bold text-foreground">MTWallet</h1>
-          <p className="text-sm text-muted-foreground mt-1">
+          <p className="text-sm text-muted-foreground mt-1.5">
             Track where your money goes
           </p>
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-5">
           {!isLogin && (
             <motion.div
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: 'auto' }}
               exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
             >
-              <Label htmlFor="fullName" className="text-muted-foreground">Full Name</Label>
-              <div className="relative mt-1.5">
-                <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Label htmlFor="fullName" className="text-sm text-muted-foreground mb-2 block">
+                Full Name
+              </Label>
+              <div className="relative">
+                <User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
                   id="fullName"
                   type="text"
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
                   placeholder="John Doe"
-                  className="pl-10 bg-card border-border focus:border-primary"
+                  className="pl-11 h-12 bg-card/60 border-border/50 rounded-xl text-sm placeholder:text-muted-foreground/60 focus:bg-card focus:border-primary/50"
                 />
               </div>
             </motion.div>
           )}
 
           <div>
-            <Label htmlFor="email" className="text-muted-foreground">Email</Label>
-            <div className="relative mt-1.5">
-              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Label htmlFor="email" className="text-sm text-muted-foreground mb-2 block">
+              Email
+            </Label>
+            <div className="relative">
+              <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
                 id="email"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@example.com"
-                className="pl-10 bg-card border-border focus:border-primary"
+                className="pl-11 h-12 bg-card/60 border-border/50 rounded-xl text-sm placeholder:text-muted-foreground/60 focus:bg-card focus:border-primary/50"
               />
             </div>
             {errors.email && (
-              <p className="text-xs text-destructive mt-1">{errors.email}</p>
+              <p className="text-xs text-destructive mt-1.5">{errors.email}</p>
             )}
           </div>
 
           <div>
-            <Label htmlFor="password" className="text-muted-foreground">Password</Label>
-            <div className="relative mt-1.5">
-              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Label htmlFor="password" className="text-sm text-muted-foreground mb-2 block">
+              Password
+            </Label>
+            <div className="relative">
+              <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
                 id="password"
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
-                className="pl-10 bg-card border-border focus:border-primary"
+                className="pl-11 h-12 bg-card/60 border-border/50 rounded-xl text-sm placeholder:text-muted-foreground/60 focus:bg-card focus:border-primary/50"
               />
             </div>
             {errors.password && (
-              <p className="text-xs text-destructive mt-1">{errors.password}</p>
+              <p className="text-xs text-destructive mt-1.5">{errors.password}</p>
             )}
           </div>
 
           <Button
             type="submit"
             disabled={loading}
-            className="w-full gradient-primary text-primary-foreground font-semibold h-12 text-base"
+            className="w-full h-12 rounded-xl text-base font-semibold transition-all duration-200"
+            style={{
+              background: 'linear-gradient(135deg, hsl(252 87% 64%), hsl(280 85% 55%))',
+              boxShadow: loading ? 'none' : '0 8px 24px -8px hsl(252 87% 64% / 0.5)',
+            }}
           >
             {loading ? (
               <Loader2 className="w-5 h-5 animate-spin" />
             ) : (
-              <>
+              <span className="flex items-center gap-2">
                 {isLogin ? 'Sign In' : 'Create Account'}
-                <ArrowRight className="w-5 h-5 ml-2" />
-              </>
+                <ArrowRight className="w-5 h-5" />
+              </span>
             )}
           </Button>
         </form>
 
         {/* Toggle */}
-        <p className="text-center text-sm text-muted-foreground mt-6">
+        <p className="text-center text-sm text-muted-foreground mt-8">
           {isLogin ? "Don't have an account?" : 'Already have an account?'}{' '}
           <button
             type="button"
             onClick={() => setIsLogin(!isLogin)}
-            className="text-primary font-medium hover:underline"
+            className="text-primary font-semibold hover:underline"
           >
             {isLogin ? 'Sign up' : 'Sign in'}
           </button>

@@ -35,11 +35,11 @@ export default function TransactionDetailPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-background p-4 safe-area-top">
-        <Skeleton className="h-8 w-32 mb-6" />
-        <Skeleton className="h-40 rounded-2xl mb-4" />
-        <Skeleton className="h-20 rounded-xl mb-4" />
-        <Skeleton className="h-20 rounded-xl" />
+      <div className="min-h-screen bg-background p-5 safe-area-top">
+        <Skeleton className="h-8 w-32 mb-8" />
+        <Skeleton className="h-48 rounded-2xl mb-4" />
+        <Skeleton className="h-24 rounded-2xl mb-4" />
+        <Skeleton className="h-24 rounded-2xl" />
       </div>
     );
   }
@@ -96,66 +96,80 @@ export default function TransactionDetailPage() {
 
   return (
     <div className="min-h-screen bg-background">
+      {/* Background gradient */}
+      <div 
+        className="fixed inset-0 pointer-events-none"
+        style={{
+          background: 'radial-gradient(ellipse 80% 50% at 50% -20%, hsl(252 87% 64% / 0.08), transparent)',
+        }}
+      />
+      
       {/* Header */}
-      <div className="sticky top-0 z-10 glass border-b border-border/50 safe-area-top">
+      <div className="sticky top-0 z-10 nav-pill mx-4 mt-4 safe-area-top">
         <div className="flex items-center gap-3 px-4 py-3">
-          <button onClick={() => navigate(-1)}>
-            <ArrowLeft className="w-6 h-6 text-foreground" />
+          <button 
+            onClick={() => navigate(-1)}
+            className="w-8 h-8 rounded-lg bg-muted/50 flex items-center justify-center hover:bg-muted transition-colors"
+          >
+            <ArrowLeft className="w-5 h-5 text-foreground" />
           </button>
-          <h1 className="text-lg font-semibold text-foreground">Transaction Details</h1>
+          <h1 className="text-base font-semibold text-foreground">Transaction Details</h1>
         </div>
       </div>
 
-      <div className="px-4 py-6 space-y-4">
+      <div className="px-5 py-6 space-y-4 relative">
         {/* Main Card */}
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
-          className="rounded-2xl bg-card p-6"
+          transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+          className="glass-elevated p-6"
         >
-          <div className="flex items-start justify-between mb-4">
+          <div className="flex items-start justify-between mb-5">
             <CategoryBadge category={transaction.categories} size="lg" />
             {transaction.is_excluded && (
-              <span className="text-xs bg-muted px-2 py-1 rounded-full text-muted-foreground">
+              <span className="text-2xs bg-muted/50 px-2.5 py-1 rounded-full text-muted-foreground font-medium uppercase tracking-wide">
                 Excluded
               </span>
             )}
           </div>
 
-          <h2 className="text-xl font-bold text-foreground mb-1">
+          <h2 className="text-xl font-bold text-foreground mb-2">
             {transaction.merchant || 'Unknown Merchant'}
           </h2>
           
           <p className={cn(
-            'text-3xl font-bold',
+            'text-display currency-display',
             isCredit ? 'text-success' : 'text-foreground'
           )}>
-            {isCredit ? '+' : '-'}{formatINR(Number(transaction.amount))}
+            {isCredit ? '+' : '−'}
+            <span className="text-[0.6em] opacity-70 mr-1">₹</span>
+            {formatINR(Number(transaction.amount)).replace('₹', '')}
           </p>
 
-          <div className="mt-4 space-y-2 text-sm">
-            <div className="flex justify-between">
+          <div className="mt-6 space-y-3 text-sm">
+            <div className="flex justify-between items-center p-3 rounded-xl bg-muted/30">
               <span className="text-muted-foreground">Date</span>
-              <span className="text-foreground">
+              <span className="text-foreground font-medium">
                 {format(new Date(transaction.transacted_at), 'PPP p')}
               </span>
             </div>
             {transaction.payment_method && (
-              <div className="flex justify-between">
+              <div className="flex justify-between items-center p-3 rounded-xl bg-muted/30">
                 <span className="text-muted-foreground">Payment Method</span>
-                <span className="text-foreground">{transaction.payment_method}</span>
+                <span className="text-foreground font-medium">{transaction.payment_method}</span>
               </div>
             )}
             {transaction.account_last4 && (
-              <div className="flex justify-between">
+              <div className="flex justify-between items-center p-3 rounded-xl bg-muted/30">
                 <span className="text-muted-foreground">Account</span>
-                <span className="text-foreground">••••{transaction.account_last4}</span>
+                <span className="text-foreground font-medium">••••{transaction.account_last4}</span>
               </div>
             )}
             {transaction.bank_name && (
-              <div className="flex justify-between">
+              <div className="flex justify-between items-center p-3 rounded-xl bg-muted/30">
                 <span className="text-muted-foreground">Bank</span>
-                <span className="text-foreground">{transaction.bank_name}</span>
+                <span className="text-foreground font-medium">{transaction.bank_name}</span>
               </div>
             )}
           </div>
@@ -163,16 +177,16 @@ export default function TransactionDetailPage() {
 
         {/* Category */}
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-          className="rounded-xl bg-card p-4"
+          transition={{ delay: 0.1, duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+          className="glass-card p-5"
         >
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-sm font-medium text-foreground">Category</span>
+          <div className="flex items-center justify-between mb-4">
+            <span className="text-sm font-semibold text-foreground">Category</span>
             <button
               onClick={() => setEditingCategory(!editingCategory)}
-              className="text-primary text-sm"
+              className="w-8 h-8 rounded-lg bg-muted/50 flex items-center justify-center hover:bg-muted transition-colors text-primary"
             >
               {editingCategory ? <X className="w-4 h-4" /> : <Edit2 className="w-4 h-4" />}
             </button>
@@ -183,10 +197,10 @@ export default function TransactionDetailPage() {
               value={transaction.category_id || 'none'}
               onValueChange={handleCategoryChange}
             >
-              <SelectTrigger className="bg-muted">
+              <SelectTrigger className="bg-muted/30 border-border/50 rounded-xl h-11">
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="glass-card border-border/50">
                 <SelectItem value="none">No category</SelectItem>
                 {categories.map(cat => (
                   <SelectItem key={cat.id} value={cat.id}>
@@ -202,15 +216,17 @@ export default function TransactionDetailPage() {
 
         {/* Notes */}
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.15 }}
-          className="rounded-xl bg-card p-4"
+          transition={{ delay: 0.15, duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+          className="glass-card p-5"
         >
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <MessageSquare className="w-4 h-4 text-muted-foreground" />
-              <span className="text-sm font-medium text-foreground">Notes</span>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-lg bg-muted/50 flex items-center justify-center">
+                <MessageSquare className="w-4 h-4 text-muted-foreground" />
+              </div>
+              <span className="text-sm font-semibold text-foreground">Notes</span>
             </div>
             <button
               onClick={() => {
@@ -221,7 +237,7 @@ export default function TransactionDetailPage() {
                   setEditingNotes(true);
                 }
               }}
-              className="text-primary text-sm"
+              className="w-8 h-8 rounded-lg bg-muted/50 flex items-center justify-center hover:bg-muted transition-colors text-primary"
             >
               {editingNotes ? <Check className="w-4 h-4" /> : <Edit2 className="w-4 h-4" />}
             </button>
@@ -232,7 +248,7 @@ export default function TransactionDetailPage() {
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder="Add notes..."
-              className="bg-muted min-h-[80px]"
+              className="bg-muted/30 border-border/50 min-h-[100px] rounded-xl text-sm"
             />
           ) : (
             <p className="text-sm text-muted-foreground">
@@ -243,13 +259,13 @@ export default function TransactionDetailPage() {
 
         {/* Actions */}
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
+          transition={{ delay: 0.2, duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
         >
           <Button
             variant="outline"
-            className="w-full justify-start gap-3"
+            className="w-full justify-start gap-3 h-12 rounded-xl border-border/50 hover:bg-muted/50"
             onClick={toggleExcluded}
           >
             {transaction.is_excluded ? (
@@ -269,13 +285,13 @@ export default function TransactionDetailPage() {
         {/* Raw SMS */}
         {transaction.raw_sms && (
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.25 }}
-            className="rounded-xl bg-card p-4"
+            transition={{ delay: 0.25, duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+            className="glass-card p-5"
           >
-            <p className="text-sm font-medium text-foreground mb-2">Original SMS</p>
-            <p className="text-xs text-muted-foreground font-mono whitespace-pre-wrap break-all">
+            <p className="text-sm font-semibold text-foreground mb-3">Original SMS</p>
+            <p className="text-xs text-muted-foreground font-mono whitespace-pre-wrap break-all p-3 bg-muted/30 rounded-xl">
               {transaction.raw_sms}
             </p>
           </motion.div>

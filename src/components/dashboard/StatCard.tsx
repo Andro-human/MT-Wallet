@@ -21,12 +21,6 @@ export function StatCard({
   icon,
   variant = 'default',
 }: StatCardProps) {
-  const variantClasses = {
-    default: 'bg-card',
-    primary: 'gradient-primary',
-    success: 'gradient-success',
-  };
-
   const trendClasses = {
     up: 'text-destructive',
     down: 'text-success',
@@ -35,33 +29,42 @@ export function StatCard({
 
   return (
     <motion.div
-      initial={{ opacity: 0, scale: 0.95 }}
+      initial={{ opacity: 0, scale: 0.96 }}
       animate={{ opacity: 1, scale: 1 }}
+      transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
       className={cn(
-        'rounded-2xl p-4',
-        variantClasses[variant]
+        'glass-card p-4 transition-all duration-300 hover:scale-[1.02]',
+        variant === 'primary' && 'gradient-primary glow-primary',
+        variant === 'success' && 'gradient-success'
       )}
     >
       <div className="flex items-start justify-between">
         <span className={cn(
-          'text-xs uppercase tracking-wider',
+          'text-2xs uppercase tracking-extra-wide font-medium',
           variant === 'default' ? 'text-muted-foreground' : 'text-white/70'
         )}>
           {label}
         </span>
-        {icon}
+        {icon && (
+          <div className={cn(
+            'p-1.5 rounded-lg',
+            variant === 'default' ? 'bg-muted/50' : 'bg-white/10'
+          )}>
+            {icon}
+          </div>
+        )}
       </div>
       
-      <div className="mt-2">
+      <div className="mt-3">
         <span className={cn(
-          'text-2xl font-bold',
+          'text-2xl font-bold currency-display',
           variant === 'default' ? 'text-foreground' : 'text-white'
         )}>
           {value}
         </span>
         
         {(subValue || trendValue) && (
-          <div className="flex items-center gap-2 mt-1">
+          <div className="flex items-center gap-2 mt-1.5">
             {subValue && (
               <span className={cn(
                 'text-xs',

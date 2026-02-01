@@ -17,36 +17,41 @@ export function TransactionCard({ transaction, onClick, index = 0 }: Transaction
   
   return (
     <motion.div
-      initial={{ opacity: 0, y: 10 }}
+      initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: index * 0.05 }}
+      transition={{ delay: index * 0.04, duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
       onClick={onClick}
-      className="flex items-center gap-3 p-4 rounded-xl bg-card hover:bg-card/80 transition-colors cursor-pointer group"
+      className="flex items-center gap-4 p-4 glass-card transition-all duration-300 hover:bg-card-elevated cursor-pointer group"
     >
       <CategoryBadge category={transaction.categories} size="md" />
       
       <div className="flex-1 min-w-0">
-        <h4 className="font-medium text-foreground truncate">
+        <h4 className="font-semibold text-foreground truncate text-[15px]">
           {transaction.merchant || 'Unknown'}
         </h4>
-        <p className="text-xs text-muted-foreground">
-          {format(new Date(transaction.transacted_at), 'MMM d, h:mm a')}
+        <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1.5">
+          <span>{format(new Date(transaction.transacted_at), 'MMM d, h:mm a')}</span>
           {transaction.payment_method && (
-            <span className="ml-2 opacity-70">• {transaction.payment_method}</span>
+            <>
+              <span className="opacity-40">•</span>
+              <span className="opacity-70">{transaction.payment_method}</span>
+            </>
           )}
         </p>
       </div>
       
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-3">
         <span
           className={cn(
-            'font-semibold tabular-nums',
+            'font-bold text-base currency-display',
             isCredit ? 'text-success' : 'text-foreground'
           )}
         >
-          {isCredit ? '+' : '-'}{formatINR(transaction.amount)}
+          {isCredit ? '+' : '−'}
+          <span className="currency-symbol">₹</span>
+          {formatINR(transaction.amount).replace('₹', '')}
         </span>
-        <ChevronRight className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+        <ChevronRight className="w-4 h-4 text-muted-foreground/50 opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
       </div>
     </motion.div>
   );

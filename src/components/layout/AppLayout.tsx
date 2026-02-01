@@ -8,7 +8,14 @@ interface AppLayoutProps {
 export function AppLayout({ children }: AppLayoutProps) {
   return (
     <div className="min-h-screen bg-background">
-      <main className="pb-20">
+      {/* Subtle gradient overlay for depth */}
+      <div 
+        className="fixed inset-0 pointer-events-none"
+        style={{
+          background: 'radial-gradient(ellipse 80% 50% at 50% -20%, hsl(252 87% 64% / 0.08), transparent)',
+        }}
+      />
+      <main className="relative pb-24">
         {children}
       </main>
       <BottomNav />

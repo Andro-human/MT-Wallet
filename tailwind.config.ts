@@ -7,7 +7,7 @@ export default {
   theme: {
     container: {
       center: true,
-      padding: "1rem",
+      padding: "1.25rem",
       screens: {
         "2xl": "1400px",
       },
@@ -50,6 +50,7 @@ export default {
         card: {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
+          elevated: "hsl(var(--card-elevated))",
         },
         sidebar: {
           DEFAULT: "hsl(var(--sidebar-background))",
@@ -76,9 +77,23 @@ export default {
         },
       },
       borderRadius: {
+        "3xl": "1.5rem",
+        "2xl": "1rem",
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
+      },
+      spacing: {
+        "18": "4.5rem",
+        "22": "5.5rem",
+      },
+      fontSize: {
+        "2xs": ["0.625rem", { lineHeight: "0.875rem" }],
+        "display": ["3rem", { lineHeight: "1.1", letterSpacing: "-0.02em", fontWeight: "700" }],
+        "hero": ["2.5rem", { lineHeight: "1.15", letterSpacing: "-0.02em", fontWeight: "700" }],
+      },
+      letterSpacing: {
+        "extra-wide": "0.12em",
       },
       keyframes: {
         "accordion-down": {
@@ -91,16 +106,24 @@ export default {
         },
         "pulse-subtle": {
           "0%, 100%": { opacity: "1" },
-          "50%": { opacity: "0.8" },
+          "50%": { opacity: "0.85" },
+        },
+        "float": {
+          "0%, 100%": { transform: "translateY(0)" },
+          "50%": { transform: "translateY(-4px)" },
         },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
-        "pulse-subtle": "pulse-subtle 2s ease-in-out infinite",
+        "pulse-subtle": "pulse-subtle 2.5s ease-in-out infinite",
+        "float": "float 3s ease-in-out infinite",
       },
       fontFamily: {
-        sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
+        sans: ['"Plus Jakarta Sans"', 'system-ui', '-apple-system', 'sans-serif'],
+      },
+      backdropBlur: {
+        "3xl": "64px",
       },
     },
   },

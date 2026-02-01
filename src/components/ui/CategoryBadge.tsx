@@ -1,5 +1,6 @@
 import { cn } from '@/lib/utils';
 import { Category } from '@/types/database';
+import { forwardRef } from 'react';
 
 interface CategoryBadgeProps {
   category: Category | null;
@@ -7,38 +8,48 @@ interface CategoryBadgeProps {
   showLabel?: boolean;
 }
 
-export function CategoryBadge({ category, size = 'md', showLabel = false }: CategoryBadgeProps) {
-  const sizeClasses = {
-    sm: 'w-6 h-6 text-xs',
-    md: 'w-8 h-8 text-sm',
-    lg: 'w-10 h-10 text-base',
-  };
+export const CategoryBadge = forwardRef<HTMLDivElement, CategoryBadgeProps>(
+  ({ category, size = 'md', showLabel = false }, ref) => {
+    const sizeClasses = {
+      sm: 'w-7 h-7 text-sm',
+      md: 'w-10 h-10 text-base',
+      lg: 'w-12 h-12 text-lg',
+    };
 
-  if (!category) {
+    if (!category) {
+      return (
+        <div
+          ref={ref}
+          className={cn(
+            'flex items-center justify-center rounded-xl bg-muted/50 inner-glow',
+            sizeClasses[size]
+          )}
+        >
+          📦
+        </div>
+      );
+    }
+
     return (
-      <div className={cn(
-        'flex items-center justify-center rounded-full bg-muted',
-        sizeClasses[size]
-      )}>
-        📦
+      <div ref={ref} className="flex items-center gap-2.5">
+        <div
+          className={cn(
+            'flex items-center justify-center rounded-xl transition-transform duration-200 hover:scale-105',
+            sizeClasses[size]
+          )}
+          style={{
+            backgroundColor: `${category.color}18`,
+            boxShadow: `0 0 0 1px ${category.color}20 inset, 0 4px 12px -4px ${category.color}30`,
+          }}
+        >
+          <span>{category.icon}</span>
+        </div>
+        {showLabel && (
+          <span className="text-sm text-muted-foreground font-medium">{category.name}</span>
+        )}
       </div>
     );
   }
+);
 
-  return (
-    <div className="flex items-center gap-2">
-      <div
-        className={cn(
-          'flex items-center justify-center rounded-full',
-          sizeClasses[size]
-        )}
-        style={{ backgroundColor: `${category.color}20` }}
-      >
-        <span>{category.icon}</span>
-      </div>
-      {showLabel && (
-        <span className="text-sm text-muted-foreground">{category.name}</span>
-      )}
-    </div>
-  );
-}
+CategoryBadge.displayName = 'CategoryBadge';
