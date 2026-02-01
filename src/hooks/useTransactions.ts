@@ -10,6 +10,7 @@ export function useTransactions(filters?: {
   direction?: 'credit' | 'debit';
   search?: string;
   limit?: number;
+  groupId?: string;
 }) {
   const { user } = useAuth();
 
@@ -41,6 +42,9 @@ export function useTransactions(filters?: {
       }
       if (filters?.search) {
         query = query.ilike('merchant', `%${filters.search}%`);
+      }
+      if (filters?.groupId) {
+        query = query.eq('group_id', filters.groupId);
       }
       if (filters?.limit) {
         query = query.limit(filters.limit);

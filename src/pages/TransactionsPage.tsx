@@ -1,12 +1,13 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { Search, SlidersHorizontal, X, ChevronDown } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, subMonths } from 'date-fns';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { TransactionCard } from '@/components/transactions/TransactionCard';
 import { useTransactions } from '@/hooks/useTransactions';
 import { useCategories } from '@/hooks/useCategories';
+import { useTransactionGroups } from '@/hooks/useTransactionGroups';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -22,13 +23,44 @@ type DateFilter = 'this-month' | 'last-month' | 'last-3-months' | 'all';
 type DirectionFilter = 'all' | 'credit' | 'debit';
 
 export default function TransactionsPage() {
-  const [search, setSearch] = useState('');
-  const [showFilters, setShowFilters] = useState(false);
-  const [dateFilter, setDateFilter] = useState<DateFilter>('this-month');
+  const [searchParams, setSearchParams] = useSearchParams();
+  
+  // Get initial values from URL params
+  const initialMerchant = searchParams.get('merchant') || '';
+  const initialCategory = searchParams.get('category') || 'all';
+  const initialGroup = searchParams.get('group') || 'all';
+  
+  const [search, setSearch] = useState(initialMerchant);
+  const [showFilters, setShowFilters] = useState(!!initialCategory || !!initialGroup || initialCategory !== 'all' || initialGroup !== 'all');
+  const [dateFilter, setDateFilter] = useState<DateFilter>(initialMerchant || initialCategory !== 'all' || initialGroup !== 'all' ? 'all' : 'this-month');
   const [directionFilter, setDirectionFilter] = useState<DirectionFilter>('all');
-  const [categoryFilter, setCategoryFilter] = useState<string>('all');
+  const [categoryFilter, setCategoryFilter] = useState<string>(initialCategory);
+  const [groupFilter, setGroupFilter] = useState<string>(initialGroup);
 
   const { data: categories = [] } = useCategories();
+  const { data: groups = [] } = useTransactionGroups();
+
+  // Update state when URL params change
+  useEffect(() => {
+    const merchant = searchParams.get('merchant') || '';
+    const category = searchParams.get('category') || 'all';
+    const group = searchParams.get('group') || 'all';
+    
+    if (merchant) {
+      setSearch(merchant);
+      setDateFilter('all');
+    }
+    if (category !== 'all') {
+      setCategoryFilter(category);
+      setDateFilter('all');
+      setShowFilters(true);
+    }
+    if (group !== 'all') {
+      setGroupFilter(group);
+      setDateFilter('all');
+      setShowFilters(true);
+    }
+  }, [searchParams]);
 
   const dateRange = useMemo(() => {
     const now = new Date();
@@ -49,6 +81,7 @@ export default function TransactionsPage() {
     categoryId: categoryFilter !== 'all' ? categoryFilter : undefined,
     direction: directionFilter !== 'all' ? directionFilter : undefined,
     search: search || undefined,
+    groupId: groupFilter !== 'all' ? groupFilter : undefined,
   });
 
   const handlePullRefresh = useCallback(() => {
@@ -56,23 +89,27 @@ export default function TransactionsPage() {
   }, [refetch]);
 
   const groupedTransactions = useMemo(() => {
-    const groups: Record<string, typeof transactions> = {};
+    const grouped: Record<string, typeof transactions> = {};
     transactions.forEach(txn => {
       const date = format(new Date(txn.transacted_at), 'yyyy-MM-dd');
-      if (!groups[date]) groups[date] = [];
-      groups[date].push(txn);
+      if (!grouped[date]) grouped[date] = [];
+      grouped[date].push(txn);
     });
-    return groups;
+    return grouped;
   }, [transactions]);
 
   const clearFilters = () => {
     setDateFilter('this-month');
     setDirectionFilter('all');
     setCategoryFilter('all');
+    setGroupFilter('all');
     setSearch('');
+    setSearchParams({});
   };
 
-  const hasActiveFilters = dateFilter !== 'this-month' || directionFilter !== 'all' || categoryFilter !== 'all' || search;
+  const hasActiveFilters = dateFilter !== 'this-month' || directionFilter !== 'all' || categoryFilter !== 'all' || groupFilter !== 'all' || search;
+  
+  const activeGroup = groups.find(g => g.id === groupFilter);
 
   return (
     <AppLayout>
@@ -84,10 +121,34 @@ export default function TransactionsPage() {
           transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
           className="mb-6"
         >
-          <h1 className="text-2xl font-bold text-foreground">Activity</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">
-            {transactions.length} transactions found
-          </p>
+          {activeGroup ? (
+            <>
+              <div className="flex items-center gap-3 mb-1">
+                <div 
+                  className="w-10 h-10 rounded-xl flex items-center justify-center text-lg"
+                  style={{ backgroundColor: activeGroup.color + '20' }}
+                >
+                  {activeGroup.icon}
+                </div>
+                <div>
+                  <h1 className="text-2xl font-bold text-foreground">{activeGroup.name}</h1>
+                  {activeGroup.description && (
+                    <p className="text-sm text-muted-foreground">{activeGroup.description}</p>
+                  )}
+                </div>
+              </div>
+              <p className="text-sm text-muted-foreground mt-2">
+                {transactions.length} transactions
+              </p>
+            </>
+          ) : (
+            <>
+              <h1 className="text-2xl font-bold text-foreground">Activity</h1>
+              <p className="text-sm text-muted-foreground mt-0.5">
+                {transactions.length} transactions found
+              </p>
+            </>
+          )}
         </motion.div>
 
         {/* Search */}
@@ -186,6 +247,20 @@ export default function TransactionsPage() {
                   {categories.map(cat => (
                     <SelectItem key={cat.id} value={cat.id}>
                       {cat.icon} {cat.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Select value={groupFilter} onValueChange={setGroupFilter}>
+                <SelectTrigger className="bg-card/60 border-border/50 rounded-xl text-xs h-10 col-span-3">
+                  <SelectValue placeholder="Group" />
+                </SelectTrigger>
+                <SelectContent className="glass-card border-border/50">
+                  <SelectItem value="all">All Groups</SelectItem>
+                  {groups.map(grp => (
+                    <SelectItem key={grp.id} value={grp.id}>
+                      {grp.icon} {grp.name}
                     </SelectItem>
                   ))}
                 </SelectContent>

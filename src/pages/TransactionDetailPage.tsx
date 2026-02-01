@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ArrowLeft, Edit2, Check, X, MessageSquare, EyeOff, Eye, Pencil, TrendingUp, TrendingDown } from 'lucide-react';
+import { ArrowLeft, Edit2, Check, MessageSquare, EyeOff, Eye, Pencil, TrendingUp, TrendingDown, ChevronRight, Folder } from 'lucide-react';
 import { format } from 'date-fns';
 import { useTransaction, useUpdateTransaction } from '@/hooks/useTransactions';
+import { useTransactionGroups } from '@/hooks/useTransactionGroups';
 import { formatINR } from '@/lib/formatCurrency';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -19,7 +20,10 @@ export default function TransactionDetailPage() {
   const { toast } = useToast();
   
   const { data: transaction, isLoading } = useTransaction(id!);
+  const { data: groups = [] } = useTransactionGroups();
   const updateMutation = useUpdateTransaction();
+
+  const transactionGroup = groups.find(g => g.id === (transaction as any)?.group_id);
 
   const [editingNotes, setEditingNotes] = useState(false);
   const [notes, setNotes] = useState('');
@@ -179,16 +183,86 @@ export default function TransactionDetailPage() {
           </div>
         </motion.div>
 
-        {/* Category */}
+        {/* Category - clickable to filter */}
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1, duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-          className="glass-card p-5"
         >
-          <span className="text-sm font-semibold text-foreground mb-3 block">Category</span>
-          <CategoryBadge category={transaction.categories} showLabel />
+          {transaction.categories ? (
+            <Link 
+              to={`/transactions?category=${transaction.category_id}`}
+              className="glass-card p-5 flex items-center justify-between group"
+            >
+              <div>
+                <span className="text-sm font-semibold text-foreground mb-3 block">Category</span>
+                <CategoryBadge category={transaction.categories} showLabel />
+              </div>
+              <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-foreground transition-colors" />
+            </Link>
+          ) : (
+            <div className="glass-card p-5">
+              <span className="text-sm font-semibold text-foreground mb-3 block">Category</span>
+              <p className="text-sm text-muted-foreground">No category</p>
+            </div>
+          )}
         </motion.div>
+
+        {/* Merchant - clickable to filter */}
+        {transaction.merchant && (
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.12, duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+          >
+            <Link 
+              to={`/transactions?merchant=${encodeURIComponent(transaction.merchant)}`}
+              className="glass-card p-5 flex items-center justify-between group"
+            >
+              <div>
+                <span className="text-sm font-semibold text-foreground mb-1 block">Merchant</span>
+                <p className="text-sm text-muted-foreground">{transaction.merchant}</p>
+              </div>
+              <div className="flex items-center gap-2 text-muted-foreground group-hover:text-foreground transition-colors">
+                <span className="text-xs">View all</span>
+                <ChevronRight className="w-5 h-5" />
+              </div>
+            </Link>
+          </motion.div>
+        )}
+
+        {/* Group */}
+        {transactionGroup && (
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.13, duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+          >
+            <Link 
+              to={`/transactions?group=${transactionGroup.id}`}
+              className="glass-card p-5 flex items-center justify-between group"
+            >
+              <div className="flex items-center gap-3">
+                <div 
+                  className="w-10 h-10 rounded-xl flex items-center justify-center text-lg"
+                  style={{ backgroundColor: transactionGroup.color + '20' }}
+                >
+                  {transactionGroup.icon}
+                </div>
+                <div>
+                  <span className="text-sm font-semibold text-foreground block">{transactionGroup.name}</span>
+                  {transactionGroup.description && (
+                    <p className="text-xs text-muted-foreground">{transactionGroup.description}</p>
+                  )}
+                </div>
+              </div>
+              <div className="flex items-center gap-2 text-muted-foreground group-hover:text-foreground transition-colors">
+                <Folder className="w-4 h-4" />
+                <ChevronRight className="w-5 h-5" />
+              </div>
+            </Link>
+          </motion.div>
+        )}
 
         {/* Notes */}
         <motion.div
