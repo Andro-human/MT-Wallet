@@ -30,19 +30,14 @@ export function BottomNav() {
                 {isActive && (
                   <motion.div
                     layoutId="nav-indicator"
-                    className="absolute -inset-3 rounded-2xl bg-primary/15"
-                    style={{
-                      boxShadow: '0 0 16px -4px hsl(252 87% 64% / 0.4)',
-                    }}
+                    className="absolute -inset-3 rounded-2xl bg-primary/10"
                     transition={{ type: 'spring', stiffness: 400, damping: 32 }}
                   />
                 )}
                 <Icon
                   className={cn(
                     'relative w-5 h-5 transition-all duration-300',
-                    isActive 
-                      ? 'text-primary drop-shadow-[0_0_8px_hsl(252_87%_64%/0.5)]' 
-                      : 'text-muted-foreground'
+                    isActive ? 'text-primary' : 'text-muted-foreground'
                   )}
                   strokeWidth={isActive ? 2.5 : 2}
                 />
