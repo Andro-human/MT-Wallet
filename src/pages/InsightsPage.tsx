@@ -3,10 +3,11 @@ import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { startOfMonth, endOfMonth, subMonths, format } from 'date-fns';
-import { ChevronRight } from 'lucide-react';
+import { ChevronRight, Folder } from 'lucide-react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { useTransactions } from '@/hooks/useTransactions';
 import { useCategories } from '@/hooks/useCategories';
+import { useTransactionGroups } from '@/hooks/useTransactionGroups';
 import { formatINR, formatINRCompact } from '@/lib/formatCurrency';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
@@ -16,6 +17,7 @@ type TimeRange = 'this-month' | 'last-3-months' | 'this-year';
 export default function InsightsPage() {
   const [timeRange, setTimeRange] = useState<TimeRange>('this-month');
   const { data: categories = [] } = useCategories();
+  const { data: groups = [] } = useTransactionGroups();
 
   const now = new Date();
   const dateRange = useMemo(() => {
@@ -77,6 +79,31 @@ export default function InsightsPage() {
       .sort((a, b) => b.amount - a.amount);
   }, [transactions, categories]);
 
+  // Group breakdown
+  const groupBreakdown = useMemo(() => {
+    const breakdown: Record<string, number> = {};
+    
+    transactions
+      .filter(t => t.direction === 'debit' && !t.is_excluded && (t as any).group_id)
+      .forEach(t => {
+        const groupId = (t as any).group_id;
+        breakdown[groupId] = (breakdown[groupId] || 0) + Number(t.amount);
+      });
+
+    return Object.entries(breakdown)
+      .map(([groupId, amount]) => {
+        const group = groups.find(g => g.id === groupId);
+        return {
+          id: groupId,
+          name: group?.name || 'Unknown Group',
+          icon: group?.icon || '📁',
+          color: group?.color || '#8B5CF6',
+          amount,
+        };
+      })
+      .sort((a, b) => b.amount - a.amount);
+  }, [transactions, groups]);
+
   // Top merchants
   const topMerchants = useMemo(() => {
     const merchants: Record<string, number> = {};
@@ -95,6 +122,7 @@ export default function InsightsPage() {
   }, [transactions]);
 
   const totalSpent = categoryBreakdown.reduce((sum, c) => sum + c.amount, 0);
+  const totalGroupSpent = groupBreakdown.reduce((sum, g) => sum + g.amount, 0);
 
   const CustomTooltip = ({ active, payload }: any) => {
     if (active && payload && payload.length) {
@@ -269,6 +297,71 @@ export default function InsightsPage() {
             <p className="text-center text-muted-foreground py-8">No data available</p>
           )}
         </motion.div>
+
+        {/* Group Breakdown */}
+        {groupBreakdown.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.22, duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+            className="glass-card p-5 mb-4"
+          >
+            <div className="flex items-center gap-2 mb-1">
+              <Folder className="w-4 h-4 text-muted-foreground" />
+              <h3 className="font-semibold text-foreground">By Group</h3>
+            </div>
+            <p className="text-xs text-muted-foreground mb-5">Spending by transaction groups</p>
+            
+            <div className="space-y-4">
+              {groupBreakdown.map((grp, i) => {
+                const percentage = totalGroupSpent > 0 ? (grp.amount / totalGroupSpent) * 100 : 0;
+                return (
+                  <Link
+                    key={grp.id}
+                    to={`/transactions?group=${grp.id}`}
+                  >
+                    <motion.div
+                      initial={{ opacity: 0, x: -12 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: i * 0.04, duration: 0.3 }}
+                      className="space-y-2 group cursor-pointer"
+                    >
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="flex items-center gap-2.5">
+                          <span 
+                            className="w-7 h-7 rounded-lg flex items-center justify-center text-sm"
+                            style={{ backgroundColor: grp.color + '20' }}
+                          >
+                            {grp.icon}
+                          </span>
+                          <span className="text-foreground font-medium group-hover:text-primary transition-colors">{grp.name}</span>
+                        </span>
+                        <span className="flex items-center gap-2">
+                          <span className="text-foreground font-semibold currency-display">
+                            {formatINRCompact(grp.amount)}
+                          </span>
+                          <ChevronRight className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                        </span>
+                      </div>
+                      <div className="h-2 bg-muted/50 rounded-full overflow-hidden">
+                        <motion.div
+                          initial={{ width: 0 }}
+                          animate={{ width: `${percentage}%` }}
+                          transition={{ delay: i * 0.04 + 0.2, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+                          className="h-full rounded-full"
+                          style={{ 
+                            backgroundColor: grp.color,
+                            boxShadow: `0 0 12px ${grp.color}50`,
+                          }}
+                        />
+                      </div>
+                    </motion.div>
+                  </Link>
+                );
+              })}
+            </div>
+          </motion.div>
+        )}
 
         {/* Top Merchants */}
         <motion.div

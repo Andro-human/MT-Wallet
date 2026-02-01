@@ -9,10 +9,10 @@ import { formatINR } from '@/lib/formatCurrency';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Skeleton } from '@/components/ui/skeleton';
-import { CategoryBadge } from '@/components/ui/CategoryBadge';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { EditTransactionDialog } from '@/components/transactions/EditTransactionDialog';
+import { DeleteTransactionDialog } from '@/components/transactions/DeleteTransactionDialog';
 
 export default function TransactionDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -100,12 +100,6 @@ export default function TransactionDetailPage() {
             </button>
             <h1 className="text-base font-semibold text-foreground">Transaction Details</h1>
           </div>
-          <button 
-            onClick={() => setEditDialogOpen(true)}
-            className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center hover:bg-primary/20 transition-colors"
-          >
-            <Pencil className="w-4 h-4 text-primary" />
-          </button>
         </div>
       </div>
 
@@ -119,7 +113,6 @@ export default function TransactionDetailPage() {
         >
           <div className="flex items-start justify-between mb-5">
             <div className="flex items-center gap-3">
-              <CategoryBadge category={transaction.categories} size="lg" />
               {/* Debit/Credit Indicator */}
               <div className={cn(
                 "flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold",
@@ -146,14 +139,28 @@ export default function TransactionDetailPage() {
             {transaction.merchant || 'Unknown Merchant'}
           </h2>
           
-          <p className={cn(
-            'text-display currency-display',
-            isCredit ? 'text-success' : 'text-foreground'
-          )}>
-            {isCredit ? '+' : '−'}
-            <span className="text-[0.6em] opacity-70 mr-1">₹</span>
-            {formatINR(Number(transaction.amount)).replace('₹', '')}
-          </p>
+          {/* Amount with category emoji */}
+          <div className="flex items-center gap-3">
+            {transaction.categories && (
+              <div
+                className="w-12 h-12 flex items-center justify-center rounded-xl text-xl"
+                style={{
+                  backgroundColor: `${transaction.categories.color}18`,
+                  boxShadow: `0 0 0 1px ${transaction.categories.color}20 inset`,
+                }}
+              >
+                {transaction.categories.icon}
+              </div>
+            )}
+            <p className={cn(
+              'text-display currency-display',
+              isCredit ? 'text-success' : 'text-foreground'
+            )}>
+              {isCredit ? '+' : '−'}
+              <span className="text-[0.6em] opacity-70 mr-1">₹</span>
+              {formatINR(Number(transaction.amount)).replace('₹', '')}
+            </p>
+          </div>
 
           <div className="mt-6 space-y-3 text-sm">
             <div className="flex justify-between items-center p-3 rounded-xl bg-muted/30">
@@ -181,6 +188,16 @@ export default function TransactionDetailPage() {
               </div>
             )}
           </div>
+
+          {/* Edit button in main content */}
+          <Button
+            variant="outline"
+            className="w-full mt-5 justify-center gap-2 h-11 rounded-xl border-primary/30 text-primary hover:bg-primary/10"
+            onClick={() => setEditDialogOpen(true)}
+          >
+            <Pencil className="w-4 h-4" />
+            Edit Transaction
+          </Button>
         </motion.div>
 
         {/* Category - clickable to filter */}
@@ -194,15 +211,26 @@ export default function TransactionDetailPage() {
               to={`/transactions?category=${transaction.category_id}`}
               className="glass-card p-5 flex items-center justify-between group"
             >
-              <div>
-                <span className="text-sm font-semibold text-foreground mb-3 block">Category</span>
-                <CategoryBadge category={transaction.categories} showLabel />
+              <div className="flex items-center gap-3">
+                <div
+                  className="w-10 h-10 flex items-center justify-center rounded-xl text-base"
+                  style={{
+                    backgroundColor: `${transaction.categories.color}18`,
+                    boxShadow: `0 0 0 1px ${transaction.categories.color}20 inset`,
+                  }}
+                >
+                  {transaction.categories.icon}
+                </div>
+                <div>
+                  <span className="text-sm font-semibold text-foreground block">Category</span>
+                  <span className="text-sm text-muted-foreground">{transaction.categories.name}</span>
+                </div>
               </div>
               <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-foreground transition-colors" />
             </Link>
           ) : (
             <div className="glass-card p-5">
-              <span className="text-sm font-semibold text-foreground mb-3 block">Category</span>
+              <span className="text-sm font-semibold text-foreground mb-1 block">Category</span>
               <p className="text-sm text-muted-foreground">No category</p>
             </div>
           )}
@@ -312,6 +340,7 @@ export default function TransactionDetailPage() {
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2, duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+          className="space-y-3"
         >
           <Button
             variant="outline"
@@ -330,6 +359,11 @@ export default function TransactionDetailPage() {
               </>
             )}
           </Button>
+
+          <DeleteTransactionDialog 
+            transactionId={transaction.id} 
+            merchantName={transaction.merchant || undefined} 
+          />
         </motion.div>
 
         {/* Raw SMS */}

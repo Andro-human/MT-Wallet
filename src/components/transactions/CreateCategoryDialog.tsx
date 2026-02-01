@@ -10,8 +10,8 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { EmojiPicker } from '@/components/ui/EmojiPicker';
 
-const EMOJI_OPTIONS = ['🛒', '🍔', '🚗', '🏠', '💊', '🎬', '✈️', '👕', '📚', '💰', '🎁', '💼', '🏋️', '🎮', '📱', '🔧'];
 const COLOR_OPTIONS = ['#8B5CF6', '#EC4899', '#F59E0B', '#10B981', '#3B82F6', '#EF4444', '#6366F1', '#14B8A6'];
 
 interface CreateCategoryDialogProps {
@@ -62,34 +62,21 @@ export function CreateCategoryDialog({ open, onOpenChange, onCreated }: CreateCa
         </DialogHeader>
 
         <div className="space-y-4 py-2">
-          <div className="space-y-2">
-            <Label htmlFor="categoryName" className="text-sm text-muted-foreground">Name</Label>
-            <Input
-              id="categoryName"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="e.g., Vacation"
-              className="bg-muted/30 border-border/50 rounded-xl"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label className="text-sm text-muted-foreground">Icon</Label>
-            <div className="flex flex-wrap gap-2">
-              {EMOJI_OPTIONS.map((emoji) => (
-                <button
-                  key={emoji}
-                  type="button"
-                  onClick={() => setIcon(emoji)}
-                  className={`w-10 h-10 rounded-xl flex items-center justify-center text-lg transition-all ${
-                    icon === emoji 
-                      ? 'bg-primary/20 ring-2 ring-primary' 
-                      : 'bg-muted/30 hover:bg-muted/50'
-                  }`}
-                >
-                  {emoji}
-                </button>
-              ))}
+          {/* Icon and Name row */}
+          <div className="flex gap-3 items-end">
+            <div className="space-y-2">
+              <Label className="text-sm text-muted-foreground">Icon</Label>
+              <EmojiPicker value={icon} onChange={setIcon} />
+            </div>
+            <div className="flex-1 space-y-2">
+              <Label htmlFor="categoryName" className="text-sm text-muted-foreground">Name</Label>
+              <Input
+                id="categoryName"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="e.g., Vacation"
+                className="bg-muted/30 border-border/50 rounded-xl h-14"
+              />
             </div>
           </div>
 

@@ -3,7 +3,6 @@ import { format } from 'date-fns';
 import { ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatINR } from '@/lib/formatCurrency';
-import { CategoryBadge } from '@/components/ui/CategoryBadge';
 import { TransactionWithCategory } from '@/types/database';
 
 interface TransactionCardProps {
@@ -14,6 +13,7 @@ interface TransactionCardProps {
 
 export function TransactionCard({ transaction, onClick, index = 0 }: TransactionCardProps) {
   const isCredit = transaction.direction === 'credit';
+  const category = transaction.categories;
   
   return (
     <motion.div
@@ -23,7 +23,18 @@ export function TransactionCard({ transaction, onClick, index = 0 }: Transaction
       onClick={onClick}
       className="flex items-center gap-4 p-4 glass-card transition-all duration-300 hover:bg-card-elevated cursor-pointer group"
     >
-      <CategoryBadge category={transaction.categories} size="md" />
+      {/* Category emoji badge */}
+      <div
+        className="w-10 h-10 flex items-center justify-center rounded-xl text-base flex-shrink-0"
+        style={category ? {
+          backgroundColor: `${category.color}18`,
+          boxShadow: `0 0 0 1px ${category.color}20 inset`,
+        } : {
+          backgroundColor: 'hsl(var(--muted) / 0.5)',
+        }}
+      >
+        {category?.icon || '📦'}
+      </div>
       
       <div className="flex-1 min-w-0">
         <h4 className="font-semibold text-foreground truncate text-[15px]">

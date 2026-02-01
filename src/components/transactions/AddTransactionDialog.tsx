@@ -3,6 +3,7 @@ import { format } from 'date-fns';
 import { CalendarIcon, Plus, Clock } from 'lucide-react';
 import { useCategories } from '@/hooks/useCategories';
 import { useTransactionGroups } from '@/hooks/useTransactionGroups';
+import { usePaymentMethods, useBankNames } from '@/hooks/usePaymentMethods';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
@@ -30,6 +31,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
+import { ComboboxSelect } from '@/components/ui/ComboboxSelect';
 import { CreateCategoryDialog } from './CreateCategoryDialog';
 import { CreateGroupDialog } from './CreateGroupDialog';
 
@@ -44,6 +46,8 @@ export function AddTransactionDialog({ open, onOpenChange }: AddTransactionDialo
   const queryClient = useQueryClient();
   const { data: categories = [] } = useCategories();
   const { data: groups = [] } = useTransactionGroups();
+  const { data: paymentMethods = [] } = usePaymentMethods();
+  const { data: bankNames = [] } = useBankNames();
 
   const [merchant, setMerchant] = useState('');
   const [amount, setAmount] = useState('');
@@ -126,7 +130,10 @@ export function AddTransactionDialog({ open, onOpenChange }: AddTransactionDialo
       if (error) throw error;
 
       toast({ title: 'Transaction added' });
+      // Invalidate queries to refresh payment methods and bank names
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
+      queryClient.invalidateQueries({ queryKey: ['payment-methods'] });
+      queryClient.invalidateQueries({ queryKey: ['bank-names'] });
       resetForm();
       onOpenChange(false);
     } catch (err) {
@@ -297,25 +304,25 @@ export function AddTransactionDialog({ open, onOpenChange }: AddTransactionDialo
 
             {/* Payment Method */}
             <div className="space-y-2">
-              <Label htmlFor="paymentMethod" className="text-sm text-muted-foreground">Payment Method</Label>
-              <Input
-                id="paymentMethod"
+              <Label className="text-sm text-muted-foreground">Payment Method</Label>
+              <ComboboxSelect
                 value={paymentMethod}
-                onChange={(e) => setPaymentMethod(e.target.value)}
-                placeholder="e.g., UPI, Card, Cash"
-                className="bg-muted/30 border-border/50 rounded-xl"
+                onChange={setPaymentMethod}
+                options={paymentMethods}
+                placeholder="Select or add..."
+                allowCustom
               />
             </div>
 
             {/* Bank Name */}
             <div className="space-y-2">
-              <Label htmlFor="bankName" className="text-sm text-muted-foreground">Bank Name</Label>
-              <Input
-                id="bankName"
+              <Label className="text-sm text-muted-foreground">Bank Name</Label>
+              <ComboboxSelect
                 value={bankName}
-                onChange={(e) => setBankName(e.target.value)}
-                placeholder="e.g., HDFC, ICICI"
-                className="bg-muted/30 border-border/50 rounded-xl"
+                onChange={setBankName}
+                options={bankNames}
+                placeholder="Select or add..."
+                allowCustom
               />
             </div>
 
