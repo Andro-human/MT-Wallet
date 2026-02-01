@@ -1,7 +1,9 @@
 import { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
+import { Link } from 'react-router-dom';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { startOfMonth, endOfMonth, subMonths, format } from 'date-fns';
+import { ChevronRight } from 'lucide-react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { useTransactions } from '@/hooks/useTransactions';
 import { useCategories } from '@/hooks/useCategories';
@@ -224,35 +226,42 @@ export default function InsightsPage() {
               {categoryBreakdown.map((cat, i) => {
                 const percentage = totalSpent > 0 ? (cat.amount / totalSpent) * 100 : 0;
                 return (
-                  <motion.div
+                  <Link
                     key={cat.id}
-                    initial={{ opacity: 0, x: -12 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: i * 0.04, duration: 0.3 }}
-                    className="space-y-2"
+                    to={cat.id !== 'uncategorized' ? `/transactions?category=${cat.id}` : '/transactions'}
                   >
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="flex items-center gap-2.5">
-                        <span className="text-base">{cat.icon}</span>
-                        <span className="text-foreground font-medium">{cat.name}</span>
-                      </span>
-                      <span className="text-foreground font-semibold currency-display">
-                        {formatINRCompact(cat.amount)}
-                      </span>
-                    </div>
-                    <div className="h-2 bg-muted/50 rounded-full overflow-hidden">
-                      <motion.div
-                        initial={{ width: 0 }}
-                        animate={{ width: `${percentage}%` }}
-                        transition={{ delay: i * 0.04 + 0.2, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-                        className="h-full rounded-full"
-                        style={{ 
-                          backgroundColor: cat.color,
-                          boxShadow: `0 0 12px ${cat.color}50`,
-                        }}
-                      />
-                    </div>
-                  </motion.div>
+                    <motion.div
+                      initial={{ opacity: 0, x: -12 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: i * 0.04, duration: 0.3 }}
+                      className="space-y-2 group cursor-pointer"
+                    >
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="flex items-center gap-2.5">
+                          <span className="text-base">{cat.icon}</span>
+                          <span className="text-foreground font-medium group-hover:text-primary transition-colors">{cat.name}</span>
+                        </span>
+                        <span className="flex items-center gap-2">
+                          <span className="text-foreground font-semibold currency-display">
+                            {formatINRCompact(cat.amount)}
+                          </span>
+                          <ChevronRight className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                        </span>
+                      </div>
+                      <div className="h-2 bg-muted/50 rounded-full overflow-hidden">
+                        <motion.div
+                          initial={{ width: 0 }}
+                          animate={{ width: `${percentage}%` }}
+                          transition={{ delay: i * 0.04 + 0.2, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+                          className="h-full rounded-full"
+                          style={{ 
+                            backgroundColor: cat.color,
+                            boxShadow: `0 0 12px ${cat.color}50`,
+                          }}
+                        />
+                      </div>
+                    </motion.div>
+                  </Link>
                 );
               })}
             </div>
@@ -280,33 +289,40 @@ export default function InsightsPage() {
           ) : topMerchants.length > 0 ? (
             <div className="space-y-3">
               {topMerchants.map((merchant, i) => (
-                <motion.div
+                <Link
                   key={merchant.name}
-                  initial={{ opacity: 0, x: -12 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: i * 0.04, duration: 0.3 }}
-                  className="flex items-center justify-between p-3 rounded-xl bg-muted/30 hover:bg-muted/50 transition-colors"
+                  to={`/transactions?merchant=${encodeURIComponent(merchant.name)}`}
                 >
-                  <div className="flex items-center gap-3">
-                    <span 
-                      className="w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold"
-                      style={{
-                        background: i === 0 
-                          ? 'linear-gradient(135deg, hsl(252 87% 64%), hsl(280 85% 55%))'
-                          : 'hsl(var(--muted))',
-                        color: i === 0 ? 'white' : 'hsl(var(--muted-foreground))',
-                      }}
-                    >
-                      {i + 1}
+                  <motion.div
+                    initial={{ opacity: 0, x: -12 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: i * 0.04, duration: 0.3 }}
+                    className="flex items-center justify-between p-3 rounded-xl bg-muted/30 hover:bg-muted/50 transition-colors group cursor-pointer"
+                  >
+                    <div className="flex items-center gap-3">
+                      <span 
+                        className="w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold"
+                        style={{
+                          background: i === 0 
+                            ? 'linear-gradient(135deg, hsl(252 87% 64%), hsl(280 85% 55%))'
+                            : 'hsl(var(--muted))',
+                          color: i === 0 ? 'white' : 'hsl(var(--muted-foreground))',
+                        }}
+                      >
+                        {i + 1}
+                      </span>
+                      <span className="text-foreground text-sm font-medium truncate max-w-[140px] group-hover:text-primary transition-colors">
+                        {merchant.name}
+                      </span>
+                    </div>
+                    <span className="flex items-center gap-2">
+                      <span className="text-foreground font-semibold text-sm currency-display">
+                        {formatINR(merchant.amount)}
+                      </span>
+                      <ChevronRight className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
                     </span>
-                    <span className="text-foreground text-sm font-medium truncate max-w-[160px]">
-                      {merchant.name}
-                    </span>
-                  </div>
-                  <span className="text-foreground font-semibold text-sm currency-display">
-                    {formatINR(merchant.amount)}
-                  </span>
-                </motion.div>
+                  </motion.div>
+                </Link>
               ))}
             </div>
           ) : (

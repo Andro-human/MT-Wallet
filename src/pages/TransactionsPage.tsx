@@ -1,10 +1,11 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Link, useSearchParams } from 'react-router-dom';
-import { Search, SlidersHorizontal, X, ChevronDown } from 'lucide-react';
+import { Link, useSearchParams, useNavigate } from 'react-router-dom';
+import { Search, SlidersHorizontal, X, ChevronDown, ArrowLeft, Plus } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, subMonths } from 'date-fns';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { TransactionCard } from '@/components/transactions/TransactionCard';
+import { AddTransactionDialog } from '@/components/transactions/AddTransactionDialog';
 import { useTransactions } from '@/hooks/useTransactions';
 import { useCategories } from '@/hooks/useCategories';
 import { useTransactionGroups } from '@/hooks/useTransactionGroups';
@@ -23,6 +24,7 @@ type DateFilter = 'this-month' | 'last-month' | 'last-3-months' | 'all';
 type DirectionFilter = 'all' | 'credit' | 'debit';
 
 export default function TransactionsPage() {
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   
   // Get initial values from URL params
@@ -36,9 +38,14 @@ export default function TransactionsPage() {
   const [directionFilter, setDirectionFilter] = useState<DirectionFilter>('all');
   const [categoryFilter, setCategoryFilter] = useState<string>(initialCategory);
   const [groupFilter, setGroupFilter] = useState<string>(initialGroup);
+  const [showAddDialog, setShowAddDialog] = useState(false);
 
   const { data: categories = [] } = useCategories();
   const { data: groups = [] } = useTransactionGroups();
+  
+  // Check if we have a filtered view (from navigation)
+  const isFilteredView = initialMerchant || initialCategory !== 'all' || initialGroup !== 'all';
+  const activeCategory = categories.find(c => c.id === categoryFilter);
 
   // Update state when URL params change
   useEffect(() => {
@@ -113,7 +120,21 @@ export default function TransactionsPage() {
 
   return (
     <AppLayout>
-      <div className="px-5 pt-8 pb-4 safe-area-top">
+      <div className="px-5 pt-8 pb-24 safe-area-top">
+        {/* Back Button for Filtered Views */}
+        {isFilteredView && (
+          <motion.button
+            initial={{ opacity: 0, x: -12 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.3 }}
+            onClick={() => navigate(-1)}
+            className="flex items-center gap-2 text-muted-foreground hover:text-foreground mb-4 transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span className="text-sm">Back</span>
+          </motion.button>
+        )}
+
         {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: -12 }}
@@ -138,6 +159,31 @@ export default function TransactionsPage() {
                 </div>
               </div>
               <p className="text-sm text-muted-foreground mt-2">
+                {transactions.length} transactions
+              </p>
+            </>
+          ) : activeCategory && categoryFilter !== 'all' ? (
+            <>
+              <div className="flex items-center gap-3 mb-1">
+                <div 
+                  className="w-10 h-10 rounded-xl flex items-center justify-center text-lg"
+                  style={{ backgroundColor: activeCategory.color + '20' }}
+                >
+                  {activeCategory.icon}
+                </div>
+                <div>
+                  <h1 className="text-2xl font-bold text-foreground">{activeCategory.name}</h1>
+                  <p className="text-sm text-muted-foreground">Category</p>
+                </div>
+              </div>
+              <p className="text-sm text-muted-foreground mt-2">
+                {transactions.length} transactions
+              </p>
+            </>
+          ) : initialMerchant ? (
+            <>
+              <h1 className="text-2xl font-bold text-foreground">{initialMerchant}</h1>
+              <p className="text-sm text-muted-foreground mt-0.5">
                 {transactions.length} transactions
               </p>
             </>
@@ -306,7 +352,24 @@ export default function TransactionsPage() {
             </motion.div>
           )}
         </div>
+
+        {/* FAB - Add Transaction */}
+        <motion.button
+          initial={{ scale: 0 }}
+          animate={{ scale: 1 }}
+          transition={{ delay: 0.3, type: 'spring', stiffness: 260, damping: 20 }}
+          onClick={() => setShowAddDialog(true)}
+          className="fixed bottom-24 right-5 w-14 h-14 rounded-full bg-primary text-primary-foreground shadow-lg shadow-primary/30 flex items-center justify-center hover:bg-primary/90 transition-colors z-20"
+        >
+          <Plus className="w-6 h-6" />
+        </motion.button>
       </div>
+
+      {/* Add Transaction Dialog */}
+      <AddTransactionDialog 
+        open={showAddDialog} 
+        onOpenChange={setShowAddDialog} 
+      />
     </AppLayout>
   );
 }
