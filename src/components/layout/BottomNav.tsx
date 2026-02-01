@@ -30,10 +30,9 @@ export function BottomNav() {
                 {isActive && (
                   <motion.div
                     layoutId="nav-indicator"
-                    className="absolute -inset-3 rounded-2xl"
+                    className="absolute -inset-3 rounded-2xl bg-primary/15"
                     style={{
-                      background: 'linear-gradient(135deg, hsl(252 87% 64% / 0.2) 0%, hsl(280 85% 55% / 0.1) 100%)',
-                      boxShadow: '0 0 20px -4px hsl(252 87% 64% / 0.3)',
+                      boxShadow: '0 0 16px -4px hsl(252 87% 64% / 0.4)',
                     }}
                     transition={{ type: 'spring', stiffness: 400, damping: 32 }}
                   />
