@@ -1,24 +1,17 @@
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ArrowLeft, Edit2, Check, X, MessageSquare, EyeOff, Eye } from 'lucide-react';
+import { ArrowLeft, Edit2, Check, X, MessageSquare, EyeOff, Eye, Pencil, TrendingUp, TrendingDown } from 'lucide-react';
 import { format } from 'date-fns';
 import { useTransaction, useUpdateTransaction } from '@/hooks/useTransactions';
-import { useCategories } from '@/hooks/useCategories';
 import { formatINR } from '@/lib/formatCurrency';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Skeleton } from '@/components/ui/skeleton';
 import { CategoryBadge } from '@/components/ui/CategoryBadge';
 import { cn } from '@/lib/utils';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
+import { EditTransactionDialog } from '@/components/transactions/EditTransactionDialog';
 
 export default function TransactionDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -26,12 +19,11 @@ export default function TransactionDetailPage() {
   const { toast } = useToast();
   
   const { data: transaction, isLoading } = useTransaction(id!);
-  const { data: categories = [] } = useCategories();
   const updateMutation = useUpdateTransaction();
 
   const [editingNotes, setEditingNotes] = useState(false);
   const [notes, setNotes] = useState('');
-  const [editingCategory, setEditingCategory] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
 
   if (isLoading) {
     return (
@@ -54,18 +46,6 @@ export default function TransactionDetailPage() {
 
   const isCredit = transaction.direction === 'credit';
 
-  const handleCategoryChange = async (categoryId: string) => {
-    try {
-      await updateMutation.mutateAsync({
-        id: transaction.id,
-        updates: { category_id: categoryId === 'none' ? null : categoryId },
-      });
-      setEditingCategory(false);
-      toast({ title: 'Category updated' });
-    } catch {
-      toast({ title: 'Failed to update category', variant: 'destructive' });
-    }
-  };
 
   const handleNotesSubmit = async () => {
     try {
@@ -106,14 +86,22 @@ export default function TransactionDetailPage() {
       
       {/* Header */}
       <div className="sticky top-0 z-10 nav-pill mx-4 mt-4 safe-area-top">
-        <div className="flex items-center gap-3 px-4 py-3">
+        <div className="flex items-center justify-between px-4 py-3">
+          <div className="flex items-center gap-3">
+            <button 
+              onClick={() => navigate(-1)}
+              className="w-8 h-8 rounded-lg bg-muted/50 flex items-center justify-center hover:bg-muted transition-colors"
+            >
+              <ArrowLeft className="w-5 h-5 text-foreground" />
+            </button>
+            <h1 className="text-base font-semibold text-foreground">Transaction Details</h1>
+          </div>
           <button 
-            onClick={() => navigate(-1)}
-            className="w-8 h-8 rounded-lg bg-muted/50 flex items-center justify-center hover:bg-muted transition-colors"
+            onClick={() => setEditDialogOpen(true)}
+            className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center hover:bg-primary/20 transition-colors"
           >
-            <ArrowLeft className="w-5 h-5 text-foreground" />
+            <Pencil className="w-4 h-4 text-primary" />
           </button>
-          <h1 className="text-base font-semibold text-foreground">Transaction Details</h1>
         </div>
       </div>
 
@@ -126,7 +114,23 @@ export default function TransactionDetailPage() {
           className="glass-elevated p-6"
         >
           <div className="flex items-start justify-between mb-5">
-            <CategoryBadge category={transaction.categories} size="lg" />
+            <div className="flex items-center gap-3">
+              <CategoryBadge category={transaction.categories} size="lg" />
+              {/* Debit/Credit Indicator */}
+              <div className={cn(
+                "flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold",
+                isCredit 
+                  ? "bg-success/15 text-success" 
+                  : "bg-destructive/15 text-destructive"
+              )}>
+                {isCredit ? (
+                  <TrendingUp className="w-3.5 h-3.5" />
+                ) : (
+                  <TrendingDown className="w-3.5 h-3.5" />
+                )}
+                {isCredit ? 'Credit' : 'Debit'}
+              </div>
+            </div>
             {transaction.is_excluded && (
               <span className="text-2xs bg-muted/50 px-2.5 py-1 rounded-full text-muted-foreground font-medium uppercase tracking-wide">
                 Excluded
@@ -182,36 +186,8 @@ export default function TransactionDetailPage() {
           transition={{ delay: 0.1, duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
           className="glass-card p-5"
         >
-          <div className="flex items-center justify-between mb-4">
-            <span className="text-sm font-semibold text-foreground">Category</span>
-            <button
-              onClick={() => setEditingCategory(!editingCategory)}
-              className="w-8 h-8 rounded-lg bg-muted/50 flex items-center justify-center hover:bg-muted transition-colors text-primary"
-            >
-              {editingCategory ? <X className="w-4 h-4" /> : <Edit2 className="w-4 h-4" />}
-            </button>
-          </div>
-
-          {editingCategory ? (
-            <Select
-              value={transaction.category_id || 'none'}
-              onValueChange={handleCategoryChange}
-            >
-              <SelectTrigger className="bg-muted/30 border-border/50 rounded-xl h-11">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent className="glass-card border-border/50">
-                <SelectItem value="none">No category</SelectItem>
-                {categories.map(cat => (
-                  <SelectItem key={cat.id} value={cat.id}>
-                    {cat.icon} {cat.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          ) : (
-            <CategoryBadge category={transaction.categories} showLabel />
-          )}
+          <span className="text-sm font-semibold text-foreground mb-3 block">Category</span>
+          <CategoryBadge category={transaction.categories} showLabel />
         </motion.div>
 
         {/* Notes */}
@@ -297,6 +273,13 @@ export default function TransactionDetailPage() {
           </motion.div>
         )}
       </div>
+
+      {/* Edit Dialog */}
+      <EditTransactionDialog
+        transaction={transaction}
+        open={editDialogOpen}
+        onOpenChange={setEditDialogOpen}
+      />
     </div>
   );
 }
