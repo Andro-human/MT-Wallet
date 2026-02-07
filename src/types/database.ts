@@ -23,6 +23,7 @@ export interface Transaction {
   account_last4: string | null;
   bank_name: string | null;
   category_id: string | null;
+  group_id: string | null;
   raw_sms: string | null;
   notes: string | null;
   is_excluded: boolean;

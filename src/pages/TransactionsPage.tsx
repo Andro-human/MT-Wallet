@@ -5,6 +5,7 @@ import { Search, SlidersHorizontal, X, ChevronDown, ArrowLeft, Plus } from 'luci
 import { format, startOfMonth, endOfMonth, subMonths } from 'date-fns';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { TransactionCard } from '@/components/transactions/TransactionCard';
+import { ActivitySummary } from '@/components/transactions/ActivitySummary';
 import { AddTransactionDialog } from '@/components/transactions/AddTransactionDialog';
 import { useTransactions } from '@/hooks/useTransactions';
 import { useCategories } from '@/hooks/useCategories';
@@ -196,6 +197,15 @@ export default function TransactionsPage() {
             </>
           )}
         </motion.div>
+
+        {/* Activity Summary Chart */}
+        {!isFilteredView && (
+          <ActivitySummary
+            transactions={transactions}
+            dateRange={dateRange}
+            isLoading={isLoading}
+          />
+        )}
 
         {/* Search */}
         <motion.div 
