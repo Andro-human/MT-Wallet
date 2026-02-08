@@ -200,22 +200,17 @@ export default function TransactionDetailPage() {
       />
       
       {/* Header */}
-      <div className="sticky top-0 z-10 nav-pill mx-4 mt-4 safe-area-top">
-        <div className="flex items-center justify-between px-4 py-3">
-          <div className="flex items-center gap-3">
-            <button 
-              onClick={() => navigate(-1)}
-              className="w-8 h-8 rounded-lg bg-muted/50 flex items-center justify-center hover:bg-muted transition-colors"
-            >
-              <ArrowLeft className="w-5 h-5 text-foreground" />
-            </button>
-            <h1 className={cn(
-              "text-base font-semibold",
-              isCredit ? "text-success" : "text-foreground"
-            )}>
-              {isCredit ? 'Credit Transaction' : 'Debit Transaction'}
-            </h1>
-          </div>
+      <div className="sticky top-0 z-10 backdrop-blur-xl bg-background/80 border-b border-border/30 safe-area-top">
+        <div className="flex items-center gap-3 px-5 py-3">
+          <button 
+            onClick={() => navigate(-1)}
+            className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-muted/50 transition-colors -ml-1"
+          >
+            <ArrowLeft className="w-5 h-5 text-foreground" />
+          </button>
+          <h1 className="text-base font-semibold text-foreground">
+            {isCredit ? 'Credit' : 'Debit'} Transaction
+          </h1>
         </div>
       </div>
 

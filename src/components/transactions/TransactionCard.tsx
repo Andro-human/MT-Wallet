@@ -49,6 +49,11 @@ export function TransactionCard({ transaction, onClick, index = 0 }: Transaction
             </>
           )}
         </p>
+        {transaction.notes && (
+          <p className="text-xs text-muted-foreground/70 mt-1 truncate italic">
+            {transaction.notes}
+          </p>
+        )}
       </div>
       
       <div className="flex items-center gap-3">
