@@ -24,6 +24,30 @@ export function useProfile() {
   });
 }
 
+export function useUpdateBudget() {
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+
+  return useMutation({
+    mutationFn: async (budget: number) => {
+      if (!user) throw new Error('Not authenticated');
+
+      const { data, error } = await supabase
+        .from('profiles')
+        .update({ monthly_budget: budget } as any)
+        .eq('user_id', user.id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['profile'] });
+    },
+  });
+}
+
 export function useRegenerateApiKey() {
   const queryClient = useQueryClient();
   const { user } = useAuth();

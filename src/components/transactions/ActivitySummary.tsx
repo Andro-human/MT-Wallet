@@ -1,10 +1,12 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
-import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
-import { ArrowUpRight, ArrowDownRight, TrendingUp, TrendingDown, Wallet } from 'lucide-react';
-import { format, eachDayOfInterval, eachWeekOfInterval, eachMonthOfInterval, startOfDay, startOfWeek, startOfMonth, differenceInDays } from 'date-fns';
+import { ArrowUpRight, ArrowDownRight, Pencil, Check, X } from 'lucide-react';
+import { BudgetCircle } from './BudgetCircle';
 import { TransactionWithCategory } from '@/types/database';
-import { formatINR, formatINRCompact } from '@/lib/formatCurrency';
+import { formatINR } from '@/lib/formatCurrency';
+import { useProfile, useUpdateBudget } from '@/hooks/useProfile';
+import { Input } from '@/components/ui/input';
+import { toast } from 'sonner';
 
 interface ActivitySummaryProps {
   transactions: TransactionWithCategory[];
@@ -13,6 +15,11 @@ interface ActivitySummaryProps {
 }
 
 export function ActivitySummary({ transactions, dateRange, isLoading }: ActivitySummaryProps) {
+  const { data: profile } = useProfile();
+  const updateBudget = useUpdateBudget();
+  const [editingBudget, setEditingBudget] = useState(false);
+  const [budgetInput, setBudgetInput] = useState('');
+
   const stats = useMemo(() => {
     const expenses = transactions
       .filter(t => t.direction === 'debit' && !t.is_excluded)
@@ -25,78 +32,29 @@ export function ActivitySummary({ transactions, dateRange, isLoading }: Activity
     return { expenses, income, net: income - expenses };
   }, [transactions]);
 
-  const chartData = useMemo(() => {
-    if (!dateRange.startDate || !dateRange.endDate) return [];
+  const budget = profile?.monthly_budget ?? 0;
 
-    const daysDiff = differenceInDays(dateRange.endDate, dateRange.startDate);
+  const handleStartEdit = () => {
+    setBudgetInput(budget > 0 ? String(budget) : '');
+    setEditingBudget(true);
+  };
 
-    // Choose granularity based on range
-    let intervals: Date[];
-    let formatStr: string;
-    let getKey: (date: Date) => string;
-
-    if (daysDiff <= 35) {
-      // Daily for up to ~1 month
-      intervals = eachDayOfInterval({ start: dateRange.startDate, end: dateRange.endDate });
-      formatStr = 'd';
-      getKey = (d) => format(startOfDay(d), 'yyyy-MM-dd');
-    } else if (daysDiff <= 120) {
-      // Weekly for up to ~4 months
-      intervals = eachWeekOfInterval({ start: dateRange.startDate, end: dateRange.endDate });
-      formatStr = 'MMM d';
-      getKey = (d) => format(startOfWeek(d), 'yyyy-MM-dd');
-    } else {
-      // Monthly
-      intervals = eachMonthOfInterval({ start: dateRange.startDate, end: dateRange.endDate });
-      formatStr = 'MMM';
-      getKey = (d) => format(startOfMonth(d), 'yyyy-MM');
+  const handleSaveBudget = () => {
+    const val = parseFloat(budgetInput);
+    if (isNaN(val) || val < 0) {
+      toast.error('Enter a valid budget amount');
+      return;
     }
-
-    // Initialize buckets
-    const buckets: Record<string, { expense: number; income: number; label: string }> = {};
-    intervals.forEach(d => {
-      const key = getKey(d);
-      buckets[key] = { expense: 0, income: 0, label: format(d, formatStr) };
+    updateBudget.mutate(val, {
+      onSuccess: () => {
+        setEditingBudget(false);
+        toast.success('Budget updated');
+      },
     });
+  };
 
-    // Fill buckets
-    transactions.forEach(t => {
-      const txDate = new Date(t.transacted_at);
-      let key: string;
-      if (daysDiff <= 35) {
-        key = format(startOfDay(txDate), 'yyyy-MM-dd');
-      } else if (daysDiff <= 120) {
-        key = format(startOfWeek(txDate), 'yyyy-MM-dd');
-      } else {
-        key = format(startOfMonth(txDate), 'yyyy-MM');
-      }
-
-      if (buckets[key]) {
-        if (t.direction === 'debit' && !t.is_excluded) {
-          buckets[key].expense += Number(t.amount);
-        } else if (t.direction === 'credit') {
-          buckets[key].income += Number(t.amount);
-        }
-      }
-    });
-
-    return Object.values(buckets);
-  }, [transactions, dateRange]);
-
-  const CustomTooltip = ({ active, payload, label }: any) => {
-    if (active && payload && payload.length) {
-      return (
-        <div className="glass-card px-3 py-2 text-xs">
-          <p className="text-muted-foreground mb-1">{payload[0]?.payload?.label}</p>
-          {payload.map((p: any) => (
-            <p key={p.dataKey} className="font-medium" style={{ color: p.stroke }}>
-              {p.dataKey === 'expense' ? 'Spent' : 'Income'}: {formatINR(p.value)}
-            </p>
-          ))}
-        </div>
-      );
-    }
-    return null;
+  const handleCancelEdit = () => {
+    setEditingBudget(false);
   };
 
   if (isLoading) {
@@ -106,9 +64,9 @@ export function ActivitySummary({ transactions, dateRange, isLoading }: Activity
         animate={{ opacity: 1, y: 0 }}
         className="glass-card p-5 mb-5"
       >
-        <div className="h-32 bg-muted/20 rounded-xl animate-pulse" />
-        <div className="grid grid-cols-3 gap-3 mt-4">
-          {[1, 2, 3].map(i => (
+        <div className="h-56 bg-muted/20 rounded-xl animate-pulse mx-auto w-56" />
+        <div className="grid grid-cols-2 gap-3 mt-4">
+          {[1, 2].map(i => (
             <div key={i} className="h-16 bg-muted/20 rounded-xl animate-pulse" />
           ))}
         </div>
@@ -123,84 +81,76 @@ export function ActivitySummary({ transactions, dateRange, isLoading }: Activity
       transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
       className="glass-card p-5 mb-5"
     >
-      {/* Chart */}
-      {chartData.length > 1 && (
-        <div className="h-28 -mx-2 mb-4">
-          <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={chartData} margin={{ top: 4, right: 4, bottom: 0, left: 4 }}>
-              <defs>
-                <linearGradient id="expenseGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="hsl(0 72% 51%)" stopOpacity={0.3} />
-                  <stop offset="100%" stopColor="hsl(0 72% 51%)" stopOpacity={0} />
-                </linearGradient>
-                <linearGradient id="incomeGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="hsl(160 84% 39%)" stopOpacity={0.3} />
-                  <stop offset="100%" stopColor="hsl(160 84% 39%)" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <XAxis
-                dataKey="label"
-                axisLine={false}
-                tickLine={false}
-                tick={{ fill: 'hsl(240 5% 55%)', fontSize: 10 }}
-                interval="preserveStartEnd"
-                dy={4}
-              />
-              <YAxis hide />
-              <Tooltip content={<CustomTooltip />} cursor={false} />
-              <Area
-                type="monotone"
-                dataKey="expense"
-                stroke="hsl(0 72% 51%)"
-                strokeWidth={2}
-                fill="url(#expenseGrad)"
-                dot={false}
-                activeDot={{ r: 3, strokeWidth: 0 }}
-              />
-              <Area
-                type="monotone"
-                dataKey="income"
-                stroke="hsl(160 84% 39%)"
-                strokeWidth={2}
-                fill="url(#incomeGrad)"
-                dot={false}
-                activeDot={{ r: 3, strokeWidth: 0 }}
-              />
-            </AreaChart>
-          </ResponsiveContainer>
-        </div>
-      )}
+      {/* Budget Circle */}
+      <BudgetCircle spent={stats.expenses} budget={budget} />
 
-      {/* Stat Row */}
-      <div className="grid grid-cols-3 gap-3">
-        <div className="text-center p-3 rounded-xl bg-destructive/5 border border-destructive/10">
-          <div className="flex items-center justify-center gap-1 mb-1">
-            <ArrowUpRight className="w-3 h-3 text-destructive" />
-            <span className="text-2xs text-muted-foreground uppercase tracking-wider font-medium">Spent</span>
+      {/* Income & Budget Row */}
+      <div className="grid grid-cols-2 gap-px mt-5">
+        {/* Income */}
+        <div className="text-center py-3 border-r border-border/30">
+          <div className="flex items-center justify-center gap-1.5 mb-1">
+            <ArrowDownRight className="w-3.5 h-3.5 text-success" />
+            <span className="text-2xs text-muted-foreground uppercase tracking-wider font-medium">
+              Income
+            </span>
           </div>
           <p className="text-sm font-bold text-foreground currency-display">
-            {formatINRCompact(stats.expenses)}
+            {formatINR(stats.income)}
           </p>
         </div>
 
-        <div className="text-center p-3 rounded-xl bg-success/5 border border-success/10">
-          <div className="flex items-center justify-center gap-1 mb-1">
-            <ArrowDownRight className="w-3 h-3 text-success" />
-            <span className="text-2xs text-muted-foreground uppercase tracking-wider font-medium">Income</span>
+        {/* Budget */}
+        <div className="text-center py-3">
+          <div className="flex items-center justify-center gap-1.5 mb-1">
+            <span className="text-2xs text-muted-foreground uppercase tracking-wider font-medium">
+              Budget
+            </span>
+            {!editingBudget && (
+              <button
+                onClick={handleStartEdit}
+                className="text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <Pencil className="w-3 h-3" />
+              </button>
+            )}
           </div>
-          <p className="text-sm font-bold text-foreground currency-display">
-            {formatINRCompact(stats.income)}
-          </p>
-        </div>
 
-        <div className="text-center p-3 rounded-xl bg-primary/5 border border-primary/10">
-          <div className="flex items-center justify-center gap-1 mb-1">
-            <Wallet className="w-3 h-3 text-primary" />
-            <span className="text-2xs text-muted-foreground uppercase tracking-wider font-medium">Net</span>
-          </div>
-          <p className={`text-sm font-bold currency-display ${stats.net >= 0 ? 'text-success' : 'text-destructive'}`}>
-            {stats.net >= 0 ? '+' : ''}{formatINRCompact(stats.net)}
-          </p>
+          {editingBudget ? (
+            <div className="flex items-center justify-center gap-1.5">
+              <span className="text-xs text-muted-foreground">₹</span>
+              <Input
+                type="number"
+                value={budgetInput}
+                onChange={e => setBudgetInput(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') handleSaveBudget();
+                  if (e.key === 'Escape') handleCancelEdit();
+                }}
+                className="w-24 h-7 text-sm text-center bg-muted/30 border-border/50 rounded-lg"
+                autoFocus
+                placeholder="25000"
+              />
+              <button
+                onClick={handleSaveBudget}
+                className="text-success hover:text-success/80 transition-colors"
+              >
+                <Check className="w-4 h-4" />
+              </button>
+              <button
+                onClick={handleCancelEdit}
+                className="text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          ) : (
+            <p
+              className="text-sm font-bold text-foreground currency-display cursor-pointer hover:text-primary transition-colors"
+              onClick={handleStartEdit}
+            >
+              {budget > 0 ? formatINR(budget) : 'Set budget'}
+            </p>
+          )}
         </div>
       </div>
     </motion.div>

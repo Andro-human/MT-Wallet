@@ -37,6 +37,7 @@ export interface Profile {
   user_id: string;
   full_name: string | null;
   api_key: string | null;
+  monthly_budget: number;
   created_at: string;
   updated_at: string;
 }
