@@ -84,8 +84,8 @@ export function ActivitySummary({ transactions, dateRange, isLoading }: Activity
       {/* Budget Circle */}
       <BudgetCircle spent={stats.expenses} budget={budget} />
 
-      {/* Income & Budget Row */}
-      <div className="grid grid-cols-2 gap-px mt-5">
+      {/* Stats Row */}
+      <div className="grid grid-cols-3 gap-px mt-5">
         {/* Income */}
         <div className="text-center py-3 border-r border-border/30">
           <div className="flex items-center justify-center gap-1.5 mb-1">
@@ -97,6 +97,22 @@ export function ActivitySummary({ transactions, dateRange, isLoading }: Activity
           <p className="text-sm font-bold text-foreground currency-display">
             {formatINR(stats.income)}
           </p>
+        </div>
+
+        {/* Safe to Spend */}
+        <div className="text-center py-3 border-r border-border/30">
+          <div className="flex items-center justify-center gap-1.5 mb-1">
+            <span className="text-2xs text-muted-foreground uppercase tracking-wider font-medium">
+              Safe to Spend
+            </span>
+          </div>
+          {budget > 0 ? (
+            <p className={`text-sm font-bold currency-display ${(budget - stats.expenses) >= 0 ? 'text-success' : 'text-destructive'}`}>
+              {formatINR(Math.max(budget - stats.expenses, 0))}
+            </p>
+          ) : (
+            <p className="text-xs text-muted-foreground">Set budget</p>
+          )}
         </div>
 
         {/* Budget */}
@@ -126,7 +142,7 @@ export function ActivitySummary({ transactions, dateRange, isLoading }: Activity
                   if (e.key === 'Enter') handleSaveBudget();
                   if (e.key === 'Escape') handleCancelEdit();
                 }}
-                className="w-24 h-7 text-sm text-center bg-muted/30 border-border/50 rounded-lg"
+                className="w-20 h-7 text-xs text-center bg-muted/30 border-border/50 rounded-lg"
                 autoFocus
                 placeholder="25000"
               />
@@ -134,13 +150,13 @@ export function ActivitySummary({ transactions, dateRange, isLoading }: Activity
                 onClick={handleSaveBudget}
                 className="text-success hover:text-success/80 transition-colors"
               >
-                <Check className="w-4 h-4" />
+                <Check className="w-3.5 h-3.5" />
               </button>
               <button
                 onClick={handleCancelEdit}
                 className="text-muted-foreground hover:text-foreground transition-colors"
               >
-                <X className="w-4 h-4" />
+                <X className="w-3.5 h-3.5" />
               </button>
             </div>
           ) : (
