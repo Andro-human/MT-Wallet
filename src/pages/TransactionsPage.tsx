@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import { Search, SlidersHorizontal, X, ChevronDown, ArrowLeft, Plus } from 'lucide-react';
@@ -26,55 +26,68 @@ import {
 type DateFilter = 'this-month' | 'last-month' | 'last-3-months' | 'all';
 type DirectionFilter = 'all' | 'credit' | 'debit';
 
+// Helper to update search params without losing existing ones
+function useParamState(key: string, defaultValue: string) {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const value = searchParams.get(key) || defaultValue;
+
+  const setValue = useCallback((newValue: string) => {
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev);
+      if (newValue === defaultValue) {
+        next.delete(key);
+      } else {
+        next.set(key, newValue);
+      }
+      return next;
+    }, { replace: true });
+  }, [key, defaultValue, setSearchParams]);
+
+  return [value, setValue] as const;
+}
+
 export default function TransactionsPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  
-  // Get initial values from URL params
-  const initialMerchant = searchParams.get('merchant') || '';
-  const initialCategory = searchParams.get('category') || 'all';
-  const initialGroup = searchParams.get('group') || 'all';
-  
-  const [search, setSearch] = useState(initialMerchant);
-  const [showFilters, setShowFilters] = useState(!!initialCategory || !!initialGroup || initialCategory !== 'all' || initialGroup !== 'all');
-  const [dateFilter, setDateFilter] = useState<DateFilter>(initialMerchant || initialCategory !== 'all' || initialGroup !== 'all' ? 'all' : 'this-month');
-  const [directionFilter, setDirectionFilter] = useState<DirectionFilter>('all');
-  const [categoryFilter, setCategoryFilter] = useState<string>(initialCategory);
-  const [groupFilter, setGroupFilter] = useState<string>(initialGroup);
+
+  // All filter state lives in URL search params — survives navigation
+  const [search, setSearch] = useParamState('search', '');
+  const merchant = searchParams.get('merchant') || '';
+  const [categoryFilter, setCategoryFilter] = useParamState('category', 'all');
+  const [groupFilter, setGroupFilter] = useParamState('group', 'all');
+  const [directionFilter, setDirectionFilter] = useParamState('direction', 'all');
+
+  // Date filter: default to 'all' when viewing a filtered entity, otherwise 'this-month'
+  const isFilteredView = !!merchant || categoryFilter !== 'all' || groupFilter !== 'all';
+  const defaultDateFilter = isFilteredView ? 'all' : 'this-month';
+  const [dateFilter, setDateFilter] = useParamState('date', defaultDateFilter);
+
+  const effectiveSearch = merchant || search;
+
+  // Local search input state for responsive typing, synced to URL param
+  const [searchInput, setSearchInput] = useState(effectiveSearch);
+  const [showFilters, setShowFilters] = useState(isFilteredView || categoryFilter !== 'all' || groupFilter !== 'all' || directionFilter !== 'all');
   const [showAddDialog, setShowAddDialog] = useState(false);
+
+  // Debounce search input → URL param (300ms)
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+  useEffect(() => {
+    // Don't override merchant param with typed search
+    if (merchant) return;
+    debounceRef.current = setTimeout(() => {
+      setSearch(searchInput);
+    }, 300);
+    return () => clearTimeout(debounceRef.current);
+  }, [searchInput, merchant, setSearch]);
 
   const { data: categories = [] } = useCategories();
   const { data: groups = [] } = useTransactionGroups();
-  
-  // Check if we have a filtered view (from navigation)
-  const isFilteredView = initialMerchant || initialCategory !== 'all' || initialGroup !== 'all';
-  const activeCategory = categories.find(c => c.id === categoryFilter);
 
-  // Update state when URL params change
-  useEffect(() => {
-    const merchant = searchParams.get('merchant') || '';
-    const category = searchParams.get('category') || 'all';
-    const group = searchParams.get('group') || 'all';
-    
-    if (merchant) {
-      setSearch(merchant);
-      setDateFilter('all');
-    }
-    if (category !== 'all') {
-      setCategoryFilter(category);
-      setDateFilter('all');
-      setShowFilters(true);
-    }
-    if (group !== 'all') {
-      setGroupFilter(group);
-      setDateFilter('all');
-      setShowFilters(true);
-    }
-  }, [searchParams]);
+  const activeCategory = categories.find(c => c.id === categoryFilter);
 
   const dateRange = useMemo(() => {
     const now = new Date();
-    switch (dateFilter) {
+    switch (dateFilter as DateFilter) {
       case 'this-month':
         return { startDate: startOfMonth(now), endDate: endOfMonth(now) };
       case 'last-month':
@@ -89,8 +102,8 @@ export default function TransactionsPage() {
   const { data: transactions = [], isLoading, refetch } = useTransactions({
     ...dateRange,
     categoryId: categoryFilter !== 'all' ? categoryFilter : undefined,
-    direction: directionFilter !== 'all' ? directionFilter : undefined,
-    search: search || undefined,
+    direction: (directionFilter !== 'all' ? directionFilter : undefined) as 'credit' | 'debit' | undefined,
+    search: effectiveSearch || undefined,
     groupId: groupFilter !== 'all' ? groupFilter : undefined,
   });
 
@@ -109,15 +122,11 @@ export default function TransactionsPage() {
   }, [transactions]);
 
   const clearFilters = () => {
-    setDateFilter('this-month');
-    setDirectionFilter('all');
-    setCategoryFilter('all');
-    setGroupFilter('all');
-    setSearch('');
-    setSearchParams({});
+    setSearchInput('');
+    setSearchParams({}, { replace: true });
   };
 
-  const hasActiveFilters = dateFilter !== 'this-month' || directionFilter !== 'all' || categoryFilter !== 'all' || groupFilter !== 'all' || search;
+  const hasActiveFilters = (dateFilter !== defaultDateFilter) || directionFilter !== 'all' || categoryFilter !== 'all' || groupFilter !== 'all' || effectiveSearch || searchInput;
   
   const activeGroup = groups.find(g => g.id === groupFilter);
 
@@ -183,9 +192,9 @@ export default function TransactionsPage() {
                 {transactions.length} transactions
               </p>
             </>
-          ) : initialMerchant ? (
+          ) : merchant ? (
             <>
-              <h1 className="text-2xl font-bold text-foreground">{initialMerchant}</h1>
+              <h1 className="text-2xl font-bold text-foreground">{merchant}</h1>
               <p className="text-sm text-muted-foreground mt-0.5">
                 {transactions.length} transactions
               </p>
@@ -226,14 +235,14 @@ export default function TransactionsPage() {
         >
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
             placeholder="Search merchants..."
             className="pl-11 h-12 bg-card/60 border-border/50 rounded-xl text-sm placeholder:text-muted-foreground/60 focus:bg-card focus:border-primary/30"
           />
-          {search && (
+          {searchInput && (
             <button
-              onClick={() => setSearch('')}
+              onClick={() => { setSearchInput(''); setSearch(''); }}
               className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
             >
               <X className="w-4 h-4" />
@@ -281,7 +290,7 @@ export default function TransactionsPage() {
               transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
               className="grid grid-cols-3 gap-2 mb-5"
             >
-              <Select value={dateFilter} onValueChange={(v) => setDateFilter(v as DateFilter)}>
+              <Select value={dateFilter} onValueChange={setDateFilter}>
                 <SelectTrigger className="bg-card/60 border-border/50 rounded-xl text-xs h-10">
                   <SelectValue placeholder="Date" />
                 </SelectTrigger>
@@ -293,7 +302,7 @@ export default function TransactionsPage() {
                 </SelectContent>
               </Select>
 
-              <Select value={directionFilter} onValueChange={(v) => setDirectionFilter(v as DirectionFilter)}>
+              <Select value={directionFilter} onValueChange={setDirectionFilter}>
                 <SelectTrigger className="bg-card/60 border-border/50 rounded-xl text-xs h-10">
                   <SelectValue placeholder="Type" />
                 </SelectTrigger>

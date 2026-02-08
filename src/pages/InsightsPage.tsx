@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { startOfMonth, endOfMonth, subMonths, format, eachMonthOfInterval, startOfDay, endOfDay, setMonth, setYear, getYear, getMonth } from 'date-fns';
 import { ChevronRight, ChevronLeft, Folder, Calendar, CreditCard, X, Filter, BarChart3, Layers } from 'lucide-react';
@@ -15,6 +15,26 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 type TimeRange = '1-month' | '3-months' | '6-months' | 'custom';
 type ChartMode = 'total' | 'by-group';
+
+// Helper to persist state in URL search params
+function useInsightParam(key: string, defaultValue: string) {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const value = searchParams.get(key) || defaultValue;
+
+  const setValue = useCallback((newValue: string) => {
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev);
+      if (newValue === defaultValue) {
+        next.delete(key);
+      } else {
+        next.set(key, newValue);
+      }
+      return next;
+    }, { replace: true });
+  }, [key, defaultValue, setSearchParams]);
+
+  return [value, setValue] as const;
+}
 
 // ─── Custom Month/Year Picker ────────────────────────────────────────────────
 function MonthYearPicker({ 
@@ -101,14 +121,45 @@ function MonthYearPicker({
 
 // ─── Main Component ──────────────────────────────────────────────────────────
 export default function InsightsPage() {
-  const [timeRange, setTimeRange] = useState<TimeRange>('6-months');
-  const [customStart, setCustomStart] = useState<Date>(startOfMonth(subMonths(new Date(), 5)));
-  const [customEnd, setCustomEnd] = useState<Date>(new Date());
-  const [showCustomPicker, setShowCustomPicker] = useState(false);
+  // Persist key filters in URL so they survive navigation
+  const [timeRange, setTimeRange] = useInsightParam('range', '6-months');
+  const [chartModeParam, setChartModeParam] = useInsightParam('mode', 'total');
+  const chartMode = chartModeParam as ChartMode;
+  const setChartMode = setChartModeParam;
+
+  // Custom date range stored in URL
+  const [searchParams, setSearchParams] = useSearchParams();
+  const customStartStr = searchParams.get('from');
+  const customEndStr = searchParams.get('to');
+  const [customStart, setCustomStartState] = useState<Date>(
+    customStartStr ? new Date(customStartStr) : startOfMonth(subMonths(new Date(), 5))
+  );
+  const [customEnd, setCustomEndState] = useState<Date>(
+    customEndStr ? new Date(customEndStr) : new Date()
+  );
+  
+  const setCustomStart = useCallback((d: Date) => {
+    setCustomStartState(d);
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev);
+      next.set('from', format(d, 'yyyy-MM-dd'));
+      return next;
+    }, { replace: true });
+  }, [setSearchParams]);
+  
+  const setCustomEnd = useCallback((d: Date) => {
+    setCustomEndState(d);
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev);
+      next.set('to', format(d, 'yyyy-MM-dd'));
+      return next;
+    }, { replace: true });
+  }, [setSearchParams]);
+
+  const [showCustomPicker, setShowCustomPicker] = useState(timeRange === 'custom');
   const [excludedGroups, setExcludedGroups] = useState<Set<string>>(new Set());
   const [selectedPaymentMethods, setSelectedPaymentMethods] = useState<Set<string>>(new Set());
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
-  const [chartMode, setChartMode] = useState<ChartMode>('total');
   const [hiddenGroupsInChart, setHiddenGroupsInChart] = useState<Set<string>>(new Set());
 
   const { data: categories = [] } = useCategories();
@@ -117,7 +168,7 @@ export default function InsightsPage() {
 
   const now = new Date();
   const dateRange = useMemo(() => {
-    switch (timeRange) {
+    switch (timeRange as TimeRange) {
       case '1-month':
         return { startDate: startOfMonth(now), endDate: endOfMonth(now) };
       case '3-months':
@@ -129,6 +180,8 @@ export default function InsightsPage() {
           startDate: startOfMonth(customStart),
           endDate: endOfMonth(customEnd),
         };
+      default:
+        return { startDate: startOfMonth(subMonths(now, 5)), endDate: endOfMonth(now) };
     }
   }, [timeRange, customStart, customEnd]);
 
@@ -377,7 +430,7 @@ export default function InsightsPage() {
             <button
               key={range.value}
               onClick={() => {
-                setTimeRange(range.value as TimeRange);
+                setTimeRange(range.value);
                 if (range.value === 'custom') setShowCustomPicker(true);
                 else setShowCustomPicker(false);
               }}
