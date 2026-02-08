@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { differenceInDays, endOfMonth } from 'date-fns';
 import { motion } from 'framer-motion';
 import { ArrowUpRight, ArrowDownRight, Pencil, Check, X } from 'lucide-react';
 import { BudgetCircle } from './BudgetCircle';
@@ -99,18 +100,25 @@ export function ActivitySummary({ transactions, dateRange, isLoading }: Activity
           </p>
         </div>
 
-        {/* Safe to Spend */}
+        {/* Safe to Spend / day */}
         <div className="text-center py-3 border-r border-border/30">
           <div className="flex items-center justify-center gap-1.5 mb-1">
             <span className="text-2xs text-muted-foreground uppercase tracking-wider font-medium">
-              Safe to Spend
+              Safe/Day
             </span>
           </div>
-          {budget > 0 ? (
-            <p className={`text-sm font-bold currency-display ${(budget - stats.expenses) >= 0 ? 'text-success' : 'text-destructive'}`}>
-              {formatINR(Math.max(budget - stats.expenses, 0))}
-            </p>
-          ) : (
+          {budget > 0 ? (() => {
+            const remaining = Math.max(budget - stats.expenses, 0);
+            const today = new Date();
+            const monthEnd = endOfMonth(today);
+            const daysLeft = Math.max(differenceInDays(monthEnd, today) + 1, 1);
+            const perDay = remaining / daysLeft;
+            return (
+              <p className={`text-sm font-bold currency-display ${remaining > 0 ? 'text-success' : 'text-destructive'}`}>
+                {formatINR(Math.round(perDay))}
+              </p>
+            );
+          })() : (
             <p className="text-xs text-muted-foreground">Set budget</p>
           )}
         </div>
