@@ -23,14 +23,14 @@ export function useDashboardStats() {
   const { data: categories = [] } = useCategories();
 
   const stats = useMemo(() => {
-    // Calculate this month's spending (excluding credits and excluded transactions)
+    // Calculate this month's spending (only transactions marked as expense)
     const thisMonthSpent = thisMonthTxns
-      .filter(t => t.direction === 'debit' && !t.is_excluded)
+      .filter(t => t.is_expense)
       .reduce((sum, t) => sum + Number(t.amount), 0);
 
     // Calculate last month's spending
     const lastMonthSpent = lastMonthTxns
-      .filter(t => t.direction === 'debit' && !t.is_excluded)
+      .filter(t => t.is_expense)
       .reduce((sum, t) => sum + Number(t.amount), 0);
 
     // Calculate month-over-month change
@@ -38,14 +38,14 @@ export function useDashboardStats() {
       ? ((thisMonthSpent - lastMonthSpent) / lastMonthSpent) * 100
       : 0;
 
-    // Calculate income this month
+    // Calculate income this month (only transactions marked as income)
     const thisMonthIncome = thisMonthTxns
-      .filter(t => t.direction === 'credit')
+      .filter(t => t.is_income)
       .reduce((sum, t) => sum + Number(t.amount), 0);
 
     // Spending by category
     const categorySpending = thisMonthTxns
-      .filter(t => t.direction === 'debit' && !t.is_excluded)
+      .filter(t => t.is_expense)
       .reduce((acc, t) => {
         const catId = t.category_id || 'uncategorized';
         acc[catId] = (acc[catId] || 0) + Number(t.amount);

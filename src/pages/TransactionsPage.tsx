@@ -7,9 +7,11 @@ import { AppLayout } from '@/components/layout/AppLayout';
 import { TransactionCard } from '@/components/transactions/TransactionCard';
 import { ActivitySummary } from '@/components/transactions/ActivitySummary';
 import { AddTransactionDialog } from '@/components/transactions/AddTransactionDialog';
+import { SpendingDonut } from '@/components/dashboard/SpendingDonut';
 import { useTransactions } from '@/hooks/useTransactions';
 import { useCategories } from '@/hooks/useCategories';
 import { useTransactionGroups } from '@/hooks/useTransactionGroups';
+import { formatINR } from '@/lib/formatCurrency';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -198,12 +200,20 @@ export default function TransactionsPage() {
           )}
         </motion.div>
 
-        {/* Activity Summary Chart */}
+        {/* Activity Summary Chart (default view) */}
         {!isFilteredView && (
           <ActivitySummary
             transactions={transactions}
             dateRange={dateRange}
             isLoading={isLoading}
+          />
+        )}
+
+        {/* Filtered View Spending Summary (category / merchant / group pages) */}
+        {isFilteredView && transactions.length > 0 && (
+          <FilteredViewSummary 
+            transactions={transactions} 
+            categories={categories}
           />
         )}
 
@@ -381,5 +391,83 @@ export default function TransactionsPage() {
         onOpenChange={setShowAddDialog} 
       />
     </AppLayout>
+  );
+}
+
+// ─── Filtered View Summary (Category / Merchant / Group page) ────────────────
+function FilteredViewSummary({ 
+  transactions, 
+  categories 
+}: { 
+  transactions: any[]; 
+  categories: any[];
+}) {
+  const stats = useMemo(() => {
+    const totalSpent = transactions
+      .filter(t => t.is_expense)
+      .reduce((sum: number, t: any) => sum + Number(t.amount), 0);
+    
+    const totalIncome = transactions
+      .filter((t: any) => t.is_income)
+      .reduce((sum: number, t: any) => sum + Number(t.amount), 0);
+
+    const txnCount = transactions.length;
+
+    // Category breakdown for the donut
+    const catBreakdown: Record<string, number> = {};
+    transactions
+      .filter((t: any) => t.is_expense)
+      .forEach((t: any) => {
+        const catId = t.category_id || 'uncategorized';
+        catBreakdown[catId] = (catBreakdown[catId] || 0) + Number(t.amount);
+      });
+
+    const donutData = Object.entries(catBreakdown)
+      .map(([catId, amount]) => {
+        const cat = categories.find((c: any) => c.id === catId);
+        return {
+          name: cat?.name || 'Uncategorized',
+          value: amount,
+          color: cat?.color || '#6B7280',
+          icon: cat?.icon || '📦',
+        };
+      })
+      .sort((a, b) => b.value - a.value);
+
+    return { totalSpent, totalIncome, txnCount, donutData };
+  }, [transactions, categories]);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+      className="glass-card p-5 mb-5"
+    >
+      {/* Donut Chart */}
+      {stats.donutData.length > 0 && (
+        <SpendingDonut data={stats.donutData} totalSpent={stats.totalSpent} />
+      )}
+
+      {/* Stats Row */}
+      <div className="grid grid-cols-2 gap-px mt-4">
+        <div className="text-center py-3 border-r border-border/30">
+          <p className="text-2xs text-muted-foreground uppercase tracking-wider font-medium mb-1">
+            Spent
+          </p>
+          <p className="text-sm font-bold text-foreground currency-display">
+            {formatINR(stats.totalSpent)}
+          </p>
+        </div>
+        <div className="text-center py-3">
+          <p className="text-2xs text-muted-foreground uppercase tracking-wider font-medium mb-1">
+            Received
+          </p>
+          <p className="text-sm font-bold text-success currency-display">
+            {formatINR(stats.totalIncome)}
+          </p>
+        </div>
+      </div>
+    </motion.div>
   );
 }

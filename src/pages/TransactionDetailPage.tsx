@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ArrowLeft, Edit2, Check, MessageSquare, EyeOff, Eye, TrendingUp, TrendingDown, ChevronRight, Folder, MoreVertical, RefreshCw, Pencil, Trash2 } from 'lucide-react';
+import { ArrowLeft, Edit2, Check, MessageSquare, TrendingUp, TrendingDown, ChevronRight, Folder, MoreVertical, RefreshCw, Pencil, Trash2, Wallet, Banknote } from 'lucide-react';
 import { format } from 'date-fns';
 import { useTransaction, useUpdateTransaction } from '@/hooks/useTransactions';
 import { useTransactionGroups } from '@/hooks/useTransactionGroups';
@@ -124,14 +124,28 @@ export default function TransactionDetailPage() {
     }
   };
 
-  const toggleExcluded = async () => {
+  const toggleExpense = async () => {
     try {
       await updateMutation.mutateAsync({
         id: transaction.id,
-        updates: { is_excluded: !transaction.is_excluded },
+        updates: { is_expense: !transaction.is_expense },
       });
       toast({ 
-        title: transaction.is_excluded ? 'Included in analytics' : 'Excluded from analytics' 
+        title: transaction.is_expense ? 'Not counted as expense' : 'Counted as expense' 
+      });
+    } catch {
+      toast({ title: 'Failed to update', variant: 'destructive' });
+    }
+  };
+
+  const toggleIncome = async () => {
+    try {
+      await updateMutation.mutateAsync({
+        id: transaction.id,
+        updates: { is_income: !transaction.is_income },
+      });
+      toast({ 
+        title: transaction.is_income ? 'Not counted as income' : 'Counted as income' 
       });
     } catch {
       toast({ title: 'Failed to update', variant: 'destructive' });
@@ -231,11 +245,16 @@ export default function TransactionDetailPage() {
               </div>
             </div>
             
-            {/* Hamburger Menu + Excluded - in top right of main content */}
+            {/* Hamburger Menu + Expense/Income badges - in top right of main content */}
             <div className="flex items-center gap-2">
-              {transaction.is_excluded && (
+              {isCredit && !transaction.is_income && (
                 <span className="text-2xs bg-muted/50 px-2.5 py-1 rounded-full text-muted-foreground font-medium uppercase tracking-wide">
-                  Excluded
+                  Not Income
+                </span>
+              )}
+              {!isCredit && !transaction.is_expense && (
+                <span className="text-2xs bg-muted/50 px-2.5 py-1 rounded-full text-muted-foreground font-medium uppercase tracking-wide">
+                  Not Expense
                 </span>
               )}
               <DropdownMenu>
@@ -506,28 +525,66 @@ export default function TransactionDetailPage() {
           )}
         </motion.div>
 
-        {/* Actions - Exclude toggle */}
+        {/* Actions - Expense/Income toggles */}
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2, duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+          className="space-y-2"
         >
-          <button
-            onClick={toggleExcluded}
-            className="w-full flex items-center justify-start gap-3 h-12 px-4 rounded-xl border border-border/50 hover:bg-muted/50 transition-colors"
-          >
-            {transaction.is_excluded ? (
-              <>
-                <Eye className="w-4 h-4" />
-                <span className="text-sm">Include in Analytics</span>
-              </>
-            ) : (
-              <>
-                <EyeOff className="w-4 h-4" />
-                <span className="text-sm">Exclude from Analytics</span>
-              </>
-            )}
-          </button>
+          {/* Expense toggle - shown for debit transactions */}
+          {!isCredit && (
+            <button
+              onClick={toggleExpense}
+              className={cn(
+                "w-full flex items-center justify-between gap-3 h-12 px-4 rounded-xl border transition-colors",
+                transaction.is_expense
+                  ? "border-destructive/30 bg-destructive/5 hover:bg-destructive/10"
+                  : "border-border/50 hover:bg-muted/50"
+              )}
+            >
+              <div className="flex items-center gap-3">
+                <Wallet className="w-4 h-4" />
+                <span className="text-sm">Count as Expense</span>
+              </div>
+              <div className={cn(
+                "w-10 h-6 rounded-full relative transition-colors duration-200",
+                transaction.is_expense ? "bg-destructive" : "bg-muted"
+              )}>
+                <div className={cn(
+                  "absolute top-1 w-4 h-4 rounded-full bg-white transition-transform duration-200",
+                  transaction.is_expense ? "translate-x-5" : "translate-x-1"
+                )} />
+              </div>
+            </button>
+          )}
+
+          {/* Income toggle - shown for credit transactions */}
+          {isCredit && (
+            <button
+              onClick={toggleIncome}
+              className={cn(
+                "w-full flex items-center justify-between gap-3 h-12 px-4 rounded-xl border transition-colors",
+                transaction.is_income
+                  ? "border-success/30 bg-success/5 hover:bg-success/10"
+                  : "border-border/50 hover:bg-muted/50"
+              )}
+            >
+              <div className="flex items-center gap-3">
+                <Banknote className="w-4 h-4" />
+                <span className="text-sm">Count as Income</span>
+              </div>
+              <div className={cn(
+                "w-10 h-6 rounded-full relative transition-colors duration-200",
+                transaction.is_income ? "bg-success" : "bg-muted"
+              )}>
+                <div className={cn(
+                  "absolute top-1 w-4 h-4 rounded-full bg-white transition-transform duration-200",
+                  transaction.is_income ? "translate-x-5" : "translate-x-1"
+                )} />
+              </div>
+            </button>
+          )}
         </motion.div>
 
         {/* Raw SMS */}

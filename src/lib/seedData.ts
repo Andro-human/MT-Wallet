@@ -98,7 +98,8 @@ export async function seedSampleData(userId: string) {
       category_id: categoryMap.get(txn.categorySlug) || null,
       raw_sms: txn.raw_sms || null,
       transacted_at: transactedAt.toISOString(),
-      is_excluded: false,
+      is_expense: txn.direction === 'debit',
+      is_income: txn.direction === 'credit',
     };
   });
 

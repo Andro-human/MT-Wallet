@@ -203,7 +203,8 @@ export type Database = {
           direction: string
           group_id: string | null
           id: string
-          is_excluded: boolean
+          is_expense: boolean
+          is_income: boolean
           merchant: string | null
           merchant_normalized: string | null
           notes: string | null
@@ -222,7 +223,8 @@ export type Database = {
           direction: string
           group_id?: string | null
           id?: string
-          is_excluded?: boolean
+          is_expense?: boolean
+          is_income?: boolean
           merchant?: string | null
           merchant_normalized?: string | null
           notes?: string | null
@@ -241,7 +243,8 @@ export type Database = {
           direction?: string
           group_id?: string | null
           id?: string
-          is_excluded?: boolean
+          is_expense?: boolean
+          is_income?: boolean
           merchant?: string | null
           merchant_normalized?: string | null
           notes?: string | null

@@ -26,7 +26,8 @@ export interface Transaction {
   group_id: string | null;
   raw_sms: string | null;
   notes: string | null;
-  is_excluded: boolean;
+  is_expense: boolean;
+  is_income: boolean;
   created_at: string;
   updated_at: string;
   category?: Category;

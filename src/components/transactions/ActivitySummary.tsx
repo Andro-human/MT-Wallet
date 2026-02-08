@@ -23,11 +23,11 @@ export function ActivitySummary({ transactions, dateRange, isLoading }: Activity
 
   const stats = useMemo(() => {
     const expenses = transactions
-      .filter(t => t.direction === 'debit' && !t.is_excluded)
+      .filter(t => t.is_expense)
       .reduce((sum, t) => sum + Number(t.amount), 0);
 
     const income = transactions
-      .filter(t => t.direction === 'credit')
+      .filter(t => t.is_income)
       .reduce((sum, t) => sum + Number(t.amount), 0);
 
     return { expenses, income, net: income - expenses };
