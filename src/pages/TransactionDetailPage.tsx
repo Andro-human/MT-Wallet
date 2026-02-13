@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ArrowLeft, Edit2, Check, MessageSquare, TrendingUp, TrendingDown, ChevronRight, Folder, MoreVertical, RefreshCw, Pencil, Trash2, Wallet, Banknote } from 'lucide-react';
+import { ArrowLeft, MessageSquare, TrendingUp, TrendingDown, ChevronRight, Folder, MoreVertical, RefreshCw, Pencil, Trash2, Wallet, Banknote } from 'lucide-react';
 import { format } from 'date-fns';
 import { useTransaction, useUpdateTransaction } from '@/hooks/useTransactions';
 import { useTransactionGroups } from '@/hooks/useTransactionGroups';
@@ -17,6 +17,7 @@ import { useToast } from '@/hooks/use-toast';
 import { EditTransactionDialog } from '@/components/transactions/EditTransactionDialog';
 import { DeleteTransactionDialog } from '@/components/transactions/DeleteTransactionDialog';
 import { LinkRefundDialog } from '@/components/transactions/LinkRefundDialog';
+import { BulkEditSuggestion } from '@/components/transactions/BulkEditSuggestion';
 import { InlineEditableField } from '@/components/transactions/InlineEditableField';
 import { InlineSelectField } from '@/components/transactions/InlineSelectField';
 import { InlineDateField } from '@/components/transactions/InlineDateField';
@@ -47,6 +48,13 @@ export default function TransactionDetailPage() {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [linkRefundOpen, setLinkRefundOpen] = useState(false);
+  const [bulkEditOpen, setBulkEditOpen] = useState(false);
+  const [bulkEditConfig, setBulkEditConfig] = useState<{
+    field: 'category_id' | 'group_id' | 'merchant';
+    newValue: string | null;
+    changeLabel: string;
+    merchantName: string;
+  } | null>(null);
 
   // Calculate net amount after refunds
   const totalRefunded = useMemo(() => 
@@ -183,6 +191,32 @@ export default function TransactionDetailPage() {
         updates,
       });
       toast({ title: 'Updated' });
+
+      // Offer bulk edit for category, group, or merchant changes
+      if (['category_id', 'group_id', 'merchant'].includes(field) && transaction.merchant) {
+        let changeLabel = '';
+        if (field === 'category_id') {
+          const cat = categories.find(c => c.id === value);
+          changeLabel = cat ? `${cat.icon} ${cat.name}` : 'No category';
+        } else if (field === 'group_id') {
+          const grp = groups.find(g => g.id === value);
+          changeLabel = grp ? `${grp.icon} ${grp.name}` : 'No group';
+        } else if (field === 'merchant') {
+          changeLabel = value || 'Unknown';
+        }
+
+        setBulkEditConfig({
+          field: field as 'category_id' | 'group_id' | 'merchant',
+          newValue: field === 'category_id' ? (value === 'none' ? null : value) :
+                    field === 'group_id' ? (value === 'none' ? null : value) :
+                    value?.trim() || null,
+          changeLabel,
+          merchantName: field === 'merchant' 
+            ? (transaction.merchant || '') // Use the OLD merchant name to find related txns
+            : (transaction.merchant || ''),
+        });
+        setBulkEditOpen(true);
+      }
     } catch {
       toast({ title: 'Failed to update', variant: 'destructive' });
       throw new Error('Failed');
@@ -477,46 +511,47 @@ export default function TransactionDetailPage() {
           </div>
         </motion.div>
 
-        {/* Notes */}
+        {/* Notes — inline editable */}
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.15, duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
           className="glass-card p-5"
         >
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg bg-muted/50 flex items-center justify-center">
-                <MessageSquare className="w-4 h-4 text-muted-foreground" />
-              </div>
-              <span className="text-sm font-semibold text-foreground">Notes</span>
+          <div className="flex items-center gap-2.5 mb-3">
+            <div className="w-8 h-8 rounded-lg bg-muted/50 flex items-center justify-center">
+              <MessageSquare className="w-4 h-4 text-muted-foreground" />
             </div>
-            <button
-              onClick={() => {
-                if (editingNotes) {
-                  handleNotesSubmit();
-                } else {
-                  setNotes(transaction.notes || '');
-                  setEditingNotes(true);
-                }
-              }}
-              className="w-8 h-8 rounded-lg bg-muted/50 flex items-center justify-center hover:bg-muted transition-colors text-primary"
-            >
-              {editingNotes ? <Check className="w-4 h-4" /> : <Edit2 className="w-4 h-4" />}
-            </button>
+            <span className="text-sm font-semibold text-foreground">Notes</span>
           </div>
 
-          {editingNotes ? (
-            <Textarea
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="Add notes..."
-              className="bg-muted/30 border-border/50 min-h-[100px] rounded-xl text-sm"
-            />
-          ) : (
-            <p className="text-sm text-muted-foreground">
-              {transaction.notes || 'No notes added'}
-            </p>
+          <Textarea
+            value={editingNotes ? notes : (transaction.notes || '')}
+            onChange={(e) => {
+              if (!editingNotes) {
+                setNotes(e.target.value);
+                setEditingNotes(true);
+              } else {
+                setNotes(e.target.value);
+              }
+            }}
+            onFocus={() => {
+              if (!editingNotes) {
+                setNotes(transaction.notes || '');
+                setEditingNotes(true);
+              }
+            }}
+            onBlur={() => {
+              if (editingNotes) {
+                handleNotesSubmit();
+              }
+            }}
+            placeholder="Tap to add a note..."
+            className="bg-muted/20 border-border/30 min-h-[60px] rounded-xl text-sm resize-none focus:bg-muted/30 focus:border-primary/30 transition-colors"
+            rows={2}
+          />
+          {editingNotes && (
+            <p className="text-2xs text-muted-foreground mt-1.5 text-right">Saves automatically</p>
           )}
         </motion.div>
 
@@ -620,6 +655,22 @@ export default function TransactionDetailPage() {
         transactionId={transaction.id}
         transactionAmount={Number(transaction.amount)}
       />
+
+      {/* Bulk Edit Suggestion */}
+      {bulkEditConfig && (
+        <BulkEditSuggestion
+          open={bulkEditOpen}
+          onOpenChange={(open) => {
+            setBulkEditOpen(open);
+            if (!open) setBulkEditConfig(null);
+          }}
+          merchantName={bulkEditConfig.merchantName}
+          currentTransactionId={transaction.id}
+          field={bulkEditConfig.field}
+          newValue={bulkEditConfig.newValue}
+          changeLabel={bulkEditConfig.changeLabel}
+        />
+      )}
     </div>
   );
 }

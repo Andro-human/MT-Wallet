@@ -1,8 +1,8 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link, useSearchParams, useNavigate } from 'react-router-dom';
-import { Search, SlidersHorizontal, X, ChevronDown, ArrowLeft, Plus } from 'lucide-react';
-import { format, startOfMonth, endOfMonth, subMonths } from 'date-fns';
+import { Search, SlidersHorizontal, X, ChevronDown, ChevronLeft, ChevronRight, ArrowLeft, Plus, Calendar as CalendarIcon, Trash2 } from 'lucide-react';
+import { format, startOfMonth, endOfMonth, subMonths, setMonth, setYear, getYear, getMonth } from 'date-fns';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { TransactionCard } from '@/components/transactions/TransactionCard';
 import { ActivitySummary } from '@/components/transactions/ActivitySummary';
@@ -11,20 +11,21 @@ import { SpendingDonut } from '@/components/dashboard/SpendingDonut';
 import { useTransactions } from '@/hooks/useTransactions';
 import { useCategories } from '@/hooks/useCategories';
 import { useTransactionGroups } from '@/hooks/useTransactionGroups';
+import { useRefundTotals } from '@/hooks/useRefundLinks';
 import { formatINR } from '@/lib/formatCurrency';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { SearchableSelect } from '@/components/ui/SearchableSelect';
+import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
+import { useQueryClient } from '@tanstack/react-query';
+import { cn } from '@/lib/utils';
 
-type DateFilter = 'this-month' | 'last-month' | 'last-3-months' | 'all';
+type DateFilter = 'this-month' | 'last-month' | 'last-3-months' | 'custom' | 'all';
 type DirectionFilter = 'all' | 'credit' | 'debit';
+type SortMode = 'recent' | 'amount';
 
 // Helper to update search params without losing existing ones
 function useParamState(key: string, defaultValue: string) {
@@ -46,21 +47,135 @@ function useParamState(key: string, defaultValue: string) {
   return [value, setValue] as const;
 }
 
+// ─── Month/Year Picker (reused from InsightsPage) ────────────────────────────
+function MonthYearPicker({ 
+  value, 
+  onChange, 
+  label,
+  maxDate,
+}: { 
+  value: Date; 
+  onChange: (d: Date) => void; 
+  label: string;
+  maxDate?: Date;
+}) {
+  const year = getYear(value);
+  const month = getMonth(value);
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+  const changeYear = (delta: number) => {
+    const newDate = setYear(value, year + delta);
+    if (maxDate && newDate > maxDate) return;
+    onChange(newDate);
+  };
+
+  const selectMonth = (m: number) => {
+    let newDate = setMonth(value, m);
+    if (maxDate && newDate > maxDate) {
+      newDate = maxDate;
+    }
+    onChange(newDate);
+  };
+
+  const isMonthDisabled = (m: number) => {
+    if (!maxDate) return false;
+    const candidate = setMonth(setYear(new Date(), year), m);
+    return candidate > maxDate;
+  };
+
+  return (
+    <div className="space-y-3">
+      <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">{label}</p>
+      <div className="flex items-center justify-between">
+        <button 
+          onClick={() => changeYear(-1)} 
+          className="w-8 h-8 rounded-lg bg-muted/50 flex items-center justify-center hover:bg-muted transition-colors"
+        >
+          <ChevronLeft className="w-4 h-4" />
+        </button>
+        <span className="text-sm font-bold text-foreground">{year}</span>
+        <button 
+          onClick={() => changeYear(1)} 
+          className={cn(
+            "w-8 h-8 rounded-lg bg-muted/50 flex items-center justify-center transition-colors",
+            maxDate && year >= getYear(maxDate) ? "opacity-30 cursor-not-allowed" : "hover:bg-muted"
+          )}
+          disabled={maxDate ? year >= getYear(maxDate) : false}
+        >
+          <ChevronRight className="w-4 h-4" />
+        </button>
+      </div>
+      <div className="grid grid-cols-4 gap-1.5">
+        {months.map((m, i) => (
+          <button
+            key={m}
+            onClick={() => selectMonth(i)}
+            disabled={isMonthDisabled(i)}
+            className={cn(
+              'py-2 rounded-lg text-xs font-medium transition-all duration-200',
+              month === i 
+                ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/25' 
+                : isMonthDisabled(i)
+                  ? 'text-muted-foreground/30 cursor-not-allowed'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+            )}
+          >
+            {m}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function TransactionsPage() {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
-
+  
   // All filter state lives in URL search params — survives navigation
   const [search, setSearch] = useParamState('search', '');
   const merchant = searchParams.get('merchant') || '';
   const [categoryFilter, setCategoryFilter] = useParamState('category', 'all');
   const [groupFilter, setGroupFilter] = useParamState('group', 'all');
   const [directionFilter, setDirectionFilter] = useParamState('direction', 'all');
+  const [sortMode, setSortMode] = useParamState('sort', 'recent');
 
   // Date filter: default to 'all' when viewing a filtered entity, otherwise 'this-month'
   const isFilteredView = !!merchant || categoryFilter !== 'all' || groupFilter !== 'all';
   const defaultDateFilter = isFilteredView ? 'all' : 'this-month';
   const [dateFilter, setDateFilter] = useParamState('date', defaultDateFilter);
+
+  // Custom date range stored in URL
+  const customStartStr = searchParams.get('from');
+  const customEndStr = searchParams.get('to');
+  const [customStart, setCustomStartState] = useState<Date>(
+    customStartStr ? new Date(customStartStr) : startOfMonth(subMonths(new Date(), 5))
+  );
+  const [customEnd, setCustomEndState] = useState<Date>(
+    customEndStr ? new Date(customEndStr) : new Date()
+  );
+  const [showCustomPicker, setShowCustomPicker] = useState(dateFilter === 'custom');
+
+  const setCustomStart = useCallback((d: Date) => {
+    setCustomStartState(d);
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev);
+      next.set('from', format(d, 'yyyy-MM-dd'));
+      return next;
+    }, { replace: true });
+  }, [setSearchParams]);
+
+  const setCustomEnd = useCallback((d: Date) => {
+    setCustomEndState(d);
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev);
+      next.set('to', format(d, 'yyyy-MM-dd'));
+      return next;
+    }, { replace: true });
+  }, [setSearchParams]);
 
   const effectiveSearch = merchant || search;
 
@@ -68,6 +183,11 @@ export default function TransactionsPage() {
   const [searchInput, setSearchInput] = useState(effectiveSearch);
   const [showFilters, setShowFilters] = useState(isFilteredView || categoryFilter !== 'all' || groupFilter !== 'all' || directionFilter !== 'all');
   const [showAddDialog, setShowAddDialog] = useState(false);
+
+  // Multi-select mode
+  const [isSelectMode, setIsSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Debounce search input → URL param (300ms)
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
@@ -82,7 +202,7 @@ export default function TransactionsPage() {
 
   const { data: categories = [] } = useCategories();
   const { data: groups = [] } = useTransactionGroups();
-
+  
   const activeCategory = categories.find(c => c.id === categoryFilter);
 
   const dateRange = useMemo(() => {
@@ -94,10 +214,12 @@ export default function TransactionsPage() {
         return { startDate: startOfMonth(subMonths(now, 1)), endDate: endOfMonth(subMonths(now, 1)) };
       case 'last-3-months':
         return { startDate: startOfMonth(subMonths(now, 2)), endDate: endOfMonth(now) };
+      case 'custom':
+        return { startDate: startOfMonth(customStart), endDate: endOfMonth(customEnd) };
       default:
         return {};
     }
-  }, [dateFilter]);
+  }, [dateFilter, customStart, customEnd]);
 
   const { data: transactions = [], isLoading, refetch } = useTransactions({
     ...dateRange,
@@ -107,19 +229,34 @@ export default function TransactionsPage() {
     groupId: groupFilter !== 'all' ? groupFilter : undefined,
   });
 
-  const handlePullRefresh = useCallback(() => {
-    refetch();
-  }, [refetch]);
+  // Sort transactions
+  const sortedTransactions = useMemo(() => {
+    if ((sortMode as SortMode) === 'amount') {
+      return [...transactions].sort((a, b) => Number(b.amount) - Number(a.amount));
+    }
+    return transactions; // already sorted by date from query
+  }, [transactions, sortMode]);
+
+  // Batch-fetch refund totals for all debit transactions on screen
+  const debitTxnIds = useMemo(() => 
+    sortedTransactions.filter(t => t.direction === 'debit').map(t => t.id),
+    [sortedTransactions]
+  );
+  const { data: refundTotals = {} } = useRefundTotals(debitTxnIds);
 
   const groupedTransactions = useMemo(() => {
-    const grouped: Record<string, typeof transactions> = {};
-    transactions.forEach(txn => {
+    if ((sortMode as SortMode) === 'amount') {
+      // When sorting by amount, don't group by date
+      return { _all: sortedTransactions };
+    }
+    const grouped: Record<string, typeof sortedTransactions> = {};
+    sortedTransactions.forEach(txn => {
       const date = format(new Date(txn.transacted_at), 'yyyy-MM-dd');
       if (!grouped[date]) grouped[date] = [];
       grouped[date].push(txn);
     });
     return grouped;
-  }, [transactions]);
+  }, [sortedTransactions, sortMode]);
 
   const clearFilters = () => {
     setSearchInput('');
@@ -130,11 +267,62 @@ export default function TransactionsPage() {
   
   const activeGroup = groups.find(g => g.id === groupFilter);
 
+  // Multi-select handlers
+  const toggleSelectId = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const selectAll = () => {
+    setSelectedIds(new Set(sortedTransactions.map(t => t.id)));
+  };
+
+  const deselectAll = () => {
+    setSelectedIds(new Set());
+  };
+
+  const handleDeleteSelected = async () => {
+    if (!user || selectedIds.size === 0) return;
+    
+    const confirmed = window.confirm(`Delete ${selectedIds.size} transaction${selectedIds.size > 1 ? 's' : ''}? This cannot be undone.`);
+    if (!confirmed) return;
+
+    setIsDeleting(true);
+    try {
+      const { error } = await supabase
+        .from('transactions')
+        .delete()
+        .in('id', Array.from(selectedIds))
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+
+      toast({ title: `${selectedIds.size} transaction${selectedIds.size > 1 ? 's' : ''} deleted` });
+      setSelectedIds(new Set());
+      setIsSelectMode(false);
+      queryClient.invalidateQueries({ queryKey: ['transactions'] });
+    } catch (err) {
+      console.error('Error deleting transactions:', err);
+      toast({ title: 'Failed to delete transactions', variant: 'destructive' });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const exitSelectMode = () => {
+    setIsSelectMode(false);
+    setSelectedIds(new Set());
+  };
+
   return (
     <AppLayout>
       <div className="px-5 pt-8 pb-24 safe-area-top">
         {/* Back Button for Filtered Views */}
-        {isFilteredView && (
+        {isFilteredView && !isSelectMode && (
           <motion.button
             initial={{ opacity: 0, x: -12 }}
             animate={{ opacity: 1, x: 0 }}
@@ -147,7 +335,49 @@ export default function TransactionsPage() {
           </motion.button>
         )}
 
+        {/* Multi-select toolbar */}
+        <AnimatePresence>
+          {isSelectMode && (
+            <motion.div
+              initial={{ opacity: 0, y: -12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -12 }}
+              className="flex items-center justify-between mb-4 p-3 glass-card rounded-xl"
+            >
+              <div className="flex items-center gap-3">
+                <button onClick={exitSelectMode} className="text-muted-foreground hover:text-foreground">
+                  <X className="w-5 h-5" />
+                </button>
+                <span className="text-sm font-medium">
+                  {selectedIds.size} selected
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={selectedIds.size === sortedTransactions.length ? deselectAll : selectAll}
+                  className="text-xs"
+                >
+                  {selectedIds.size === sortedTransactions.length ? 'Deselect All' : 'Select All'}
+                </Button>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={handleDeleteSelected}
+                  disabled={selectedIds.size === 0 || isDeleting}
+                  className="gap-1.5"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  {isDeleting ? 'Deleting...' : 'Delete'}
+                </Button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         {/* Header */}
+        {!isSelectMode && (
         <motion.div
           initial={{ opacity: 0, y: -12 }}
           animate={{ opacity: 1, y: 0 }}
@@ -192,9 +422,9 @@ export default function TransactionsPage() {
                 {transactions.length} transactions
               </p>
             </>
-          ) : merchant ? (
+            ) : merchant ? (
             <>
-              <h1 className="text-2xl font-bold text-foreground">{merchant}</h1>
+                <h1 className="text-2xl font-bold text-foreground">{merchant}</h1>
               <p className="text-sm text-muted-foreground mt-0.5">
                 {transactions.length} transactions
               </p>
@@ -208,9 +438,10 @@ export default function TransactionsPage() {
             </>
           )}
         </motion.div>
+        )}
 
         {/* Activity Summary Chart (default view) */}
-        {!isFilteredView && (
+        {!isFilteredView && !isSelectMode && (
           <ActivitySummary
             transactions={transactions}
             dateRange={dateRange}
@@ -219,7 +450,7 @@ export default function TransactionsPage() {
         )}
 
         {/* Filtered View Spending Summary (category / merchant / group pages) */}
-        {isFilteredView && transactions.length > 0 && (
+        {isFilteredView && transactions.length > 0 && !isSelectMode && (
           <FilteredViewSummary 
             transactions={transactions} 
             categories={categories}
@@ -237,7 +468,7 @@ export default function TransactionsPage() {
           <Input
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
-            placeholder="Search merchants..."
+            placeholder="Search merchants or amount..."
             className="pl-11 h-12 bg-card/60 border-border/50 rounded-xl text-sm placeholder:text-muted-foreground/60 focus:bg-card focus:border-primary/30"
           />
           {searchInput && (
@@ -250,7 +481,7 @@ export default function TransactionsPage() {
           )}
         </motion.div>
 
-        {/* Filter Toggle */}
+        {/* Filter Toggle + Select Mode Toggle */}
         <motion.div 
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
@@ -261,19 +492,33 @@ export default function TransactionsPage() {
             variant="outline"
             size="sm"
             onClick={() => setShowFilters(!showFilters)}
-            className={`gap-2 rounded-xl border-border/50 ${showFilters ? 'bg-primary/10 border-primary/30 text-primary' : ''}`}
+            className={cn(
+              'gap-2 rounded-xl border-border/50',
+              showFilters ? 'bg-primary/10 border-primary/30 text-primary' : ''
+            )}
           >
             <SlidersHorizontal className="w-4 h-4" />
             Filters
-            <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${showFilters ? 'rotate-180' : ''}`} />
+            <ChevronDown className={cn('w-3.5 h-3.5 transition-transform duration-200', showFilters && 'rotate-180')} />
           </Button>
+          
+          {!isSelectMode && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsSelectMode(true)}
+              className="gap-2 rounded-xl border-border/50"
+            >
+              Select
+            </Button>
+          )}
           
           {hasActiveFilters && (
             <Button
               variant="ghost"
               size="sm"
               onClick={clearFilters}
-              className="text-muted-foreground hover:text-foreground"
+              className="text-muted-foreground hover:text-foreground ml-auto"
             >
               Clear all
             </Button>
@@ -288,58 +533,140 @@ export default function TransactionsPage() {
               animate={{ opacity: 1, height: 'auto' }}
               exit={{ opacity: 0, height: 0 }}
               transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-              className="grid grid-cols-3 gap-2 mb-5"
+              className="space-y-3 mb-5"
             >
-              <Select value={dateFilter} onValueChange={setDateFilter}>
-                <SelectTrigger className="bg-card/60 border-border/50 rounded-xl text-xs h-10">
-                  <SelectValue placeholder="Date" />
-                </SelectTrigger>
-                <SelectContent className="glass-card border-border/50">
-                  <SelectItem value="this-month">This Month</SelectItem>
-                  <SelectItem value="last-month">Last Month</SelectItem>
-                  <SelectItem value="last-3-months">3 Months</SelectItem>
-                  <SelectItem value="all">All Time</SelectItem>
-                </SelectContent>
-              </Select>
+              {/* Row 1: Date, Type, Sort */}
+              <div className="grid grid-cols-3 gap-2">
+                <SearchableSelect
+                  value={dateFilter}
+                  onValueChange={(v) => {
+                    setDateFilter(v);
+                    if (v === 'custom') setShowCustomPicker(true);
+                    else setShowCustomPicker(false);
+                  }}
+                  options={[
+                    { value: 'this-month', label: 'This Month' },
+                    { value: 'last-month', label: 'Last Month' },
+                    { value: 'last-3-months', label: '3 Months' },
+                    { value: 'custom', label: 'Custom' },
+                    { value: 'all', label: 'All Time' },
+                  ]}
+                  placeholder="Date"
+                  triggerClassName="bg-card/60 text-xs h-10"
+                />
 
-              <Select value={directionFilter} onValueChange={setDirectionFilter}>
-                <SelectTrigger className="bg-card/60 border-border/50 rounded-xl text-xs h-10">
-                  <SelectValue placeholder="Type" />
-                </SelectTrigger>
-                <SelectContent className="glass-card border-border/50">
-                  <SelectItem value="all">All Types</SelectItem>
-                  <SelectItem value="debit">Expenses</SelectItem>
-                  <SelectItem value="credit">Income</SelectItem>
-                </SelectContent>
-              </Select>
+                <SearchableSelect
+                  value={directionFilter}
+                  onValueChange={setDirectionFilter}
+                  options={[
+                    { value: 'all', label: 'All Types' },
+                    { value: 'debit', label: 'Expenses' },
+                    { value: 'credit', label: 'Income' },
+                  ]}
+                  placeholder="Type"
+                  triggerClassName="bg-card/60 text-xs h-10"
+                />
 
-              <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                <SelectTrigger className="bg-card/60 border-border/50 rounded-xl text-xs h-10">
-                  <SelectValue placeholder="Category" />
-                </SelectTrigger>
-                <SelectContent className="glass-card border-border/50">
-                  <SelectItem value="all">All</SelectItem>
-                  {categories.map(cat => (
-                    <SelectItem key={cat.id} value={cat.id}>
-                      {cat.icon} {cat.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                <SearchableSelect
+                  value={sortMode}
+                  onValueChange={setSortMode}
+                  options={[
+                    { value: 'recent', label: 'Most Recent' },
+                    { value: 'amount', label: 'Highest Amount' },
+                  ]}
+                  placeholder="Sort"
+                  triggerClassName="bg-card/60 text-xs h-10"
+                />
+              </div>
 
-              <Select value={groupFilter} onValueChange={setGroupFilter}>
-                <SelectTrigger className="bg-card/60 border-border/50 rounded-xl text-xs h-10 col-span-3">
-                  <SelectValue placeholder="Group" />
-                </SelectTrigger>
-                <SelectContent className="glass-card border-border/50">
-                  <SelectItem value="all">All Groups</SelectItem>
-                  {groups.map(grp => (
-                    <SelectItem key={grp.id} value={grp.id}>
-                      {grp.icon} {grp.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {/* Row 2: Category, Group */}
+              <div className="grid grid-cols-2 gap-2">
+                <SearchableSelect
+                  value={categoryFilter}
+                  onValueChange={setCategoryFilter}
+                  options={[
+                    { value: 'all', label: 'All Categories' },
+                    ...categories.map(cat => ({
+                      value: cat.id,
+                      label: cat.name,
+                      icon: cat.icon,
+                    })),
+                  ]}
+                  placeholder="Category"
+                  triggerClassName="bg-card/60 text-xs h-10"
+                />
+
+                <SearchableSelect
+                  value={groupFilter}
+                  onValueChange={setGroupFilter}
+                  options={[
+                    { value: 'all', label: 'All Groups' },
+                    ...groups.map(grp => ({
+                      value: grp.id,
+                      label: grp.name,
+                      icon: grp.icon,
+                    })),
+                  ]}
+                  placeholder="Group"
+                  triggerClassName="bg-card/60 text-xs h-10"
+                />
+              </div>
+
+              {/* Custom Date Range Picker */}
+              <AnimatePresence>
+                {dateFilter === 'custom' && showCustomPicker && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="overflow-hidden"
+                  >
+                    <div className="glass-card p-4 space-y-4">
+                      <div className="grid grid-cols-2 gap-4">
+                        <MonthYearPicker
+                          value={customStart}
+                          onChange={setCustomStart}
+                          label="From"
+                          maxDate={customEnd}
+                        />
+                        <MonthYearPicker
+                          value={customEnd}
+                          onChange={setCustomEnd}
+                          label="To"
+                          maxDate={new Date()}
+                        />
+                      </div>
+                      <div className="flex items-center justify-between pt-2 border-t border-border/30">
+                        <p className="text-xs text-muted-foreground">
+                          {format(startOfMonth(customStart), 'MMM yyyy')} – {format(endOfMonth(customEnd), 'MMM yyyy')}
+                        </p>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setShowCustomPicker(false)}
+                          className="text-xs"
+                        >
+                          Done
+                        </Button>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {/* Custom range summary (when picker is closed) */}
+              {dateFilter === 'custom' && !showCustomPicker && (
+                <button
+                  onClick={() => setShowCustomPicker(true)}
+                  className="flex items-center gap-2 px-3 py-2 rounded-xl bg-card/60 border border-border/50 text-sm hover:bg-card transition-colors"
+                >
+                  <CalendarIcon className="w-4 h-4 text-primary" />
+                  <span className="text-foreground">
+                    {format(customStart, 'MMM yyyy')} – {format(customEnd, 'MMM yyyy')}
+                  </span>
+                </button>
+              )}
             </motion.div>
           )}
         </AnimatePresence>
@@ -358,15 +685,49 @@ export default function TransactionsPage() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: groupIndex * 0.05, duration: 0.3 }}
               >
+                {date !== '_all' && (
                 <p className="text-2xs text-muted-foreground uppercase tracking-extra-wide font-medium mb-2.5 px-1">
                   {format(new Date(date), 'EEEE, MMM d')}
                 </p>
+                )}
                 <div className="flex flex-col gap-3">
-                  {txns.map((txn, i) => (
+                  {txns.map((txn, i) => {
+                    const refundTotal = refundTotals[txn.id];
+                    const net = refundTotal ? Number(txn.amount) - refundTotal : undefined;
+                    const isSelected = selectedIds.has(txn.id);
+                    
+                    if (isSelectMode) {
+                      return (
+                        <div
+                          key={txn.id}
+                          onClick={() => toggleSelectId(txn.id)}
+                          className="flex items-center gap-3 cursor-pointer"
+                        >
+                          <div className={cn(
+                            "w-6 h-6 rounded-md border-2 flex items-center justify-center flex-shrink-0 transition-colors",
+                            isSelected
+                              ? "bg-primary border-primary"
+                              : "border-muted-foreground/30"
+                          )}>
+                            {isSelected && (
+                              <svg className="w-4 h-4 text-primary-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                              </svg>
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <TransactionCard transaction={txn} index={i} netAmount={net} />
+                          </div>
+                        </div>
+                      );
+                    }
+
+                    return (
                     <Link key={txn.id} to={`/transactions/${txn.id}`} className="block">
-                      <TransactionCard transaction={txn} index={i} />
+                        <TransactionCard transaction={txn} index={i} netAmount={net} />
                     </Link>
-                  ))}
+                    );
+                  })}
                 </div>
               </motion.div>
             ))
@@ -383,6 +744,7 @@ export default function TransactionsPage() {
         </div>
 
         {/* FAB - Add Transaction */}
+        {!isSelectMode && (
         <motion.button
           initial={{ scale: 0 }}
           animate={{ scale: 1 }}
@@ -392,6 +754,7 @@ export default function TransactionsPage() {
         >
           <Plus className="w-6 h-6" />
         </motion.button>
+        )}
       </div>
 
       {/* Add Transaction Dialog */}

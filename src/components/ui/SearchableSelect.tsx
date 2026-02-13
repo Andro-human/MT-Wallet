@@ -1,51 +1,47 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
-import { Check, ChevronDown, Plus, Search } from 'lucide-react';
+import { Check, ChevronDown, Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 
-interface ComboboxSelectProps {
+interface SearchableSelectOption {
   value: string;
-  onChange: (value: string) => void;
-  options: string[];
-  placeholder?: string;
-  allowCustom?: boolean;
-  className?: string;
+  label: string;
+  icon?: string;
 }
 
-export function ComboboxSelect({
+interface SearchableSelectProps {
+  value: string;
+  onValueChange: (value: string) => void;
+  options: SearchableSelectOption[];
+  placeholder?: string;
+  className?: string;
+  triggerClassName?: string;
+}
+
+export function SearchableSelect({
   value,
-  onChange,
+  onValueChange,
   options,
   placeholder = 'Select...',
-  allowCustom = true,
   className,
-}: ComboboxSelectProps) {
+  triggerClassName,
+}: SearchableSelectProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [customValue, setCustomValue] = useState('');
   const containerRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
+
+  const selectedOption = options.find(o => o.value === value);
 
   const filteredOptions = useMemo(() => {
     if (!searchQuery.trim()) return options;
     const q = searchQuery.toLowerCase();
-    return options.filter(o => o.toLowerCase().includes(q));
+    return options.filter(o => o.label.toLowerCase().includes(q));
   }, [options, searchQuery]);
 
-  const handleSelect = (option: string) => {
-    onChange(option);
+  const handleSelect = (optionValue: string) => {
+    onValueChange(optionValue);
     setIsOpen(false);
     setSearchQuery('');
-  };
-
-  const handleAddCustom = () => {
-    if (customValue.trim()) {
-      onChange(customValue.trim());
-      setCustomValue('');
-      setSearchQuery('');
-      setIsOpen(false);
-    }
   };
 
   // Close dropdown when clicking outside
@@ -67,28 +63,34 @@ export function ComboboxSelect({
 
   // Auto-focus search input when opened
   useEffect(() => {
-    if (isOpen && searchInputRef.current) {
+    if (isOpen && searchInputRef.current && options.length > 5) {
       setTimeout(() => searchInputRef.current?.focus(), 50);
     }
-  }, [isOpen]);
+  }, [isOpen, options.length]);
 
   return (
-    <div ref={containerRef} className="relative">
-      <Button
+    <div ref={containerRef} className={cn("relative", className)}>
+      <button
         type="button"
-        variant="outline"
-        role="combobox"
-        aria-expanded={isOpen}
         onClick={() => setIsOpen(!isOpen)}
         className={cn(
-          "w-full justify-between bg-muted/30 border-border/50 rounded-xl font-normal",
-          !value && "text-muted-foreground",
-          className
+          "flex h-10 w-full items-center justify-between rounded-xl border border-border/50 bg-muted/30 px-3 py-2 text-sm transition-colors",
+          !selectedOption && "text-muted-foreground",
+          triggerClassName
         )}
       >
-        <span className="truncate">{value || placeholder}</span>
+        <span className="truncate">
+          {selectedOption ? (
+            <span className="flex items-center gap-2">
+              {selectedOption.icon && <span>{selectedOption.icon}</span>}
+              <span>{selectedOption.label}</span>
+            </span>
+          ) : (
+            placeholder
+          )}
+        </span>
         <ChevronDown className={cn("ml-2 h-4 w-4 shrink-0 opacity-50 transition-transform", isOpen && "rotate-180")} />
-      </Button>
+      </button>
 
       {isOpen && (
         <div className="absolute left-0 right-0 top-full mt-1 z-[300] rounded-xl border border-border/50 bg-popover shadow-lg overflow-hidden">
@@ -111,58 +113,31 @@ export function ComboboxSelect({
 
           {filteredOptions.length > 0 ? (
             <div
-              className="max-h-[180px] overflow-y-auto overscroll-contain p-1"
+              className="max-h-[200px] overflow-y-auto overscroll-contain p-1"
               style={{ WebkitOverflowScrolling: 'touch' }}
               onTouchMove={(e) => e.stopPropagation()}
             >
               {filteredOptions.map((option) => (
                 <button
-                  key={option}
+                  key={option.value}
                   type="button"
-                  onClick={() => handleSelect(option)}
+                  onClick={() => handleSelect(option.value)}
                   className={cn(
-                    "w-full flex items-center justify-between px-3 py-2.5 text-sm rounded-lg transition-colors",
-                    value === option
+                    "w-full flex items-center gap-2 px-3 py-2.5 text-sm rounded-lg transition-colors",
+                    value === option.value
                       ? "bg-primary/10 text-foreground"
                       : "active:bg-muted/50 text-foreground"
                   )}
                 >
-                  <span className="truncate">{option}</span>
-                  {value === option && <Check className="h-4 w-4 text-primary flex-shrink-0" />}
+                  {option.icon && <span>{option.icon}</span>}
+                  <span className="flex-1 text-left truncate">{option.label}</span>
+                  {value === option.value && <Check className="h-4 w-4 text-primary flex-shrink-0" />}
                 </button>
               ))}
             </div>
           ) : (
             <div className="px-3 py-4 text-sm text-muted-foreground text-center">
               No matches found
-            </div>
-          )}
-
-          {allowCustom && (
-            <div className="border-t border-border/50 p-2">
-              <div className="flex gap-2">
-                <Input
-                  placeholder="Add custom..."
-                  value={customValue}
-                  onChange={(e) => setCustomValue(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      handleAddCustom();
-                    }
-                  }}
-                  className="bg-muted/30 border-border/50 rounded-lg h-8 text-sm"
-                />
-                <Button
-                  type="button"
-                  size="sm"
-                  onClick={handleAddCustom}
-                  disabled={!customValue.trim()}
-                  className="rounded-lg h-8 px-2"
-                >
-                  <Plus className="h-4 w-4" />
-                </Button>
-              </div>
             </div>
           )}
         </div>

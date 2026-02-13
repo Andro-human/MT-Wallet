@@ -9,11 +9,22 @@ interface TransactionCardProps {
   transaction: TransactionWithCategory;
   onClick?: () => void;
   index?: number;
+  /** Net amount after refunds. If provided, shows refund-adjusted amount. */
+  netAmount?: number;
 }
 
-export function TransactionCard({ transaction, onClick, index = 0 }: TransactionCardProps) {
+export function TransactionCard({ transaction, onClick, index = 0, netAmount }: TransactionCardProps) {
   const isCredit = transaction.direction === 'credit';
   const category = transaction.categories;
+  
+  // Determine if this transaction is not counted in analytics
+  const isNotCounted = isCredit 
+    ? transaction.is_income === false 
+    : transaction.is_expense === false;
+
+  // Use net amount if provided (refund-adjusted), otherwise use original amount
+  const displayAmount = netAmount !== undefined ? netAmount : Number(transaction.amount);
+  const hasRefund = netAmount !== undefined && netAmount !== Number(transaction.amount);
   
   return (
     <motion.div
@@ -21,11 +32,17 @@ export function TransactionCard({ transaction, onClick, index = 0 }: Transaction
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.04, duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
       onClick={onClick}
-      className="flex items-center gap-4 p-4 glass-card transition-all duration-300 hover:bg-card-elevated cursor-pointer group"
+      className={cn(
+        "flex items-center gap-4 p-4 glass-card transition-all duration-300 hover:bg-card-elevated cursor-pointer group",
+        isNotCounted && "border border-dashed border-border/40"
+      )}
     >
       {/* Category emoji badge */}
       <div
-        className="w-10 h-10 flex items-center justify-center rounded-xl text-base flex-shrink-0"
+        className={cn(
+          "w-10 h-10 flex items-center justify-center rounded-xl text-base flex-shrink-0",
+          isNotCounted && "grayscale opacity-50"
+        )}
         style={category ? {
           backgroundColor: `${category.color}18`,
           boxShadow: `0 0 0 1px ${category.color}20 inset`,
@@ -37,7 +54,10 @@ export function TransactionCard({ transaction, onClick, index = 0 }: Transaction
       </div>
       
       <div className="flex-1 min-w-0">
-        <h4 className="font-semibold text-foreground truncate text-[15px]">
+        <h4 className={cn(
+          "font-semibold truncate text-[15px]",
+          isNotCounted ? "text-muted-foreground" : "text-foreground"
+        )}>
           {transaction.merchant || 'Unknown'}
         </h4>
         <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1.5">
@@ -57,16 +77,25 @@ export function TransactionCard({ transaction, onClick, index = 0 }: Transaction
       </div>
       
       <div className="flex items-center gap-3">
-        <span
-          className={cn(
-            'font-bold text-base currency-display',
-            isCredit ? 'text-success' : 'text-foreground'
+        <div className="text-right">
+          <span
+            className={cn(
+              'font-bold text-base currency-display',
+              isNotCounted 
+                ? 'text-muted-foreground line-through decoration-muted-foreground/50' 
+                : isCredit ? 'text-success' : 'text-foreground'
+            )}
+          >
+            {isCredit ? '+' : '−'}
+            <span className="currency-symbol">₹</span>
+            {formatINR(displayAmount).replace('₹', '')}
+          </span>
+          {hasRefund && !isNotCounted && (
+            <p className="text-[10px] text-muted-foreground line-through">
+              ₹{formatINR(transaction.amount).replace('₹', '')}
+            </p>
           )}
-        >
-          {isCredit ? '+' : '−'}
-          <span className="currency-symbol">₹</span>
-          {formatINR(transaction.amount).replace('₹', '')}
-        </span>
+        </div>
         <ChevronRight className="w-4 h-4 text-muted-foreground/50 opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
       </div>
     </motion.div>

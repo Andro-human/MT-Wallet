@@ -62,6 +62,56 @@ export function useRefundTransactions(transactionId: string) {
   });
 }
 
+/**
+ * Batch fetch refund totals for a list of transaction IDs.
+ * Returns a map of originalTransactionId → total refunded amount.
+ */
+export function useRefundTotals(transactionIds: string[]) {
+  const { user } = useAuth();
+
+  return useQuery({
+    queryKey: ['refund-totals', transactionIds.sort().join(',')],
+    queryFn: async () => {
+      if (!user || transactionIds.length === 0) return {};
+
+      // Get all refund links for these transactions
+      const { data: links, error: linksError } = await supabase
+        .from('refund_links')
+        .select('original_transaction_id, refund_transaction_id')
+        .in('original_transaction_id', transactionIds);
+
+      if (linksError) throw linksError;
+      if (!links || links.length === 0) return {};
+
+      // Get refund transaction amounts
+      const refundIds = links.map(l => l.refund_transaction_id);
+      const { data: refundTxns, error: txError } = await supabase
+        .from('transactions')
+        .select('id, amount')
+        .in('id', refundIds);
+
+      if (txError) throw txError;
+
+      // Build amount lookup
+      const amountMap: Record<string, number> = {};
+      for (const t of refundTxns || []) {
+        amountMap[t.id] = Number(t.amount);
+      }
+
+      // Sum refunds per original transaction
+      const totals: Record<string, number> = {};
+      for (const link of links) {
+        const amt = amountMap[link.refund_transaction_id] || 0;
+        totals[link.original_transaction_id] = (totals[link.original_transaction_id] || 0) + amt;
+      }
+
+      return totals;
+    },
+    enabled: !!user && transactionIds.length > 0,
+    staleTime: 30_000,
+  });
+}
+
 export function useCreateRefundLink() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
@@ -76,6 +126,7 @@ export function useCreateRefundLink() {
     }) => {
       if (!user) throw new Error('Not authenticated');
 
+      // Create the refund link
       const { data, error } = await supabase
         .from('refund_links')
         .insert({
@@ -87,12 +138,20 @@ export function useCreateRefundLink() {
         .single();
 
       if (error) throw error;
+
+      // Mark the refund transaction as NOT income (it's a reversal, not real income)
+      await supabase
+        .from('transactions')
+        .update({ is_income: false } as any)
+        .eq('id', refundTransactionId);
+
       return data;
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['refund-links', variables.originalTransactionId] });
       queryClient.invalidateQueries({ queryKey: ['refund-transactions', variables.originalTransactionId] });
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
+      queryClient.invalidateQueries({ queryKey: ['transaction', variables.refundTransactionId] });
     },
   });
 }
@@ -115,11 +174,18 @@ export function useDeleteRefundLink() {
         .eq('refund_transaction_id', refundTransactionId);
 
       if (error) throw error;
+
+      // Restore is_income on the refund transaction (it's no longer linked)
+      await supabase
+        .from('transactions')
+        .update({ is_income: true } as any)
+        .eq('id', refundTransactionId);
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['refund-links', variables.originalTransactionId] });
       queryClient.invalidateQueries({ queryKey: ['refund-transactions', variables.originalTransactionId] });
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
+      queryClient.invalidateQueries({ queryKey: ['transaction', variables.refundTransactionId] });
     },
   });
 }

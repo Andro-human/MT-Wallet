@@ -362,6 +362,20 @@ export default function InsightsPage() {
     setSelectedPaymentMethods(new Set());
   };
 
+  // Build date filter query params to pass to transaction views
+  const dateFilterParams = useMemo(() => {
+    if (timeRange === 'custom') {
+      return `&date=custom&from=${format(customStart, 'yyyy-MM-dd')}&to=${format(customEnd, 'yyyy-MM-dd')}`;
+    }
+    // Map insight time ranges to activity date filters
+    switch (timeRange) {
+      case '1-month': return '&date=this-month';
+      case '3-months': return '&date=last-3-months';
+      case '6-months': return `&date=custom&from=${format(dateRange.startDate, 'yyyy-MM-dd')}&to=${format(dateRange.endDate, 'yyyy-MM-dd')}`;
+      default: return '';
+    }
+  }, [timeRange, customStart, customEnd, dateRange]);
+
   // Group bar colors
   const GROUP_COLORS = [
     '#8B5CF6', '#EC4899', '#F97316', '#06B6D4', '#22C55E', 
@@ -705,7 +719,11 @@ export default function InsightsPage() {
                       dy={8}
                     />
                     <YAxis 
-                      hide 
+                      axisLine={false}
+                      tickLine={false}
+                      tick={{ fill: 'hsl(240 5% 55%)', fontSize: 10, fontWeight: 500 }}
+                      tickFormatter={(val: number) => formatINRCompact(val).replace('₹', '')}
+                      width={45}
                     />
                     <Tooltip content={<CustomTooltip />} cursor={false} />
 
@@ -834,7 +852,7 @@ export default function InsightsPage() {
                 return (
                   <Link
                     key={cat.id}
-                    to={cat.id !== 'uncategorized' ? `/transactions?category=${cat.id}` : '/transactions'}
+                    to={cat.id !== 'uncategorized' ? `/transactions?category=${cat.id}${dateFilterParams}` : `/transactions${dateFilterParams ? '?' + dateFilterParams.slice(1) : ''}`}
                   >
                     <motion.div
                       initial={{ opacity: 0, x: -12 }}
@@ -897,7 +915,7 @@ export default function InsightsPage() {
                 return (
                   <Link
                     key={grp.id}
-                    to={`/transactions?group=${grp.id}`}
+                    to={`/transactions?group=${grp.id}${dateFilterParams}`}
                   >
                     <motion.div
                       initial={{ opacity: 0, x: -12 }}
@@ -963,7 +981,7 @@ export default function InsightsPage() {
               {topMerchants.map((merchant, i) => (
                 <Link
                   key={merchant.name}
-                  to={`/transactions?merchant=${encodeURIComponent(merchant.name)}`}
+                  to={`/transactions?merchant=${encodeURIComponent(merchant.name)}${dateFilterParams}`}
                 >
                   <motion.div
                     initial={{ opacity: 0, x: -12 }}

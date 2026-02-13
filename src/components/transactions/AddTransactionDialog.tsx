@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { format } from 'date-fns';
-import { CalendarIcon, Plus, Clock } from 'lucide-react';
+import { CalendarIcon, Plus, Clock, Wallet, Banknote } from 'lucide-react';
 import { useCategories } from '@/hooks/useCategories';
 import { useTransactionGroups } from '@/hooks/useTransactionGroups';
 import { usePaymentMethods } from '@/hooks/usePaymentMethods';
@@ -8,7 +8,7 @@ import { useBankAccounts, parseBankAccount } from '@/hooks/useBankAccounts';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
 import {
   Dialog,
@@ -18,6 +18,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Calendar } from '@/components/ui/calendar';
 import {
@@ -33,6 +34,7 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import { ComboboxSelect } from '@/components/ui/ComboboxSelect';
+import { SearchableSelect } from '@/components/ui/SearchableSelect';
 import { CreateCategoryDialog } from './CreateCategoryDialog';
 import { CreateGroupDialog } from './CreateGroupDialog';
 
@@ -59,14 +61,52 @@ export function AddTransactionDialog({ open, onOpenChange }: AddTransactionDialo
   const [bankAccount, setBankAccount] = useState('');
   const [categoryId, setCategoryId] = useState('none');
   const [groupId, setGroupId] = useState('none');
+  const [isExpense, setIsExpense] = useState(true);
+  const [isIncome, setIsIncome] = useState(true);
+  const [notes, setNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [datePickerOpen, setDatePickerOpen] = useState(false);
+  const [merchantSearch, setMerchantSearch] = useState('');
+  const [showMerchantSuggestions, setShowMerchantSuggestions] = useState(false);
   
   const [showCreateCategory, setShowCreateCategory] = useState(false);
   const [showCreateGroup, setShowCreateGroup] = useState(false);
 
+  // Fetch existing merchants for autocomplete, sorted by frequency (most used first)
+  const { data: existingMerchants = [] } = useQuery({
+    queryKey: ['merchants-autocomplete', user?.id],
+    queryFn: async () => {
+      if (!user) return [];
+      const { data, error } = await supabase
+        .from('transactions')
+        .select('merchant')
+        .eq('user_id', user.id)
+        .not('merchant', 'is', null);
+      if (error) return [];
+      // Count frequency of each merchant
+      const freq: Record<string, number> = {};
+      for (const t of data) {
+        if (t.merchant) {
+          freq[t.merchant] = (freq[t.merchant] || 0) + 1;
+        }
+      }
+      // Sort by frequency (most used first)
+      return Object.entries(freq)
+        .sort((a, b) => b[1] - a[1])
+        .map(([name]) => name);
+    },
+    enabled: !!user,
+  });
+
+  const filteredMerchants = useMemo(() => {
+    if (!merchantSearch.trim()) return existingMerchants.slice(0, 8);
+    const q = merchantSearch.toLowerCase();
+    return existingMerchants.filter(m => m.toLowerCase().includes(q)).slice(0, 8);
+  }, [merchantSearch, existingMerchants]);
+
   const resetForm = () => {
     setMerchant('');
+    setMerchantSearch('');
     setAmount('');
     setDirection('debit');
     setTransactedAt(new Date());
@@ -75,6 +115,9 @@ export function AddTransactionDialog({ open, onOpenChange }: AddTransactionDialo
     setBankAccount('');
     setCategoryId('none');
     setGroupId('none');
+    setIsExpense(true);
+    setIsIncome(true);
+    setNotes('');
   };
 
   const handleDateSelect = (date: Date | undefined) => {
@@ -129,6 +172,9 @@ export function AddTransactionDialog({ open, onOpenChange }: AddTransactionDialo
           account_last4: accountLast4 || null,
           category_id: categoryId === 'none' ? null : categoryId,
           group_id: groupId === 'none' ? null : groupId,
+          is_expense: direction === 'debit' ? isExpense : false,
+          is_income: direction === 'credit' ? isIncome : false,
+          notes: notes.trim() || null,
         } as any);
 
       if (error) throw error;
@@ -158,16 +204,42 @@ export function AddTransactionDialog({ open, onOpenChange }: AddTransactionDialo
           </DialogHeader>
 
           <div className="space-y-4 py-2">
-            {/* Merchant */}
-            <div className="space-y-2">
+            {/* Merchant with autocomplete */}
+            <div className="space-y-2 relative">
               <Label htmlFor="merchant" className="text-sm text-muted-foreground">Merchant *</Label>
               <Input
                 id="merchant"
                 value={merchant}
-                onChange={(e) => setMerchant(e.target.value)}
+                onChange={(e) => {
+                  setMerchant(e.target.value);
+                  setMerchantSearch(e.target.value);
+                  setShowMerchantSuggestions(true);
+                }}
+                onFocus={() => setShowMerchantSuggestions(true)}
+                onBlur={() => setTimeout(() => setShowMerchantSuggestions(false), 200)}
                 placeholder="e.g., Swiggy, Amazon"
                 className="bg-muted/30 border-border/50 rounded-xl"
+                autoComplete="off"
               />
+              {showMerchantSuggestions && filteredMerchants.length > 0 && (
+                <div className="absolute left-0 right-0 top-full mt-1 z-50 bg-popover border border-border/50 rounded-xl shadow-lg max-h-40 overflow-y-auto" style={{ WebkitOverflowScrolling: 'touch' }}>
+                  {filteredMerchants.map((m) => (
+                    <button
+                      key={m}
+                      type="button"
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => {
+                        setMerchant(m);
+                        setMerchantSearch('');
+                        setShowMerchantSuggestions(false);
+                      }}
+                      className="w-full text-left px-3 py-2 text-sm hover:bg-muted/50 transition-colors first:rounded-t-xl last:rounded-b-xl"
+                    >
+                      {m}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Amount & Direction */}
@@ -264,19 +336,19 @@ export function AddTransactionDialog({ open, onOpenChange }: AddTransactionDialo
                   New
                 </button>
               </div>
-              <Select value={categoryId} onValueChange={setCategoryId}>
-                <SelectTrigger className="bg-muted/30 border-border/50 rounded-xl">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="glass-card border-border/50">
-                  <SelectItem value="none">No category</SelectItem>
-                  {categories.map(cat => (
-                    <SelectItem key={cat.id} value={cat.id}>
-                      {cat.icon} {cat.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                value={categoryId}
+                onValueChange={setCategoryId}
+                options={[
+                  { value: 'none', label: 'No category' },
+                  ...categories.map(cat => ({
+                    value: cat.id,
+                    label: cat.name,
+                    icon: cat.icon,
+                  })),
+                ]}
+                placeholder="Select category"
+              />
             </div>
 
             {/* Group */}
@@ -292,19 +364,19 @@ export function AddTransactionDialog({ open, onOpenChange }: AddTransactionDialo
                   New
                 </button>
               </div>
-              <Select value={groupId} onValueChange={setGroupId}>
-                <SelectTrigger className="bg-muted/30 border-border/50 rounded-xl">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="glass-card border-border/50">
-                  <SelectItem value="none">No group</SelectItem>
-                  {groups.map(grp => (
-                    <SelectItem key={grp.id} value={grp.id}>
-                      {grp.icon} {grp.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                value={groupId}
+                onValueChange={setGroupId}
+                options={[
+                  { value: 'none', label: 'No group' },
+                  ...groups.map(grp => ({
+                    value: grp.id,
+                    label: grp.name,
+                    icon: grp.icon,
+                  })),
+                ]}
+                placeholder="Select group"
+              />
             </div>
 
             {/* Payment Method */}
@@ -328,6 +400,71 @@ export function AddTransactionDialog({ open, onOpenChange }: AddTransactionDialo
                 options={bankAccountOptions}
                 placeholder="e.g., HDFC ••1234"
                 allowCustom
+              />
+            </div>
+
+            {/* Count as Expense/Income toggle */}
+            {direction === 'debit' ? (
+              <button
+                type="button"
+                onClick={() => setIsExpense(!isExpense)}
+                className={cn(
+                  "w-full flex items-center justify-between gap-3 h-11 px-4 rounded-xl border transition-colors",
+                  isExpense
+                    ? "border-destructive/30 bg-destructive/5"
+                    : "border-border/50 bg-muted/20"
+                )}
+              >
+                <div className="flex items-center gap-2.5">
+                  <Wallet className="w-4 h-4 text-muted-foreground" />
+                  <span className="text-sm">Count as Expense</span>
+                </div>
+                <div className={cn(
+                  "w-9 h-5 rounded-full relative transition-colors duration-200",
+                  isExpense ? "bg-destructive" : "bg-muted"
+                )}>
+                  <div className={cn(
+                    "absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform duration-200",
+                    isExpense ? "translate-x-4" : "translate-x-0.5"
+                  )} />
+                </div>
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setIsIncome(!isIncome)}
+                className={cn(
+                  "w-full flex items-center justify-between gap-3 h-11 px-4 rounded-xl border transition-colors",
+                  isIncome
+                    ? "border-success/30 bg-success/5"
+                    : "border-border/50 bg-muted/20"
+                )}
+              >
+                <div className="flex items-center gap-2.5">
+                  <Banknote className="w-4 h-4 text-muted-foreground" />
+                  <span className="text-sm">Count as Income</span>
+                </div>
+                <div className={cn(
+                  "w-9 h-5 rounded-full relative transition-colors duration-200",
+                  isIncome ? "bg-success" : "bg-muted"
+                )}>
+                  <div className={cn(
+                    "absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform duration-200",
+                    isIncome ? "translate-x-4" : "translate-x-0.5"
+                  )} />
+                </div>
+              </button>
+            )}
+
+            {/* Notes */}
+            <div className="space-y-2">
+              <Label className="text-sm text-muted-foreground">Notes</Label>
+              <Textarea
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="Add a note..."
+                className="bg-muted/30 border-border/50 rounded-xl text-sm min-h-[60px] resize-none"
+                rows={2}
               />
             </div>
           </div>

@@ -41,7 +41,15 @@ export function useTransactions(filters?: {
         query = query.eq('direction', filters.direction);
       }
       if (filters?.search) {
-        query = query.ilike('merchant', `%${filters.search}%`);
+        const searchTerm = filters.search.trim();
+        // Check if the search term looks like a number (amount search)
+        const numericSearch = parseFloat(searchTerm.replace(/,/g, ''));
+        if (!isNaN(numericSearch) && /^[\d,.\s]+$/.test(searchTerm)) {
+          // Search by amount — exact or partial match
+          query = query.or(`amount.eq.${numericSearch},merchant.ilike.%${searchTerm}%`);
+        } else {
+          query = query.ilike('merchant', `%${searchTerm}%`);
+        }
       }
       if (filters?.groupId) {
         query = query.eq('group_id', filters.groupId);
