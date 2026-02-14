@@ -313,11 +313,11 @@ export function AddTransactionDialog({ open, onOpenChange }: AddTransactionDialo
                 <Label className="text-sm text-muted-foreground">Time</Label>
                 <div className="relative">
                   <Clock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-foreground pointer-events-none z-10" />
-                  <Input
+                  <input
                     type="time"
                     value={timeValue}
                     onChange={handleTimeChange}
-                    className="bg-muted/30 border-border/50 rounded-xl pl-10 [&::-webkit-calendar-picker-indicator]:hidden"
+                    className="flex h-10 w-full rounded-xl border border-border/50 bg-muted/30 px-3 pl-10 text-sm text-foreground ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 appearance-none [-webkit-appearance:none] [&::-webkit-date-and-time-value]:text-left [&::-webkit-calendar-picker-indicator]:hidden"
                   />
                 </div>
               </div>
