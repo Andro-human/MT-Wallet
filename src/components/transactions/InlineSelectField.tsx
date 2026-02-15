@@ -1,4 +1,5 @@
-import { useState, useRef, useEffect, useMemo } from 'react';
+import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { Check, ChevronDown, Plus, Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
@@ -28,8 +29,10 @@ export function InlineSelectField({
   const [searchQuery, setSearchQuery] = useState('');
   const [customValue, setCustomValue] = useState('');
   const [isSaving, setIsSaving] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const [dropdownPos, setDropdownPos] = useState({ top: 0, right: 0, minWidth: 0 });
 
   const selectedOption = options.find(opt => opt.value === value);
   const display = displayValue || selectedOption?.label || emptyLabel;
@@ -39,6 +42,17 @@ export function InlineSelectField({
     const q = searchQuery.toLowerCase();
     return options.filter(o => o.label.toLowerCase().includes(q));
   }, [options, searchQuery]);
+
+  // Calculate dropdown position — anchor to right edge of trigger so it never overflows
+  const updatePosition = useCallback(() => {
+    if (!triggerRef.current) return;
+    const rect = triggerRef.current.getBoundingClientRect();
+    setDropdownPos({
+      top: rect.bottom + 4,
+      right: window.innerWidth - rect.right,
+      minWidth: Math.max(rect.width, 220),
+    });
+  }, []);
 
   const handleSelect = async (newValue: string) => {
     if (newValue === value) {
@@ -75,11 +89,22 @@ export function InlineSelectField({
     }
   };
 
+  // Update position when opening
+  useEffect(() => {
+    if (isOpen) {
+      updatePosition();
+    }
+  }, [isOpen, updatePosition]);
+
   // Close dropdown when clicking outside
   useEffect(() => {
     if (!isOpen) return;
     const handleClick = (e: MouseEvent | TouchEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+      const target = e.target as Node;
+      if (
+        triggerRef.current && !triggerRef.current.contains(target) &&
+        dropdownRef.current && !dropdownRef.current.contains(target)
+      ) {
         setIsOpen(false);
         setSearchQuery('');
       }
@@ -99,9 +124,22 @@ export function InlineSelectField({
     }
   }, [isOpen, options.length]);
 
+  // Reposition on scroll/resize
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleReposition = () => updatePosition();
+    window.addEventListener('scroll', handleReposition, true);
+    window.addEventListener('resize', handleReposition);
+    return () => {
+      window.removeEventListener('scroll', handleReposition, true);
+      window.removeEventListener('resize', handleReposition);
+    };
+  }, [isOpen, updatePosition]);
+
   return (
-    <div ref={containerRef} className="relative">
+    <div className="relative">
       <button
+        ref={triggerRef}
         disabled={isSaving}
         onClick={() => setIsOpen(!isOpen)}
         className={cn(
@@ -123,8 +161,18 @@ export function InlineSelectField({
         <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
       </button>
 
-      {isOpen && (
-        <div className="absolute left-0 right-0 top-full mt-1 z-[300] rounded-xl border border-border/50 bg-popover shadow-lg overflow-hidden min-w-[220px]">
+      {isOpen && createPortal(
+        <div
+          ref={dropdownRef}
+          className="fixed rounded-xl border border-border/50 bg-popover shadow-lg overflow-hidden"
+          style={{
+            top: dropdownPos.top,
+            right: dropdownPos.right,
+            minWidth: dropdownPos.minWidth,
+            maxWidth: `calc(100vw - ${dropdownPos.right}px - 8px)`,
+            zIndex: 9999,
+          }}
+        >
           {/* Search input */}
           {options.length > 5 && (
             <div className="p-2 border-b border-border/30">
@@ -208,7 +256,8 @@ export function InlineSelectField({
               </div>
             </div>
           )}
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

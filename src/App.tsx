@@ -13,6 +13,10 @@ import TransactionsPage from "./pages/TransactionsPage";
 import TransactionDetailPage from "./pages/TransactionDetailPage";
 import InsightsPage from "./pages/InsightsPage";
 import SettingsPage from "./pages/SettingsPage";
+import SyncHistoryPage from "./pages/SyncHistoryPage";
+import SyncRunDetailPage from "./pages/SyncRunDetailPage";
+import BankAccountsPage from "./pages/BankAccountsPage";
+import CategoriesPage from "./pages/CategoriesPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -69,6 +73,30 @@ const App = () => (
             <Route path="/settings" element={
               <ProtectedRoute>
                 <SettingsPage />
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/sync" element={
+              <ProtectedRoute>
+                <SyncHistoryPage />
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/sync/:id" element={
+              <ProtectedRoute>
+                <SyncRunDetailPage />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/bank-accounts" element={
+              <ProtectedRoute>
+                <BankAccountsPage />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/categories" element={
+              <ProtectedRoute>
+                <CategoriesPage />
               </ProtectedRoute>
             } />
             

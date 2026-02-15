@@ -1,16 +1,29 @@
-import { useState, useRef, useEffect, useMemo } from 'react';
+import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { Check, ChevronDown, Plus, Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
+export interface ComboboxOption {
+  value: string;
+  label: string;
+}
+
 interface ComboboxSelectProps {
   value: string;
   onChange: (value: string) => void;
-  options: string[];
+  /** Options can be plain strings (value === label) or {value, label} objects */
+  options: (string | ComboboxOption)[];
   placeholder?: string;
   allowCustom?: boolean;
   className?: string;
+  /** Optional container element to portal the dropdown into (useful inside dialogs) */
+  portalContainer?: HTMLElement | null;
+}
+
+function normalizeOption(opt: string | ComboboxOption): ComboboxOption {
+  return typeof opt === 'string' ? { value: opt, label: opt } : opt;
 }
 
 export function ComboboxSelect({
@@ -20,21 +33,67 @@ export function ComboboxSelect({
   placeholder = 'Select...',
   allowCustom = true,
   className,
+  portalContainer,
 }: ComboboxSelectProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [customValue, setCustomValue] = useState('');
-  const containerRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0, width: 0 });
+
+  const normalizedOptions = useMemo(() => options.map(normalizeOption), [options]);
 
   const filteredOptions = useMemo(() => {
-    if (!searchQuery.trim()) return options;
+    if (!searchQuery.trim()) return normalizedOptions;
     const q = searchQuery.toLowerCase();
-    return options.filter(o => o.toLowerCase().includes(q));
-  }, [options, searchQuery]);
+    return normalizedOptions.filter(o => o.label.toLowerCase().includes(q) || o.value.toLowerCase().includes(q));
+  }, [normalizedOptions, searchQuery]);
 
-  const handleSelect = (option: string) => {
-    onChange(option);
+  const selectedOption = normalizedOptions.find(o => o.value === value);
+  const displayText = selectedOption?.label || value || placeholder;
+
+  // Find the best portal target: explicit container, or nearest dialog, or body
+  const getPortalTarget = useCallback(() => {
+    if (portalContainer) return portalContainer;
+    // Walk up from trigger to find a Radix dialog content wrapper
+    const dialogEl = triggerRef.current?.closest('[role="dialog"]');
+    if (dialogEl instanceof HTMLElement) return dialogEl;
+    return document.body;
+  }, [portalContainer]);
+
+  const updatePosition = useCallback(() => {
+    if (!triggerRef.current) return;
+    const rect = triggerRef.current.getBoundingClientRect();
+    const target = getPortalTarget();
+    const dropdownWidth = rect.width;
+
+    if (target === document.body) {
+      // Fixed positioning relative to viewport
+      let left = rect.left;
+      if (left + dropdownWidth > window.innerWidth - 8) {
+        left = window.innerWidth - dropdownWidth - 8;
+      }
+      if (left < 8) left = 8;
+      setDropdownPos({
+        top: rect.bottom + 4,
+        left,
+        width: dropdownWidth,
+      });
+    } else {
+      // Absolute positioning relative to the portal container
+      const containerRect = target.getBoundingClientRect();
+      setDropdownPos({
+        top: rect.bottom - containerRect.top + target.scrollTop + 4,
+        left: rect.left - containerRect.left + target.scrollLeft,
+        width: dropdownWidth,
+      });
+    }
+  }, [getPortalTarget]);
+
+  const handleSelect = (optionValue: string) => {
+    onChange(optionValue);
     setIsOpen(false);
     setSearchQuery('');
   };
@@ -48,11 +107,20 @@ export function ComboboxSelect({
     }
   };
 
+  // Update position when opening
+  useEffect(() => {
+    if (isOpen) updatePosition();
+  }, [isOpen, updatePosition]);
+
   // Close dropdown when clicking outside
   useEffect(() => {
     if (!isOpen) return;
     const handleClick = (e: MouseEvent | TouchEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+      const target = e.target as Node;
+      if (
+        triggerRef.current && !triggerRef.current.contains(target) &&
+        dropdownRef.current && !dropdownRef.current.contains(target)
+      ) {
         setIsOpen(false);
         setSearchQuery('');
       }
@@ -72,9 +140,22 @@ export function ComboboxSelect({
     }
   }, [isOpen]);
 
+  // Reposition on scroll/resize
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleReposition = () => updatePosition();
+    window.addEventListener('scroll', handleReposition, true);
+    window.addEventListener('resize', handleReposition);
+    return () => {
+      window.removeEventListener('scroll', handleReposition, true);
+      window.removeEventListener('resize', handleReposition);
+    };
+  }, [isOpen, updatePosition]);
+
   return (
-    <div ref={containerRef} className="relative">
+    <div className="relative">
       <Button
+        ref={triggerRef}
         type="button"
         variant="outline"
         role="combobox"
@@ -86,14 +167,27 @@ export function ComboboxSelect({
           className
         )}
       >
-        <span className="truncate">{value || placeholder}</span>
+        <span className="truncate">{displayText}</span>
         <ChevronDown className={cn("ml-2 h-4 w-4 shrink-0 opacity-50 transition-transform", isOpen && "rotate-180")} />
       </Button>
 
-      {isOpen && (
-        <div className="absolute left-0 right-0 top-full mt-1 z-[300] rounded-xl border border-border/50 bg-popover shadow-lg overflow-hidden">
+      {isOpen && createPortal(
+        <div
+          ref={dropdownRef}
+          data-combobox-dropdown
+          className={cn(
+            "rounded-xl border border-border/50 bg-popover shadow-lg overflow-hidden",
+            getPortalTarget() === document.body ? "fixed" : "absolute"
+          )}
+          style={{
+            top: dropdownPos.top,
+            left: dropdownPos.left,
+            width: dropdownPos.width,
+            zIndex: 9999,
+          }}
+        >
           {/* Search input */}
-          {options.length > 5 && (
+          {normalizedOptions.length > 5 && (
             <div className="p-2 border-b border-border/30">
               <div className="relative">
                 <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
@@ -109,34 +203,48 @@ export function ComboboxSelect({
             </div>
           )}
 
-          {filteredOptions.length > 0 ? (
-            <div
-              className="max-h-[180px] overflow-y-auto overscroll-contain p-1"
-              style={{ WebkitOverflowScrolling: 'touch' }}
-              onTouchMove={(e) => e.stopPropagation()}
+          <div
+            className="max-h-[200px] overflow-y-auto overscroll-contain p-1"
+            style={{ WebkitOverflowScrolling: 'touch' }}
+            onTouchMove={(e) => e.stopPropagation()}
+          >
+            {/* None option */}
+            <button
+              type="button"
+              onClick={() => handleSelect('')}
+              className={cn(
+                "w-full flex items-center justify-between px-3 py-2.5 text-sm rounded-lg transition-colors",
+                !value
+                  ? "bg-primary/10 text-foreground"
+                  : "active:bg-muted/50 text-foreground"
+              )}
             >
-              {filteredOptions.map((option) => (
+              <span>None</span>
+              {!value && <Check className="h-4 w-4 text-primary flex-shrink-0" />}
+            </button>
+            {filteredOptions.length > 0 ? (
+              filteredOptions.map((option) => (
                 <button
-                  key={option}
+                  key={option.value}
                   type="button"
-                  onClick={() => handleSelect(option)}
+                  onClick={() => handleSelect(option.value)}
                   className={cn(
                     "w-full flex items-center justify-between px-3 py-2.5 text-sm rounded-lg transition-colors",
-                    value === option
+                    value === option.value
                       ? "bg-primary/10 text-foreground"
                       : "active:bg-muted/50 text-foreground"
                   )}
                 >
-                  <span className="truncate">{option}</span>
-                  {value === option && <Check className="h-4 w-4 text-primary flex-shrink-0" />}
+                  <span className="truncate">{option.label}</span>
+                  {value === option.value && <Check className="h-4 w-4 text-primary flex-shrink-0" />}
                 </button>
-              ))}
-            </div>
-          ) : (
-            <div className="px-3 py-4 text-sm text-muted-foreground text-center">
-              No matches found
-            </div>
-          )}
+              ))
+            ) : (
+              <div className="px-3 py-4 text-sm text-muted-foreground text-center">
+                No matches found
+              </div>
+            )}
+          </div>
 
           {allowCustom && (
             <div className="border-t border-border/50 p-2">
@@ -165,7 +273,8 @@ export function ComboboxSelect({
               </div>
             </div>
           )}
-        </div>
+        </div>,
+        getPortalTarget()
       )}
     </div>
   );

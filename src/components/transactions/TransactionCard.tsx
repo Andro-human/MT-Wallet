@@ -62,12 +62,6 @@ export function TransactionCard({ transaction, onClick, index = 0, netAmount }: 
         </h4>
         <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1.5">
           <span>{format(new Date(transaction.transacted_at), 'MMM d, h:mm a')}</span>
-          {transaction.payment_method && (
-            <>
-              <span className="opacity-40">•</span>
-              <span className="opacity-70">{transaction.payment_method}</span>
-            </>
-          )}
         </p>
         {transaction.notes && (
           <p className="text-xs text-muted-foreground/70 mt-1 truncate italic">

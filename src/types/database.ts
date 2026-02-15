@@ -1,3 +1,22 @@
+export interface BankAccountAlias {
+  id: string;
+  user_id: string;
+  source_bank_name: string;
+  source_account_last4: string;
+  target_bank_name: string;
+  target_account_last4: string;
+  created_at: string;
+}
+
+export interface BankAccountNickname {
+  id: string;
+  user_id: string;
+  bank_name: string;
+  account_last4: string;
+  nickname: string;
+  created_at: string;
+}
+
 export interface Category {
   id: string;
   user_id: string | null;

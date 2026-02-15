@@ -1,7 +1,7 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link, useSearchParams, useNavigate } from 'react-router-dom';
-import { Search, SlidersHorizontal, X, ChevronDown, ChevronLeft, ChevronRight, ArrowLeft, Plus, Calendar as CalendarIcon, Trash2 } from 'lucide-react';
+import { Search, SlidersHorizontal, X, ChevronDown, ChevronLeft, ChevronRight, ArrowLeft, Plus, Calendar as CalendarIcon, Trash2, Building2 } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, subMonths, setMonth, setYear, getYear, getMonth } from 'date-fns';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { TransactionCard } from '@/components/transactions/TransactionCard';
@@ -11,6 +11,7 @@ import { SpendingDonut } from '@/components/dashboard/SpendingDonut';
 import { useTransactions } from '@/hooks/useTransactions';
 import { useCategories } from '@/hooks/useCategories';
 import { useTransactionGroups } from '@/hooks/useTransactionGroups';
+import { useBankAccounts } from '@/hooks/useBankAccounts';
 import { useRefundTotals } from '@/hooks/useRefundLinks';
 import { formatINR } from '@/lib/formatCurrency';
 import { Input } from '@/components/ui/input';
@@ -138,13 +139,16 @@ export default function TransactionsPage() {
   // All filter state lives in URL search params — survives navigation
   const [search, setSearch] = useParamState('search', '');
   const merchant = searchParams.get('merchant') || '';
+  const bankNameParam = searchParams.get('bank') || '';
+  const accountLast4Param = searchParams.get('account') || '';
   const [categoryFilter, setCategoryFilter] = useParamState('category', 'all');
   const [groupFilter, setGroupFilter] = useParamState('group', 'all');
   const [directionFilter, setDirectionFilter] = useParamState('direction', 'all');
   const [sortMode, setSortMode] = useParamState('sort', 'recent');
 
   // Date filter: default to 'all' when viewing a filtered entity, otherwise 'this-month'
-  const isFilteredView = !!merchant || categoryFilter !== 'all' || groupFilter !== 'all';
+  const isBankFiltered = !!bankNameParam || !!accountLast4Param;
+  const isFilteredView = !!merchant || categoryFilter !== 'all' || groupFilter !== 'all' || isBankFiltered;
   const defaultDateFilter = isFilteredView ? 'all' : 'this-month';
   const [dateFilter, setDateFilter] = useParamState('date', defaultDateFilter);
 
@@ -202,8 +206,16 @@ export default function TransactionsPage() {
 
   const { data: categories = [] } = useCategories();
   const { data: groups = [] } = useTransactionGroups();
+  const { data: bankAccountsList = [] } = useBankAccounts();
   
   const activeCategory = categories.find(c => c.id === categoryFilter);
+
+  // Find the matching bank account (with nickname) for the filtered view
+  const activeBankAccount = isBankFiltered
+    ? bankAccountsList.find(
+        (a) => a.bankName === bankNameParam && a.accountLast4 === accountLast4Param
+      )
+    : undefined;
 
   const dateRange = useMemo(() => {
     const now = new Date();
@@ -227,6 +239,8 @@ export default function TransactionsPage() {
     direction: (directionFilter !== 'all' ? directionFilter : undefined) as 'credit' | 'debit' | undefined,
     search: effectiveSearch || undefined,
     groupId: groupFilter !== 'all' ? groupFilter : undefined,
+    bankName: bankNameParam || undefined,
+    accountLast4: accountLast4Param || undefined,
   });
 
   // Sort transactions
@@ -422,7 +436,32 @@ export default function TransactionsPage() {
                 {transactions.length} transactions
               </p>
             </>
-            ) : merchant ? (
+            ) : isBankFiltered ? (
+            <>
+              <div className="flex items-center gap-3 mb-1">
+                <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center">
+                  <Building2 className="w-5 h-5 text-blue-400" />
+                </div>
+                <div>
+                  <h1 className="text-2xl font-bold text-foreground">
+                    {activeBankAccount?.display
+                      ?? (bankNameParam && accountLast4Param
+                        ? `${bankNameParam} ••${accountLast4Param}`
+                        : bankNameParam || `••${accountLast4Param}`)}
+                  </h1>
+                  {activeBankAccount?.nickname && (
+                    <p className="text-sm text-muted-foreground">{activeBankAccount.technicalDisplay}</p>
+                  )}
+                  {!activeBankAccount?.nickname && (
+                    <p className="text-sm text-muted-foreground">Bank Account</p>
+                  )}
+                </div>
+              </div>
+              <p className="text-sm text-muted-foreground mt-2">
+                {transactions.length} transactions
+              </p>
+            </>
+          ) : merchant ? (
             <>
                 <h1 className="text-2xl font-bold text-foreground">{merchant}</h1>
               <p className="text-sm text-muted-foreground mt-0.5">

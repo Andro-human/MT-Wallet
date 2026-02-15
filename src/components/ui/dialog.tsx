@@ -40,13 +40,14 @@ const DialogContent = React.forwardRef<
         className,
       )}
       onPointerDownOutside={(e) => {
-        // Don't close dialog when interacting with portaled select/popover content
+        // Don't close dialog when interacting with portaled select/popover/combobox content
         const target = e.target as HTMLElement;
         if (
           target?.closest('[data-radix-select-content]') ||
           target?.closest('[data-radix-popover-content]') ||
           target?.closest('[role="listbox"]') ||
-          target?.closest('[data-radix-popper-content-wrapper]')
+          target?.closest('[data-radix-popper-content-wrapper]') ||
+          target?.closest('[data-combobox-dropdown]')
         ) {
           e.preventDefault();
         }

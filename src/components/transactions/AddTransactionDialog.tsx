@@ -3,7 +3,6 @@ import { format } from 'date-fns';
 import { CalendarIcon, Plus, Clock, Wallet, Banknote } from 'lucide-react';
 import { useCategories } from '@/hooks/useCategories';
 import { useTransactionGroups } from '@/hooks/useTransactionGroups';
-import { usePaymentMethods } from '@/hooks/usePaymentMethods';
 import { useBankAccounts, parseBankAccount } from '@/hooks/useBankAccounts';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
@@ -49,7 +48,6 @@ export function AddTransactionDialog({ open, onOpenChange }: AddTransactionDialo
   const queryClient = useQueryClient();
   const { data: categories = [] } = useCategories();
   const { data: groups = [] } = useTransactionGroups();
-  const { data: paymentMethods = [] } = usePaymentMethods();
   const { data: bankAccounts = [] } = useBankAccounts();
 
   const [merchant, setMerchant] = useState('');
@@ -57,7 +55,6 @@ export function AddTransactionDialog({ open, onOpenChange }: AddTransactionDialo
   const [direction, setDirection] = useState<'credit' | 'debit'>('debit');
   const [transactedAt, setTransactedAt] = useState<Date>(new Date());
   const [timeValue, setTimeValue] = useState(format(new Date(), 'HH:mm'));
-  const [paymentMethod, setPaymentMethod] = useState('');
   const [bankAccount, setBankAccount] = useState('');
   const [categoryId, setCategoryId] = useState('none');
   const [groupId, setGroupId] = useState('none');
@@ -111,7 +108,6 @@ export function AddTransactionDialog({ open, onOpenChange }: AddTransactionDialo
     setDirection('debit');
     setTransactedAt(new Date());
     setTimeValue(format(new Date(), 'HH:mm'));
-    setPaymentMethod('');
     setBankAccount('');
     setCategoryId('none');
     setGroupId('none');
@@ -167,7 +163,6 @@ export function AddTransactionDialog({ open, onOpenChange }: AddTransactionDialo
           amount: parsedAmount,
           direction,
           transacted_at: transactedAt.toISOString(),
-          payment_method: paymentMethod.trim() || null,
           bank_name: bankName || null,
           account_last4: accountLast4 || null,
           category_id: categoryId === 'none' ? null : categoryId,
@@ -181,7 +176,6 @@ export function AddTransactionDialog({ open, onOpenChange }: AddTransactionDialo
 
       toast({ title: 'Transaction added' });
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
-      queryClient.invalidateQueries({ queryKey: ['payment-methods'] });
       queryClient.invalidateQueries({ queryKey: ['bank-accounts'] });
       resetForm();
       onOpenChange(false);
@@ -193,7 +187,10 @@ export function AddTransactionDialog({ open, onOpenChange }: AddTransactionDialo
     }
   };
 
-  const bankAccountOptions = bankAccounts.map(a => a.display);
+  const bankAccountOptions = bankAccounts.map(a => ({
+    value: a.technicalDisplay,
+    label: a.display,
+  }));
 
   return (
     <>
@@ -376,18 +373,6 @@ export function AddTransactionDialog({ open, onOpenChange }: AddTransactionDialo
                   })),
                 ]}
                 placeholder="Select group"
-              />
-            </div>
-
-            {/* Payment Method */}
-            <div className="space-y-2">
-              <Label className="text-sm text-muted-foreground">Payment Method</Label>
-              <ComboboxSelect
-                value={paymentMethod}
-                onChange={setPaymentMethod}
-                options={paymentMethods}
-                placeholder="Select or add..."
-                allowCustom
               />
             </div>
 

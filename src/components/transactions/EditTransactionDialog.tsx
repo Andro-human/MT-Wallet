@@ -4,7 +4,6 @@ import { CalendarIcon, Plus, Clock } from 'lucide-react';
 import { TransactionWithCategory } from '@/types/database';
 import { useCategories } from '@/hooks/useCategories';
 import { useTransactionGroups } from '@/hooks/useTransactionGroups';
-import { usePaymentMethods } from '@/hooks/usePaymentMethods';
 import { useBankAccounts, parseBankAccount } from '@/hooks/useBankAccounts';
 import { useUpdateTransaction } from '@/hooks/useTransactions';
 import { useToast } from '@/hooks/use-toast';
@@ -49,7 +48,6 @@ export function EditTransactionDialog({
   const { toast } = useToast();
   const { data: categories = [] } = useCategories();
   const { data: groups = [] } = useTransactionGroups();
-  const { data: paymentMethods = [] } = usePaymentMethods();
   const { data: bankAccounts = [] } = useBankAccounts();
   const updateMutation = useUpdateTransaction();
 
@@ -58,7 +56,6 @@ export function EditTransactionDialog({
   const [direction, setDirection] = useState<'credit' | 'debit'>(transaction.direction as 'credit' | 'debit');
   const [transactedAt, setTransactedAt] = useState<Date>(new Date(transaction.transacted_at));
   const [timeValue, setTimeValue] = useState(format(new Date(transaction.transacted_at), 'HH:mm'));
-  const [paymentMethod, setPaymentMethod] = useState(transaction.payment_method || '');
   const [bankAccount, setBankAccount] = useState('');
   const [categoryId, setCategoryId] = useState(transaction.category_id || 'none');
   const [groupId, setGroupId] = useState((transaction as any).group_id || 'none');
@@ -75,8 +72,6 @@ export function EditTransactionDialog({
       setDirection(transaction.direction as 'credit' | 'debit');
       setTransactedAt(date);
       setTimeValue(format(date, 'HH:mm'));
-      setPaymentMethod(transaction.payment_method || '');
-      
       // Combine bank name and account for display
       let combined = '';
       if (transaction.bank_name && transaction.account_last4) {
@@ -128,7 +123,6 @@ export function EditTransactionDialog({
           amount: parsedAmount,
           direction,
           transacted_at: transactedAt.toISOString(),
-          payment_method: paymentMethod.trim() || null,
           bank_name: bankName || null,
           account_last4: accountLast4 || null,
           category_id: categoryId === 'none' ? null : categoryId,
@@ -142,7 +136,10 @@ export function EditTransactionDialog({
     }
   };
 
-  const bankAccountOptions = bankAccounts.map(a => a.display);
+  const bankAccountOptions = bankAccounts.map(a => ({
+    value: a.technicalDisplay,
+    label: a.display,
+  }));
 
   return (
     <>
@@ -299,18 +296,6 @@ export function EditTransactionDialog({
                   ))}
                 </SelectContent>
               </Select>
-            </div>
-
-            {/* Payment Method */}
-            <div className="space-y-2">
-              <Label className="text-sm text-muted-foreground">Payment Method</Label>
-              <ComboboxSelect
-                value={paymentMethod}
-                onChange={setPaymentMethod}
-                options={paymentMethods}
-                placeholder="Select or add..."
-                allowCustom
-              />
             </div>
 
             {/* Bank Account (combined) */}

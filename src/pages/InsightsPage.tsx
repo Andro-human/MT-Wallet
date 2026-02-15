@@ -3,12 +3,11 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Link, useSearchParams } from 'react-router-dom';
 import { ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { startOfMonth, endOfMonth, subMonths, format, eachMonthOfInterval, startOfDay, endOfDay, setMonth, setYear, getYear, getMonth } from 'date-fns';
-import { ChevronRight, ChevronLeft, Folder, Calendar, CreditCard, X, Filter, BarChart3, Layers } from 'lucide-react';
+import { ChevronRight, ChevronLeft, Folder, Calendar, X, Filter, BarChart3, Layers } from 'lucide-react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { useTransactions } from '@/hooks/useTransactions';
 import { useCategories } from '@/hooks/useCategories';
 import { useTransactionGroups } from '@/hooks/useTransactionGroups';
-import { usePaymentMethods } from '@/hooks/usePaymentMethods';
 import { formatINR, formatINRCompact } from '@/lib/formatCurrency';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
@@ -158,13 +157,11 @@ export default function InsightsPage() {
 
   const [showCustomPicker, setShowCustomPicker] = useState(timeRange === 'custom');
   const [excludedGroups, setExcludedGroups] = useState<Set<string>>(new Set());
-  const [selectedPaymentMethods, setSelectedPaymentMethods] = useState<Set<string>>(new Set());
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [hiddenGroupsInChart, setHiddenGroupsInChart] = useState<Set<string>>(new Set());
 
   const { data: categories = [] } = useCategories();
   const { data: groups = [] } = useTransactionGroups();
-  const { data: paymentMethods = [] } = usePaymentMethods();
 
   const now = new Date();
   const dateRange = useMemo(() => {
@@ -187,7 +184,7 @@ export default function InsightsPage() {
 
   const { data: allTransactions = [], isLoading } = useTransactions(dateRange);
 
-  // Apply advanced filters (group exclusion + payment method selection)
+  // Apply advanced filters (group exclusion)
   const transactions = useMemo(() => {
     let filtered = allTransactions;
 
@@ -195,14 +192,10 @@ export default function InsightsPage() {
       filtered = filtered.filter(t => !t.group_id || !excludedGroups.has(t.group_id));
     }
 
-    if (selectedPaymentMethods.size > 0) {
-      filtered = filtered.filter(t => t.payment_method && selectedPaymentMethods.has(t.payment_method));
-    }
-
     return filtered;
-  }, [allTransactions, excludedGroups, selectedPaymentMethods]);
+  }, [allTransactions, excludedGroups]);
 
-  const hasAdvancedFilters = excludedGroups.size > 0 || selectedPaymentMethods.size > 0;
+  const hasAdvancedFilters = excludedGroups.size > 0;
 
   // ─── Chart Data ────────────────────────────────────────────────────────────
 
@@ -339,15 +332,6 @@ export default function InsightsPage() {
     });
   };
 
-  const togglePaymentMethod = (method: string) => {
-    setSelectedPaymentMethods(prev => {
-      const next = new Set(prev);
-      if (next.has(method)) next.delete(method);
-      else next.add(method);
-      return next;
-    });
-  };
-
   const toggleChartGroup = (groupId: string) => {
     setHiddenGroupsInChart(prev => {
       const next = new Set(prev);
@@ -359,7 +343,6 @@ export default function InsightsPage() {
 
   const clearAdvancedFilters = () => {
     setExcludedGroups(new Set());
-    setSelectedPaymentMethods(new Set());
   };
 
   // Build date filter query params to pass to transaction views
@@ -544,7 +527,7 @@ export default function InsightsPage() {
             Filters
             {hasAdvancedFilters && (
               <span className="w-5 h-5 rounded-full bg-primary text-primary-foreground text-xs flex items-center justify-center">
-                {excludedGroups.size + selectedPaymentMethods.size}
+                {excludedGroups.size}
               </span>
             )}
           </Button>
@@ -571,35 +554,6 @@ export default function InsightsPage() {
               transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
               className="mb-5 space-y-4"
             >
-              {/* Payment Methods */}
-              {paymentMethods.length > 0 && (
-                <div className="glass-card p-4">
-                  <div className="flex items-center gap-2 mb-3">
-                    <CreditCard className="w-4 h-4 text-muted-foreground" />
-                    <h4 className="text-sm font-medium text-foreground">Payment Methods</h4>
-                    <span className="text-2xs text-muted-foreground ml-auto">
-                      {selectedPaymentMethods.size === 0 ? 'All' : `${selectedPaymentMethods.size} selected`}
-                    </span>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {paymentMethods.map(method => (
-                      <button
-                        key={method}
-                        onClick={() => togglePaymentMethod(method)}
-                        className={cn(
-                          'px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 border',
-                          selectedPaymentMethods.has(method)
-                            ? 'bg-primary/15 border-primary/30 text-primary'
-                            : 'bg-muted/30 border-border/50 text-muted-foreground hover:text-foreground'
-                        )}
-                      >
-                        {method}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
               {/* Exclude Groups */}
               {groups.length > 0 && (
                 <div className="glass-card p-4">

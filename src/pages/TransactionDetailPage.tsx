@@ -7,7 +7,6 @@ import { useTransaction, useUpdateTransaction } from '@/hooks/useTransactions';
 import { useTransactionGroups } from '@/hooks/useTransactionGroups';
 import { useCategories } from '@/hooks/useCategories';
 import { useRefundTransactions } from '@/hooks/useRefundLinks';
-import { usePaymentMethods } from '@/hooks/usePaymentMethods';
 import { useBankAccounts, parseBankAccount } from '@/hooks/useBankAccounts';
 import { formatINR } from '@/lib/formatCurrency';
 import { Textarea } from '@/components/ui/textarea';
@@ -37,7 +36,6 @@ export default function TransactionDetailPage() {
   const { data: groups = [] } = useTransactionGroups();
   const { data: categories = [] } = useCategories();
   const { data: linkedRefunds = [] } = useRefundTransactions(id!);
-  const { data: paymentMethods = [] } = usePaymentMethods();
   const { data: bankAccounts = [] } = useBankAccounts();
   const updateMutation = useUpdateTransaction();
 
@@ -64,8 +62,8 @@ export default function TransactionDetailPage() {
   
   const netAmount = transaction ? Number(transaction.amount) - totalRefunded : 0;
 
-  // Get combined bank account display
-  const bankAccountDisplay = useMemo(() => {
+  // Get combined bank account display (technical format for value matching)
+  const bankAccountTechnical = useMemo(() => {
     if (!transaction) return '';
     if (transaction.bank_name && transaction.account_last4) {
       return `${transaction.bank_name} ••${transaction.account_last4}`;
@@ -76,6 +74,23 @@ export default function TransactionDetailPage() {
     }
     return '';
   }, [transaction]);
+
+  // Find matching bank account — check both the primary key and aliased raw accounts
+  const matchedBankAccount = useMemo(() => {
+    if (!bankAccountTechnical || !transaction) return undefined;
+    // First try exact match on the group's own technicalDisplay
+    const direct = bankAccounts.find(ba => ba.technicalDisplay === bankAccountTechnical);
+    if (direct) return direct;
+    // Otherwise check if this transaction's raw bank info is aliased under a group
+    const rawBN = transaction.bank_name || '';
+    const rawL4 = transaction.account_last4 || '';
+    return bankAccounts.find(ba =>
+      ba.rawAccounts.some(r => r.bankName === rawBN && r.accountLast4 === rawL4)
+    );
+  }, [bankAccountTechnical, bankAccounts, transaction]);
+
+  // Show nickname/group display if available, otherwise raw technical display
+  const bankAccountDisplay = matchedBankAccount?.display || bankAccountTechnical;
 
   // Prepare options for inline selects
   const categoryOptions = useMemo(() => [
@@ -88,14 +103,12 @@ export default function TransactionDetailPage() {
     ...groups.map(g => ({ value: g.id, label: g.name, icon: g.icon, color: g.color }))
   ], [groups]);
 
-  const paymentMethodOptions = useMemo(() => [
-    { value: '', label: 'None' },
-    ...paymentMethods.map(pm => ({ value: pm, label: pm }))
-  ], [paymentMethods]);
-
   const bankAccountOptions = useMemo(() => [
     { value: '', label: 'None' },
-    ...bankAccounts.map(ba => ({ value: ba.display, label: ba.display }))
+    ...bankAccounts.map(ba => ({
+      value: ba.technicalDisplay,
+      label: ba.nickname ? `${ba.display} (${ba.technicalDisplay})` : ba.technicalDisplay,
+    }))
   ], [bankAccounts]);
 
   if (isLoading) {
@@ -178,8 +191,6 @@ export default function TransactionDetailPage() {
         updates.category_id = value === 'none' ? null : value;
       } else if (field === 'group_id') {
         updates.group_id = value === 'none' ? null : value;
-      } else if (field === 'payment_method') {
-        updates.payment_method = value || null;
       } else if (field === 'bank_account') {
         const { bankName, accountLast4 } = parseBankAccount(value);
         updates.bank_name = bankName || null;
@@ -379,24 +390,12 @@ export default function TransactionDetailPage() {
               />
             </div>
             
-            {/* Payment Method - inline editable */}
-            <div className="flex justify-between items-center p-3 rounded-xl bg-muted/30">
-              <span className="text-muted-foreground">Payment Method</span>
-              <InlineSelectField
-                value={transaction.payment_method || ''}
-                onSave={(value) => handleUpdateField('payment_method', value)}
-                options={paymentMethodOptions}
-                allowCustom
-                emptyLabel="None"
-                className="text-foreground font-medium"
-              />
-            </div>
-            
             {/* Bank Account (combined) - inline editable */}
             <div className="flex justify-between items-center p-3 rounded-xl bg-muted/30">
               <span className="text-muted-foreground">Bank Account</span>
               <InlineSelectField
-                value={bankAccountDisplay}
+                value={matchedBankAccount?.technicalDisplay || bankAccountTechnical}
+                displayValue={bankAccountDisplay !== (matchedBankAccount?.technicalDisplay || bankAccountTechnical) ? bankAccountDisplay : undefined}
                 onSave={(value) => handleUpdateField('bank_account', value)}
                 options={bankAccountOptions}
                 allowCustom

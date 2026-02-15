@@ -14,6 +14,63 @@ export type Database = {
   }
   public: {
     Tables: {
+      bank_account_aliases: {
+        Row: {
+          id: string
+          user_id: string
+          source_bank_name: string
+          source_account_last4: string
+          target_bank_name: string
+          target_account_last4: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          source_bank_name?: string
+          source_account_last4?: string
+          target_bank_name?: string
+          target_account_last4?: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          source_bank_name?: string
+          source_account_last4?: string
+          target_bank_name?: string
+          target_account_last4?: string
+          created_at?: string
+        }
+        Relationships: []
+      }
+      bank_account_nicknames: {
+        Row: {
+          id: string
+          user_id: string
+          bank_name: string
+          account_last4: string
+          nickname: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          bank_name?: string
+          account_last4?: string
+          nickname: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          bank_name?: string
+          account_last4?: string
+          nickname?: string
+          created_at?: string
+        }
+        Relationships: []
+      }
       categories: {
         Row: {
           color: string

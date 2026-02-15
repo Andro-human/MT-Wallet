@@ -1,0 +1,558 @@
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
+import { ArrowLeft, Building2, ChevronRight, Trash2, Merge, Loader2, AlertTriangle, Unlink, Pencil } from 'lucide-react';
+import {
+  useBankAccounts,
+  useRemoveBankAccount,
+  useBankAccountAliases,
+  useCreateBankAccountAlias,
+  useDeleteBankAccountAlias,
+  useSetBankAccountNickname,
+  useDeleteBankAccountNickname,
+  BankAccountInfo,
+} from '@/hooks/useBankAccounts';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { useToast } from '@/hooks/use-toast';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+
+export default function BankAccountsPage() {
+  const navigate = useNavigate();
+  const { toast } = useToast();
+  const { data: bankAccounts = [], isLoading } = useBankAccounts();
+  const { data: aliases = [] } = useBankAccountAliases();
+  const removeBankAccount = useRemoveBankAccount();
+  const createAlias = useCreateBankAccountAlias();
+  const deleteAlias = useDeleteBankAccountAlias();
+  const setNickname = useSetBankAccountNickname();
+  const deleteNickname = useDeleteBankAccountNickname();
+
+  // Remove dialog
+  const [removeDialog, setRemoveDialog] = useState<{
+    open: boolean;
+    bankName: string;
+    accountLast4: string;
+    display: string;
+    count: number;
+  }>({ open: false, bankName: '', accountLast4: '', display: '', count: 0 });
+
+  // Link (alias) dialog
+  const [mergeDialog, setMergeDialog] = useState<{
+    open: boolean;
+    source: BankAccountInfo | null;
+  }>({ open: false, source: null });
+  const [mergeTarget, setMergeTarget] = useState('');
+
+  // Nickname dialog
+  const [nicknameDialog, setNicknameDialog] = useState<{
+    open: boolean;
+    account: BankAccountInfo | null;
+  }>({ open: false, account: null });
+  const [nicknameValue, setNicknameValue] = useState('');
+
+  const handleRemove = async () => {
+    try {
+      await removeBankAccount.mutateAsync({
+        bankName: removeDialog.bankName,
+        accountLast4: removeDialog.accountLast4,
+      });
+      toast({ title: `"${removeDialog.display}" removed from ${removeDialog.count} transactions` });
+      setRemoveDialog({ open: false, bankName: '', accountLast4: '', display: '', count: 0 });
+    } catch {
+      toast({ title: 'Failed to remove bank account', variant: 'destructive' });
+    }
+  };
+
+  const handleMerge = async () => {
+    if (!mergeDialog.source || !mergeTarget) return;
+
+    const target = bankAccounts.find(
+      (a) => `${a.bankName}|${a.accountLast4}` === mergeTarget
+    );
+    if (!target) return;
+
+    try {
+      await createAlias.mutateAsync({
+        source: {
+          bankName: mergeDialog.source.bankName,
+          accountLast4: mergeDialog.source.accountLast4,
+        },
+        target: {
+          bankName: target.bankName,
+          accountLast4: target.accountLast4,
+        },
+      });
+      toast({
+        title: `Linked "${mergeDialog.source.display}" → "${target.display}"`,
+        description: 'Transactions will appear under the target account in the UI. No data was modified.',
+      });
+      setMergeDialog({ open: false, source: null });
+      setMergeTarget('');
+    } catch {
+      toast({ title: 'Failed to link accounts', variant: 'destructive' });
+    }
+  };
+
+  const handleUnalias = async (aliasId: string) => {
+    try {
+      await deleteAlias.mutateAsync(aliasId);
+      toast({ title: 'Account unlinked' });
+    } catch {
+      toast({ title: 'Failed to unlink account', variant: 'destructive' });
+    }
+  };
+
+  const openNicknameDialog = (account: BankAccountInfo) => {
+    setNicknameDialog({ open: true, account });
+    setNicknameValue(account.nickname);
+  };
+
+  const handleSaveNickname = async () => {
+    if (!nicknameDialog.account) return;
+
+    const trimmed = nicknameValue.trim();
+
+    try {
+      if (trimmed) {
+        await setNickname.mutateAsync({
+          bankName: nicknameDialog.account.bankName,
+          accountLast4: nicknameDialog.account.accountLast4,
+          nickname: trimmed,
+        });
+        toast({ title: `Renamed to "${trimmed}"` });
+      } else if (nicknameDialog.account.nicknameId) {
+        // Empty nickname → remove it
+        await deleteNickname.mutateAsync(nicknameDialog.account.nicknameId);
+        toast({ title: 'Nickname removed' });
+      }
+      setNicknameDialog({ open: false, account: null });
+    } catch {
+      toast({ title: 'Failed to update nickname', variant: 'destructive' });
+    }
+  };
+
+  // Find aliases that point to a given target account
+  const getAliasesForTarget = (bankName: string, accountLast4: string) => {
+    return aliases.filter(
+      (a) => a.target_bank_name === bankName && a.target_account_last4 === accountLast4
+    );
+  };
+
+  return (
+    <div className="min-h-screen bg-background">
+      {/* Background gradient */}
+      <div
+        className="fixed inset-0 pointer-events-none"
+        style={{
+          background: 'radial-gradient(ellipse 80% 50% at 50% -20%, hsl(252 87% 64% / 0.08), transparent)',
+        }}
+      />
+
+      {/* Header */}
+      <div className="sticky top-0 z-10 backdrop-blur-xl bg-background/80 border-b border-border/30 safe-area-top">
+        <div className="flex items-center gap-3 px-5 py-3">
+          <button
+            onClick={() => navigate(-1)}
+            className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-muted/50 transition-colors -ml-1"
+          >
+            <ArrowLeft className="w-5 h-5 text-foreground" />
+          </button>
+          <h1 className="text-lg font-semibold text-foreground">Bank Accounts</h1>
+        </div>
+      </div>
+
+      <div className="px-5 py-6 space-y-3 relative">
+        {/* Summary */}
+        <motion.div
+          initial={{ opacity: 0, y: -12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+          className="mb-2"
+        >
+          <p className="text-base text-muted-foreground">
+            {bankAccounts.length} account{bankAccounts.length !== 1 ? 's' : ''}
+            {aliases.length > 0 && ` · ${aliases.length} alias${aliases.length !== 1 ? 'es' : ''}`}
+          </p>
+        </motion.div>
+
+        {isLoading ? (
+          <div className="space-y-3">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <Skeleton key={i} className="h-20 rounded-2xl" />
+            ))}
+          </div>
+        ) : bankAccounts.length === 0 ? (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="text-center py-16"
+          >
+            <Building2 className="w-12 h-12 text-muted-foreground/30 mx-auto mb-4" />
+            <p className="text-base text-muted-foreground">No bank accounts linked yet</p>
+            <p className="text-sm text-muted-foreground/60 mt-1">
+              Bank accounts are automatically detected from your transactions
+            </p>
+          </motion.div>
+        ) : (
+          bankAccounts.map((account, i) => {
+            const key = `${account.bankName}|${account.accountLast4}`;
+            const accountAliases = getAliasesForTarget(account.bankName, account.accountLast4);
+            const hasAliases = accountAliases.length > 0;
+
+            return (
+              <motion.div
+                key={key}
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: i * 0.04, duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+                className="glass-card p-5"
+              >
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-xl bg-blue-500/10 flex items-center justify-center flex-shrink-0">
+                    <Building2 className="w-6 h-6 text-blue-400" />
+                  </div>
+
+                  <button
+                    onClick={() =>
+                      navigate(
+                        `/transactions?bank=${encodeURIComponent(account.bankName)}&account=${encodeURIComponent(account.accountLast4)}`
+                      )
+                    }
+                    className="flex-1 min-w-0 text-left"
+                  >
+                    <p className="text-base font-semibold text-foreground truncate">
+                      {account.display}
+                    </p>
+                    {account.nickname && (
+                      <p className="text-sm text-muted-foreground/70 truncate">
+                        {account.technicalDisplay}
+                      </p>
+                    )}
+                    <p className="text-sm text-muted-foreground mt-0.5">
+                      {account.transactionCount} transaction{account.transactionCount !== 1 ? 's' : ''}
+                    </p>
+                  </button>
+
+                  <div className="flex items-center gap-1">
+                    {/* Rename */}
+                    <button
+                      onClick={() => openNicknameDialog(account)}
+                      className="w-9 h-9 rounded-xl flex items-center justify-center text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
+                      title="Rename account"
+                    >
+                      <Pencil className="w-4 h-4" />
+                    </button>
+                    {/* Link */}
+                    <button
+                      onClick={() => {
+                        setMergeDialog({ open: true, source: account });
+                        setMergeTarget('');
+                      }}
+                      className="w-9 h-9 rounded-xl flex items-center justify-center text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
+                      title="Link to another account"
+                    >
+                      <Merge className="w-4 h-4" />
+                    </button>
+                    {/* Delete */}
+                    <button
+                      onClick={() =>
+                        setRemoveDialog({
+                          open: true,
+                          bankName: account.bankName,
+                          accountLast4: account.accountLast4,
+                          display: account.display,
+                          count: account.transactionCount,
+                        })
+                      }
+                      className="w-9 h-9 rounded-xl flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                      title="Remove bank account"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                    {/* View transactions */}
+                    <button
+                      onClick={() =>
+                        navigate(
+                          `/transactions?bank=${encodeURIComponent(account.bankName)}&account=${encodeURIComponent(account.accountLast4)}`
+                        )
+                      }
+                      className="w-9 h-9 rounded-xl flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+                    >
+                      <ChevronRight className="w-5 h-5" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Show aliased accounts under this one */}
+                {hasAliases && (
+                  <div className="mt-3 pt-3 border-t border-border/30 space-y-2">
+                    <p className="text-sm text-muted-foreground">Linked accounts:</p>
+                    {accountAliases.map((alias) => {
+                      const srcDisplay =
+                        alias.source_bank_name && alias.source_account_last4
+                          ? `${alias.source_bank_name} ••${alias.source_account_last4}`
+                          : alias.source_bank_name || `••${alias.source_account_last4}`;
+                      return (
+                        <div
+                          key={alias.id}
+                          className="flex items-center gap-3 p-3 rounded-xl bg-muted/20"
+                        >
+                          <Building2 className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                          <span className="flex-1 text-sm text-foreground truncate">
+                            {srcDisplay}
+                          </span>
+                          <button
+                            onClick={() => handleUnalias(alias.id)}
+                            className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-amber-400 hover:bg-amber-400/10 transition-colors"
+                            title="Unlink this account"
+                          >
+                            <Unlink className="w-4 h-4" />
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </motion.div>
+            );
+          })
+        )}
+      </div>
+
+      {/* Remove Confirmation Dialog */}
+      <AlertDialog open={removeDialog.open} onOpenChange={(open) => setRemoveDialog((prev) => ({ ...prev, open }))}>
+        <AlertDialogContent className="glass-elevated border-border/50">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-lg">
+              <AlertTriangle className="w-5 h-5 text-amber-400" />
+              Remove Bank Account
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2">
+                <p className="text-base">
+                  Are you sure you want to remove <strong className="text-foreground">{removeDialog.display}</strong>?
+                </p>
+                <p className="text-amber-400 font-medium text-base">
+                  {removeDialog.count} transaction{removeDialog.count !== 1 ? 's' : ''} will be unlinked.
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  The transactions themselves won't be deleted — only the bank account info will be cleared.
+                </p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="rounded-xl">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleRemove}
+              className="rounded-xl bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={removeBankAccount.isPending}
+            >
+              {removeBankAccount.isPending && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
+              Remove
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Link / Merge Dialog */}
+      <Dialog
+        open={mergeDialog.open}
+        onOpenChange={(open) => {
+          setMergeDialog((prev) => ({ ...prev, open }));
+          if (!open) setMergeTarget('');
+        }}
+      >
+        <DialogContent className="glass-elevated border-border/50 max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-semibold flex items-center gap-2">
+              <Merge className="w-5 h-5 text-primary" />
+              Link Bank Account
+            </DialogTitle>
+          </DialogHeader>
+
+          {mergeDialog.source && (
+            <div className="space-y-4 py-2">
+              <div className="p-4 rounded-xl bg-muted/30 border border-border/50">
+                <p className="text-sm text-muted-foreground mb-1">This account</p>
+                <p className="text-base font-semibold text-foreground">{mergeDialog.source.display}</p>
+                {mergeDialog.source.nickname && (
+                  <p className="text-sm text-muted-foreground">{mergeDialog.source.technicalDisplay}</p>
+                )}
+                <p className="text-sm text-muted-foreground">
+                  {mergeDialog.source.transactionCount} transaction{mergeDialog.source.transactionCount !== 1 ? 's' : ''}
+                </p>
+              </div>
+
+              <div className="text-center text-muted-foreground text-sm">will appear under ↓</div>
+
+              <div>
+                <p className="text-sm text-muted-foreground mb-2">Target account</p>
+                <Select value={mergeTarget} onValueChange={setMergeTarget}>
+                  <SelectTrigger className="bg-muted/30 border-border/50 rounded-xl h-12">
+                    <SelectValue placeholder="Select target account" />
+                  </SelectTrigger>
+                  <SelectContent className="glass-card border-border/50">
+                    {bankAccounts
+                      .filter(
+                        (a) =>
+                          `${a.bankName}|${a.accountLast4}` !==
+                          `${mergeDialog.source!.bankName}|${mergeDialog.source!.accountLast4}`
+                      )
+                      .map((a) => (
+                        <SelectItem key={`${a.bankName}|${a.accountLast4}`} value={`${a.bankName}|${a.accountLast4}`}>
+                          <span className="flex items-center gap-2">
+                            <Building2 className="w-4 h-4 text-blue-400" />
+                            {a.display}
+                            <span className="text-muted-foreground">({a.transactionCount})</span>
+                          </span>
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {mergeTarget && (
+                <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
+                  <p className="text-sm text-emerald-400">
+                    No data will be modified. Transactions from "{mergeDialog.source.display}" will
+                    simply appear under the target account in the UI. You can unlink anytime.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
+          <div className="flex gap-3 pt-2">
+            <Button
+              variant="outline"
+              className="flex-1 rounded-xl border-border/50"
+              onClick={() => {
+                setMergeDialog({ open: false, source: null });
+                setMergeTarget('');
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              className="flex-1 rounded-xl"
+              onClick={handleMerge}
+              disabled={!mergeTarget || createAlias.isPending}
+            >
+              {createAlias.isPending && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
+              Link
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Nickname Dialog */}
+      <Dialog
+        open={nicknameDialog.open}
+        onOpenChange={(open) => setNicknameDialog((prev) => ({ ...prev, open }))}
+      >
+        <DialogContent className="glass-elevated border-border/50 max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-semibold">Rename Account</DialogTitle>
+          </DialogHeader>
+
+          {nicknameDialog.account && (
+            <div className="space-y-4 py-2">
+              <div className="p-4 rounded-xl bg-muted/30 border border-border/50">
+                <p className="text-sm text-muted-foreground mb-1">Account</p>
+                <p className="text-base font-semibold text-foreground">
+                  {nicknameDialog.account.technicalDisplay}
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="nickname" className="text-sm text-muted-foreground">
+                  Display name
+                </Label>
+                <Input
+                  id="nickname"
+                  value={nicknameValue}
+                  onChange={(e) => setNicknameValue(e.target.value)}
+                  placeholder={`e.g., ${nicknameDialog.account.bankName || 'My'} Savings`}
+                  className="bg-muted/30 border-border/50 rounded-xl h-12"
+                  autoFocus
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleSaveNickname();
+                  }}
+                />
+                <p className="text-sm text-muted-foreground">
+                  Leave empty to use the default name.
+                </p>
+              </div>
+
+              {/* Preview */}
+              <div className="p-4 rounded-xl bg-muted/20 border border-border/30">
+                <p className="text-sm text-muted-foreground mb-2">Preview</p>
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center">
+                    <Building2 className="w-5 h-5 text-blue-400" />
+                  </div>
+                  <div>
+                    <p className="text-base font-semibold text-foreground">
+                      {nicknameValue.trim() || nicknameDialog.account.technicalDisplay}
+                    </p>
+                    {nicknameValue.trim() && (
+                      <p className="text-sm text-muted-foreground">
+                        {nicknameDialog.account.technicalDisplay}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="flex gap-3 pt-2">
+            <Button
+              variant="outline"
+              className="flex-1 rounded-xl border-border/50"
+              onClick={() => setNicknameDialog({ open: false, account: null })}
+            >
+              Cancel
+            </Button>
+            <Button
+              className="flex-1 rounded-xl"
+              onClick={handleSaveNickname}
+              disabled={setNickname.isPending || deleteNickname.isPending}
+            >
+              {(setNickname.isPending || deleteNickname.isPending) && (
+                <Loader2 className="w-4 h-4 animate-spin mr-2" />
+              )}
+              Save
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
