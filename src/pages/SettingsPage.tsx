@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  User, Key, Copy, RefreshCw, LogOut, Check, Loader2, Sparkles,
+  User, Key, Copy, RefreshCw, LogOut, Check, Loader2,
   History, ChevronRight, Building2, Tag, Lock,
 } from 'lucide-react';
 import { AppLayout } from '@/components/layout/AppLayout';
@@ -382,37 +382,6 @@ export default function SettingsPage() {
             </div>
             <ChevronRight className="w-5 h-5 text-muted-foreground" />
           </button>
-        </motion.div>
-
-        {/* App Info */}
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2, duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-          className="glass-card p-5 mb-4"
-        >
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-              <Sparkles className="w-5 h-5 text-primary" />
-            </div>
-            <div>
-              <h3 className="font-semibold text-base text-foreground">App Info</h3>
-              <p className="text-sm text-muted-foreground">
-                Version and demo data
-              </p>
-            </div>
-          </div>
-          
-          <div className="space-y-3">
-            <div className="flex justify-between items-center p-3 rounded-xl bg-muted/30">
-              <span className="text-base text-muted-foreground">App Version</span>
-              <span className="text-base text-foreground font-medium">1.0.0</span>
-            </div>
-            <div className="flex justify-between items-center p-3 rounded-xl bg-muted/30">
-              <span className="text-base text-muted-foreground">Build</span>
-              <span className="text-base text-foreground font-medium">MTWallet PWA</span>
-            </div>
-          </div>
         </motion.div>
 
         {/* Logout */}
