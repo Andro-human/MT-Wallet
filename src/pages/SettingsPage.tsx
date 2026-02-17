@@ -103,7 +103,7 @@ export default function SettingsPage() {
 
     return (
         <AppLayout>
-            <div className="px-5 pt-8 pb-4 safe-area-top">
+            <div className="px-5 pt-6 md:pt-12 pb-4 safe-area-top">
                 {/* Header */}
                 <motion.div
                     initial={{ opacity: 0, y: -12 }}

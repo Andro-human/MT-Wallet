@@ -37,7 +37,7 @@ export default function HomePage() {
 
   return (
     <AppLayout>
-      <div className="px-6 pt-12 pb-4 safe-area-top max-w-2xl mx-auto">
+      <div className="px-6 pt-6 md:pt-12 pb-4 safe-area-top max-w-2xl mx-auto">
         {/* Header - Minimalist */}
         <motion.div
           initial={{ opacity: 0, y: -12 }}
@@ -88,8 +88,8 @@ export default function HomePage() {
 
                   <div className="flex items-center gap-3 mt-4">
                     <div className={`flex items-center gap-1.5 px-2 py-1 border text-xs font-mono font-medium ${monthChange > 0
-                        ? 'border-destructive/30 text-destructive bg-destructive/5'
-                        : 'border-primary/30 text-primary bg-primary/5'
+                      ? 'border-destructive/30 text-destructive bg-destructive/5'
+                      : 'border-primary/30 text-primary bg-primary/5'
                       }`}>
                       {monthChange > 0 ? '▲' : '▼'} {Math.abs(monthChange).toFixed(0)}%
                     </div>

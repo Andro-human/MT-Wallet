@@ -49,14 +49,14 @@ function useParamState(key: string, defaultValue: string) {
 }
 
 // ─── Month/Year Picker (reused from InsightsPage) ────────────────────────────
-function MonthYearPicker({ 
-  value, 
-  onChange, 
+function MonthYearPicker({
+  value,
+  onChange,
   label,
   maxDate,
-}: { 
-  value: Date; 
-  onChange: (d: Date) => void; 
+}: {
+  value: Date;
+  onChange: (d: Date) => void;
   label: string;
   maxDate?: Date;
 }) {
@@ -88,15 +88,15 @@ function MonthYearPicker({
     <div className="space-y-3">
       <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">{label}</p>
       <div className="flex items-center justify-between">
-        <button 
-          onClick={() => changeYear(-1)} 
+        <button
+          onClick={() => changeYear(-1)}
           className="w-8 h-8 rounded-lg bg-muted/50 flex items-center justify-center hover:bg-muted transition-colors"
         >
           <ChevronLeft className="w-4 h-4" />
         </button>
         <span className="text-sm font-bold text-foreground">{year}</span>
-        <button 
-          onClick={() => changeYear(1)} 
+        <button
+          onClick={() => changeYear(1)}
           className={cn(
             "w-8 h-8 rounded-lg bg-muted/50 flex items-center justify-center transition-colors",
             maxDate && year >= getYear(maxDate) ? "opacity-30 cursor-not-allowed" : "hover:bg-muted"
@@ -114,8 +114,8 @@ function MonthYearPicker({
             disabled={isMonthDisabled(i)}
             className={cn(
               'py-2 rounded-lg text-xs font-medium transition-all duration-200',
-              month === i 
-                ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/25' 
+              month === i
+                ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/25'
                 : isMonthDisabled(i)
                   ? 'text-muted-foreground/30 cursor-not-allowed'
                   : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
@@ -135,7 +135,7 @@ export default function TransactionsPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
-  
+
   // All filter state lives in URL search params — survives navigation
   const [search, setSearch] = useParamState('search', '');
   const merchant = searchParams.get('merchant') || '';
@@ -207,14 +207,14 @@ export default function TransactionsPage() {
   const { data: categories = [] } = useCategories();
   const { data: groups = [] } = useTransactionGroups();
   const { data: bankAccountsList = [] } = useBankAccounts();
-  
+
   const activeCategory = categories.find(c => c.id === categoryFilter);
 
   // Find the matching bank account (with nickname) for the filtered view
   const activeBankAccount = isBankFiltered
     ? bankAccountsList.find(
-        (a) => a.bankName === bankNameParam && a.accountLast4 === accountLast4Param
-      )
+      (a) => a.bankName === bankNameParam && a.accountLast4 === accountLast4Param
+    )
     : undefined;
 
   const dateRange = useMemo(() => {
@@ -252,7 +252,7 @@ export default function TransactionsPage() {
   }, [transactions, sortMode]);
 
   // Batch-fetch refund totals for all debit transactions on screen
-  const debitTxnIds = useMemo(() => 
+  const debitTxnIds = useMemo(() =>
     sortedTransactions.filter(t => t.direction === 'debit').map(t => t.id),
     [sortedTransactions]
   );
@@ -278,7 +278,7 @@ export default function TransactionsPage() {
   };
 
   const hasActiveFilters = (dateFilter !== defaultDateFilter) || directionFilter !== 'all' || categoryFilter !== 'all' || groupFilter !== 'all' || effectiveSearch || searchInput;
-  
+
   const activeGroup = groups.find(g => g.id === groupFilter);
 
   // Multi-select handlers
@@ -301,7 +301,7 @@ export default function TransactionsPage() {
 
   const handleDeleteSelected = async () => {
     if (!user || selectedIds.size === 0) return;
-    
+
     const confirmed = window.confirm(`Delete ${selectedIds.size} transaction${selectedIds.size > 1 ? 's' : ''}? This cannot be undone.`);
     if (!confirmed) return;
 
@@ -334,7 +334,7 @@ export default function TransactionsPage() {
 
   return (
     <AppLayout>
-      <div className="px-5 pt-8 pb-24 safe-area-top">
+      <div className="px-5 pt-6 md:pt-12 pb-24 safe-area-top">
         {/* Back Button for Filtered Views */}
         {isFilteredView && !isSelectMode && (
           <motion.button
@@ -392,91 +392,91 @@ export default function TransactionsPage() {
 
         {/* Header */}
         {!isSelectMode && (
-        <motion.div
-          initial={{ opacity: 0, y: -12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-          className="mb-6"
-        >
-          {activeGroup ? (
-            <>
-              <div className="flex items-center gap-3 mb-1">
-                <div 
-                  className="w-10 h-10 rounded-xl flex items-center justify-center text-lg"
-                  style={{ backgroundColor: activeGroup.color + '20' }}
-                >
-                  {activeGroup.icon}
+          <motion.div
+            initial={{ opacity: 0, y: -12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+            className="mb-6"
+          >
+            {activeGroup ? (
+              <>
+                <div className="flex items-center gap-3 mb-1">
+                  <div
+                    className="w-10 h-10 rounded-xl flex items-center justify-center text-lg"
+                    style={{ backgroundColor: activeGroup.color + '20' }}
+                  >
+                    {activeGroup.icon}
+                  </div>
+                  <div>
+                    <h1 className="text-2xl font-bold text-foreground">{activeGroup.name}</h1>
+                    {activeGroup.description && (
+                      <p className="text-sm text-muted-foreground">{activeGroup.description}</p>
+                    )}
+                  </div>
                 </div>
-                <div>
-                  <h1 className="text-2xl font-bold text-foreground">{activeGroup.name}</h1>
-                  {activeGroup.description && (
-                    <p className="text-sm text-muted-foreground">{activeGroup.description}</p>
-                  )}
+                <p className="text-sm text-muted-foreground mt-2">
+                  {transactions.length} transactions
+                </p>
+              </>
+            ) : activeCategory && categoryFilter !== 'all' ? (
+              <>
+                <div className="flex items-center gap-3 mb-1">
+                  <div
+                    className="w-10 h-10 rounded-xl flex items-center justify-center text-lg"
+                    style={{ backgroundColor: activeCategory.color + '20' }}
+                  >
+                    {activeCategory.icon}
+                  </div>
+                  <div>
+                    <h1 className="text-2xl font-bold text-foreground">{activeCategory.name}</h1>
+                    <p className="text-sm text-muted-foreground">Category</p>
+                  </div>
                 </div>
-              </div>
-              <p className="text-sm text-muted-foreground mt-2">
-                {transactions.length} transactions
-              </p>
-            </>
-          ) : activeCategory && categoryFilter !== 'all' ? (
-            <>
-              <div className="flex items-center gap-3 mb-1">
-                <div 
-                  className="w-10 h-10 rounded-xl flex items-center justify-center text-lg"
-                  style={{ backgroundColor: activeCategory.color + '20' }}
-                >
-                  {activeCategory.icon}
-                </div>
-                <div>
-                  <h1 className="text-2xl font-bold text-foreground">{activeCategory.name}</h1>
-                  <p className="text-sm text-muted-foreground">Category</p>
-                </div>
-              </div>
-              <p className="text-sm text-muted-foreground mt-2">
-                {transactions.length} transactions
-              </p>
-            </>
+                <p className="text-sm text-muted-foreground mt-2">
+                  {transactions.length} transactions
+                </p>
+              </>
             ) : isBankFiltered ? (
-            <>
-              <div className="flex items-center gap-3 mb-1">
-                <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center">
-                  <Building2 className="w-5 h-5 text-blue-400" />
+              <>
+                <div className="flex items-center gap-3 mb-1">
+                  <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center">
+                    <Building2 className="w-5 h-5 text-blue-400" />
+                  </div>
+                  <div>
+                    <h1 className="text-2xl font-bold text-foreground">
+                      {activeBankAccount?.display
+                        ?? (bankNameParam && accountLast4Param
+                          ? `${bankNameParam} ••${accountLast4Param}`
+                          : bankNameParam || `••${accountLast4Param}`)}
+                    </h1>
+                    {activeBankAccount?.nickname && (
+                      <p className="text-sm text-muted-foreground">{activeBankAccount.technicalDisplay}</p>
+                    )}
+                    {!activeBankAccount?.nickname && (
+                      <p className="text-sm text-muted-foreground">Bank Account</p>
+                    )}
+                  </div>
                 </div>
-                <div>
-                  <h1 className="text-2xl font-bold text-foreground">
-                    {activeBankAccount?.display
-                      ?? (bankNameParam && accountLast4Param
-                        ? `${bankNameParam} ••${accountLast4Param}`
-                        : bankNameParam || `••${accountLast4Param}`)}
-                  </h1>
-                  {activeBankAccount?.nickname && (
-                    <p className="text-sm text-muted-foreground">{activeBankAccount.technicalDisplay}</p>
-                  )}
-                  {!activeBankAccount?.nickname && (
-                    <p className="text-sm text-muted-foreground">Bank Account</p>
-                  )}
-                </div>
-              </div>
-              <p className="text-sm text-muted-foreground mt-2">
-                {transactions.length} transactions
-              </p>
-            </>
-          ) : merchant ? (
-            <>
+                <p className="text-sm text-muted-foreground mt-2">
+                  {transactions.length} transactions
+                </p>
+              </>
+            ) : merchant ? (
+              <>
                 <h1 className="text-2xl font-bold text-foreground">{merchant}</h1>
-              <p className="text-sm text-muted-foreground mt-0.5">
-                {transactions.length} transactions
-              </p>
-            </>
-          ) : (
-            <>
-              <h1 className="text-2xl font-bold text-foreground">Activity</h1>
-              <p className="text-sm text-muted-foreground mt-0.5">
-                {transactions.length} transactions found
-              </p>
-            </>
-          )}
-        </motion.div>
+                <p className="text-sm text-muted-foreground mt-0.5">
+                  {transactions.length} transactions
+                </p>
+              </>
+            ) : (
+              <>
+                <h1 className="text-2xl font-bold text-foreground">Activity</h1>
+                <p className="text-sm text-muted-foreground mt-0.5">
+                  {transactions.length} transactions found
+                </p>
+              </>
+            )}
+          </motion.div>
         )}
 
         {/* Activity Summary Chart (default view) */}
@@ -490,14 +490,14 @@ export default function TransactionsPage() {
 
         {/* Filtered View Spending Summary (category / merchant / group pages) */}
         {isFilteredView && transactions.length > 0 && !isSelectMode && (
-          <FilteredViewSummary 
-            transactions={transactions} 
+          <FilteredViewSummary
+            transactions={transactions}
             categories={categories}
           />
         )}
 
         {/* Search */}
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1, duration: 0.3 }}
@@ -521,7 +521,7 @@ export default function TransactionsPage() {
         </motion.div>
 
         {/* Filter Toggle + Select Mode Toggle */}
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.15, duration: 0.3 }}
@@ -540,7 +540,7 @@ export default function TransactionsPage() {
             Filters
             <ChevronDown className={cn('w-3.5 h-3.5 transition-transform duration-200', showFilters && 'rotate-180')} />
           </Button>
-          
+
           {!isSelectMode && (
             <Button
               variant="outline"
@@ -551,7 +551,7 @@ export default function TransactionsPage() {
               Select
             </Button>
           )}
-          
+
           {hasActiveFilters && (
             <Button
               variant="ghost"
@@ -718,23 +718,23 @@ export default function TransactionsPage() {
             ))
           ) : Object.keys(groupedTransactions).length > 0 ? (
             Object.entries(groupedTransactions).map(([date, txns], groupIndex) => (
-              <motion.div 
+              <motion.div
                 key={date}
                 initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: groupIndex * 0.05, duration: 0.3 }}
               >
                 {date !== '_all' && (
-                <p className="text-2xs text-muted-foreground uppercase tracking-extra-wide font-medium mb-2.5 px-1">
-                  {format(new Date(date), 'EEEE, MMM d')}
-                </p>
+                  <p className="text-2xs text-muted-foreground uppercase tracking-extra-wide font-medium mb-2.5 px-1">
+                    {format(new Date(date), 'EEEE, MMM d')}
+                  </p>
                 )}
                 <div className="flex flex-col gap-3">
                   {txns.map((txn, i) => {
                     const refundTotal = refundTotals[txn.id];
                     const net = refundTotal ? Number(txn.amount) - refundTotal : undefined;
                     const isSelected = selectedIds.has(txn.id);
-                    
+
                     if (isSelectMode) {
                       return (
                         <div
@@ -762,16 +762,16 @@ export default function TransactionsPage() {
                     }
 
                     return (
-                    <Link key={txn.id} to={`/transactions/${txn.id}`} className="block">
+                      <Link key={txn.id} to={`/transactions/${txn.id}`} className="block">
                         <TransactionCard transaction={txn} index={i} netAmount={net} />
-                    </Link>
+                      </Link>
                     );
                   })}
                 </div>
               </motion.div>
             ))
           ) : (
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               className="text-center py-16"
@@ -784,40 +784,40 @@ export default function TransactionsPage() {
 
         {/* FAB - Add Transaction */}
         {!isSelectMode && (
-        <motion.button
-          initial={{ scale: 0 }}
-          animate={{ scale: 1 }}
-          transition={{ delay: 0.3, type: 'spring', stiffness: 260, damping: 20 }}
-          onClick={() => setShowAddDialog(true)}
-          className="fixed bottom-24 right-5 w-14 h-14 rounded-full bg-primary text-primary-foreground shadow-lg shadow-primary/30 flex items-center justify-center hover:bg-primary/90 transition-colors z-20"
-        >
-          <Plus className="w-6 h-6" />
-        </motion.button>
+          <motion.button
+            initial={{ scale: 0 }}
+            animate={{ scale: 1 }}
+            transition={{ delay: 0.3, type: 'spring', stiffness: 260, damping: 20 }}
+            onClick={() => setShowAddDialog(true)}
+            className="fixed bottom-24 right-5 w-14 h-14 rounded-full bg-primary text-primary-foreground shadow-lg shadow-primary/30 flex items-center justify-center hover:bg-primary/90 transition-colors z-20"
+          >
+            <Plus className="w-6 h-6" />
+          </motion.button>
         )}
       </div>
 
       {/* Add Transaction Dialog */}
-      <AddTransactionDialog 
-        open={showAddDialog} 
-        onOpenChange={setShowAddDialog} 
+      <AddTransactionDialog
+        open={showAddDialog}
+        onOpenChange={setShowAddDialog}
       />
     </AppLayout>
   );
 }
 
 // ─── Filtered View Summary (Category / Merchant / Group page) ────────────────
-function FilteredViewSummary({ 
-  transactions, 
-  categories 
-}: { 
-  transactions: any[]; 
+function FilteredViewSummary({
+  transactions,
+  categories
+}: {
+  transactions: any[];
   categories: any[];
 }) {
   const stats = useMemo(() => {
     const totalSpent = transactions
       .filter(t => t.is_expense)
       .reduce((sum: number, t: any) => sum + Number(t.amount), 0);
-    
+
     const totalIncome = transactions
       .filter((t: any) => t.is_income)
       .reduce((sum: number, t: any) => sum + Number(t.amount), 0);
