@@ -7,15 +7,11 @@ interface AppLayoutProps {
 
 export function AppLayout({ children }: AppLayoutProps) {
   return (
-    <div className="min-h-screen bg-background">
-      {/* Subtle gradient overlay for depth */}
-      <div 
-        className="fixed inset-0 pointer-events-none"
-        style={{
-          background: 'radial-gradient(ellipse 80% 50% at 50% -20%, hsl(252 87% 64% / 0.08), transparent)',
-        }}
-      />
-      <main className="relative pb-24">
+    <div className="min-h-screen bg-background relative selection:bg-primary/30">
+      {/* Neo Grid Background */}
+      <div className="fixed inset-0 bg-grid-small opacity-20 pointer-events-none" />
+
+      <main className="relative pb-24 z-10">
         {children}
       </main>
       <BottomNav />

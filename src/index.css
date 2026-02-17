@@ -1,100 +1,81 @@
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Syne:wght@400;500;600;700;800&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* MTWallet 2026 Design System - Premium Fintech */
-
 @layer base {
   :root {
-    /* Deep dark base with subtle blue undertone */
-    --background: 240 15% 4%;
+    /* Neo-Modernist Palette */
+    /* Background: Deep Matte Black #050505 */
+    --background: 0 0% 2%;
+    /* Foreground: Off-White #FAFAFA */
     --foreground: 0 0% 98%;
 
-    /* Elevated surfaces */
-    --card: 240 12% 8%;
+    /* Card: Slightly lighter black #0A0A0A */
+    --card: 0 0% 4%;
     --card-foreground: 0 0% 98%;
-    --card-elevated: 240 12% 11%;
 
-    --popover: 240 12% 10%;
+    /* Popover: Same as card */
+    --popover: 0 0% 4%;
     --popover-foreground: 0 0% 98%;
 
-    /* Electric indigo accent */
-    --primary: 252 87% 64%;
-    --primary-foreground: 240 15% 4%;
+    /* Primary: Acid Lime #D4FF32 */
+    --primary: 73 100% 60%;
+    --primary-foreground: 0 0% 2%;
 
-    --secondary: 240 12% 14%;
+    /* Secondary: Dark Grey #1A1A1A */
+    --secondary: 0 0% 10%;
     --secondary-foreground: 0 0% 98%;
 
-    --muted: 240 10% 16%;
-    --muted-foreground: 240 5% 55%;
+    /* Muted: Mid Grey #262626 */
+    --muted: 0 0% 15%;
+    --muted-foreground: 0 0% 60%;
 
-    --accent: 252 87% 64%;
-    --accent-foreground: 240 15% 4%;
+    /* Accent: Acid Lime (reused for consistency) or White */
+    --accent: 73 100% 60%;
+    --accent-foreground: 0 0% 2%;
 
-    --destructive: 0 72% 51%;
+    /* Destructive: Bright Red */
+    --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 98%;
 
-    /* Soft coral for success - premium feel */
-    --success: 160 84% 39%;
-    --success-foreground: 0 0% 98%;
+    /* Border: Subtle Dark Grey */
+    --border: 0 0% 15%;
+    --input: 0 0% 15%;
+    --ring: 73 100% 60%;
 
-    --border: 240 10% 14%;
-    --input: 240 10% 14%;
-    --ring: 252 87% 64%;
+    --radius: 0.375rem; /* rounded-md */
 
-    --radius: 1rem;
-
-    /* Category Colors - Vibrant against dark */
-    --category-food: 32 95% 55%;
-    --category-transport: 220 90% 56%;
-    --category-shopping: 340 82% 62%;
-    --category-entertainment: 280 85% 65%;
-    --category-bills: 0 75% 58%;
-    --category-health: 162 73% 46%;
-    --category-travel: 195 90% 48%;
-    --category-education: 28 95% 55%;
-    --category-income: 160 84% 39%;
-    --category-transfer: 240 10% 50%;
-    --category-other: 240 8% 55%;
-
-    /* Glass effects */
-    --glass-bg: 240 12% 8% / 0.7;
-    --glass-border: 0 0% 100% / 0.06;
-    --glass-glow: 252 87% 64% / 0.15;
-
-    /* Sidebar */
-    --sidebar-background: 240 15% 4%;
-    --sidebar-foreground: 0 0% 98%;
-    --sidebar-primary: 252 87% 64%;
-    --sidebar-primary-foreground: 240 15% 4%;
-    --sidebar-accent: 240 12% 14%;
-    --sidebar-accent-foreground: 0 0% 98%;
-    --sidebar-border: 240 10% 14%;
-    --sidebar-ring: 252 87% 64%;
+    /* Chart Colors - High Contrast */
+    --color-1: 73 100% 60%; /* Lime */
+    --color-2: 280 85% 65%; /* Purple */
+    --color-3: 190 90% 50%; /* Cyan */
+    --color-4: 320 80% 60%; /* Pink */
+    --color-5: 30 100% 60%; /* Orange */
   }
 
   .dark {
-    --background: 240 15% 4%;
+    /* Force dark mode variables everywhere */
+    --background: 0 0% 2%;
     --foreground: 0 0% 98%;
-    --card: 240 12% 8%;
+    --card: 0 0% 4%;
     --card-foreground: 0 0% 98%;
-    --popover: 240 12% 10%;
+    --popover: 0 0% 4%;
     --popover-foreground: 0 0% 98%;
-    --primary: 252 87% 64%;
-    --primary-foreground: 240 15% 4%;
-    --secondary: 240 12% 14%;
+    --primary: 73 100% 60%;
+    --primary-foreground: 0 0% 2%;
+    --secondary: 0 0% 10%;
     --secondary-foreground: 0 0% 98%;
-    --muted: 240 10% 16%;
-    --muted-foreground: 240 5% 55%;
-    --accent: 252 87% 64%;
-    --accent-foreground: 240 15% 4%;
-    --destructive: 0 72% 51%;
+    --muted: 0 0% 15%;
+    --muted-foreground: 0 0% 60%;
+    --accent: 73 100% 60%;
+    --accent-foreground: 0 0% 2%;
+    --destructive: 0 62% 30%;
     --destructive-foreground: 0 0% 98%;
-    --border: 240 10% 14%;
-    --input: 240 10% 14%;
-    --ring: 252 87% 64%;
+    --border: 0 0% 15%;
+    --input: 0 0% 15%;
+    --ring: 73 100% 60%;
   }
 }
 
@@ -102,185 +83,31 @@
   * {
     @apply border-border;
   }
-
   body {
-    @apply bg-background text-foreground antialiased;
-    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
-    font-feature-settings: 'tnum' on, 'lnum' on;
+    @apply bg-background text-foreground antialiased font-sans;
   }
-
-  /* Hide scrollbar for clean mobile feel */
-  ::-webkit-scrollbar {
-    width: 0;
-    height: 0;
-  }
-
-  /* Safe area padding for iOS */
-  .safe-area-bottom {
-    padding-bottom: max(env(safe-area-inset-bottom, 0px), 12px);
-  }
-
-  .safe-area-top {
-    padding-top: env(safe-area-inset-top, 0px);
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-heading tracking-tight;
   }
 }
 
 @layer utilities {
-  /* Premium glass effect */
-  .glass {
-    @apply backdrop-blur-2xl;
-    background: hsl(var(--glass-bg));
-    border: 1px solid hsl(var(--glass-border));
+  .bg-grid {
+    background-size: 40px 40px;
+    background-image: 
+      linear-gradient(to right, rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+  }
+  
+  .bg-grid-small {
+     background-size: 20px 20px;
+     background-image: 
+       linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+       linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
   }
 
-  .glass-card {
-    @apply backdrop-blur-2xl rounded-2xl;
-    background: hsl(var(--glass-bg));
-    border: 1px solid hsl(var(--glass-border));
-    box-shadow: 
-      0 0 0 1px hsl(0 0% 100% / 0.03) inset,
-      0 4px 24px -4px hsl(0 0% 0% / 0.3);
-  }
-
-  .glass-elevated {
-    @apply backdrop-blur-2xl rounded-2xl;
-    background: linear-gradient(
-      135deg,
-      hsl(240 12% 10% / 0.9) 0%,
-      hsl(240 12% 8% / 0.8) 100%
-    );
-    border: 1px solid hsl(var(--glass-border));
-    box-shadow: 
-      0 0 0 1px hsl(0 0% 100% / 0.04) inset,
-      0 8px 32px -8px hsl(0 0% 0% / 0.4);
-  }
-
-  /* Premium gradients */
-  .gradient-primary {
-    background: linear-gradient(
-      135deg,
-      hsl(252 87% 64%) 0%,
-      hsl(280 85% 55%) 100%
-    );
-  }
-
-  .gradient-success {
-    background: linear-gradient(
-      135deg,
-      hsl(160 84% 39%) 0%,
-      hsl(162 73% 32%) 100%
-    );
-  }
-
-  .gradient-card {
-    background: linear-gradient(
-      180deg,
-      hsl(240 12% 10%) 0%,
-      hsl(240 12% 6%) 100%
-    );
-  }
-
-  .gradient-hero {
-    background: linear-gradient(
-      145deg,
-      hsl(252 87% 64% / 0.2) 0%,
-      hsl(280 85% 55% / 0.1) 50%,
-      transparent 100%
-    );
-  }
-
-  .text-gradient {
-    @apply bg-clip-text text-transparent;
-    background-image: linear-gradient(
-      135deg,
-      hsl(252 87% 70%) 0%,
-      hsl(280 85% 70%) 100%
-    );
-  }
-
-  /* Glow effects */
-  .glow-primary {
-    box-shadow: 0 0 24px -4px hsl(var(--primary) / 0.4);
-  }
-
-  .glow-subtle {
-    box-shadow: 0 0 32px -8px hsl(var(--primary) / 0.2);
-  }
-
-  /* Inner glow for depth */
-  .inner-glow {
-    box-shadow: 
-      0 0 0 1px hsl(0 0% 100% / 0.05) inset,
-      0 1px 0 0 hsl(0 0% 100% / 0.03) inset;
-  }
-
-  /* Smooth animations */
-  .animate-fade-up {
-    animation: fadeUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-  }
-
-  @keyframes fadeUp {
-    from {
-      opacity: 0;
-      transform: translateY(16px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
-
-  .animate-scale-in {
-    animation: scaleIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-  }
-
-  @keyframes scaleIn {
-    from {
-      opacity: 0;
-      transform: scale(0.96);
-    }
-    to {
-      opacity: 1;
-      transform: scale(1);
-    }
-  }
-
-  .animate-fade-in {
-    animation: fadeIn 0.3s ease-out forwards;
-  }
-
-  @keyframes fadeIn {
-    from {
-      opacity: 0;
-    }
-    to {
-      opacity: 1;
-    }
-  }
-
-  /* Tabular numbers for amounts */
-  .tabular-nums {
-    font-variant-numeric: tabular-nums;
-    font-feature-settings: 'tnum' on;
-  }
-
-  /* Premium currency styling */
-  .currency-display {
-    @apply tabular-nums tracking-tight;
-  }
-
-  .currency-symbol {
-    @apply text-[0.75em] opacity-70 mr-0.5;
-  }
-
-  /* Floating nav pill */
-  .nav-pill {
-    @apply backdrop-blur-2xl rounded-full;
-    background: hsl(240 12% 8% / 0.85);
-    border: 1px solid hsl(0 0% 100% / 0.08);
-    box-shadow: 
-      0 0 0 1px hsl(0 0% 100% / 0.03) inset,
-      0 -4px 24px -4px hsl(0 0% 0% / 0.3),
-      0 8px 24px -4px hsl(0 0% 0% / 0.4);
+  /* Sharp Card Utility */
+  .neo-card {
+    @apply bg-card border border-border rounded-md shadow-none hover:border-primary/50 transition-colors duration-300;
   }
 }

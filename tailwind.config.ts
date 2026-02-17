@@ -31,10 +31,6 @@ export default {
           DEFAULT: "hsl(var(--destructive))",
           foreground: "hsl(var(--destructive-foreground))",
         },
-        success: {
-          DEFAULT: "hsl(var(--success))",
-          foreground: "hsl(var(--success-foreground))",
-        },
         muted: {
           DEFAULT: "hsl(var(--muted))",
           foreground: "hsl(var(--muted-foreground))",
@@ -50,50 +46,16 @@ export default {
         card: {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
-          elevated: "hsl(var(--card-elevated))",
-        },
-        sidebar: {
-          DEFAULT: "hsl(var(--sidebar-background))",
-          foreground: "hsl(var(--sidebar-foreground))",
-          primary: "hsl(var(--sidebar-primary))",
-          "primary-foreground": "hsl(var(--sidebar-primary-foreground))",
-          accent: "hsl(var(--sidebar-accent))",
-          "accent-foreground": "hsl(var(--sidebar-accent-foreground))",
-          border: "hsl(var(--sidebar-border))",
-          ring: "hsl(var(--sidebar-ring))",
-        },
-        category: {
-          food: "hsl(var(--category-food))",
-          transport: "hsl(var(--category-transport))",
-          shopping: "hsl(var(--category-shopping))",
-          entertainment: "hsl(var(--category-entertainment))",
-          bills: "hsl(var(--category-bills))",
-          health: "hsl(var(--category-health))",
-          travel: "hsl(var(--category-travel))",
-          education: "hsl(var(--category-education))",
-          income: "hsl(var(--category-income))",
-          transfer: "hsl(var(--category-transfer))",
-          other: "hsl(var(--category-other))",
         },
       },
       borderRadius: {
-        "3xl": "1.5rem",
-        "2xl": "1rem",
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
       },
-      spacing: {
-        "18": "4.5rem",
-        "22": "5.5rem",
-      },
-      fontSize: {
-        "2xs": ["0.625rem", { lineHeight: "0.875rem" }],
-        "display": ["3rem", { lineHeight: "1.1", letterSpacing: "-0.02em", fontWeight: "700" }],
-        "hero": ["2.5rem", { lineHeight: "1.15", letterSpacing: "-0.02em", fontWeight: "700" }],
-      },
-      letterSpacing: {
-        "extra-wide": "0.12em",
+      fontFamily: {
+        sans: ["Inter", "sans-serif"],
+        heading: ["Syne", "sans-serif"],
       },
       keyframes: {
         "accordion-down": {
@@ -104,26 +66,10 @@ export default {
           from: { height: "var(--radix-accordion-content-height)" },
           to: { height: "0" },
         },
-        "pulse-subtle": {
-          "0%, 100%": { opacity: "1" },
-          "50%": { opacity: "0.85" },
-        },
-        "float": {
-          "0%, 100%": { transform: "translateY(0)" },
-          "50%": { transform: "translateY(-4px)" },
-        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
-        "pulse-subtle": "pulse-subtle 2.5s ease-in-out infinite",
-        "float": "float 3s ease-in-out infinite",
-      },
-      fontFamily: {
-        sans: ['"Plus Jakarta Sans"', 'system-ui', '-apple-system', 'sans-serif'],
-      },
-      backdropBlur: {
-        "3xl": "64px",
       },
     },
   },

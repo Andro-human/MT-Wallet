@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
-import { TrendingDown, TrendingUp, ChevronRight, ArrowUpRight, ArrowDownRight } from 'lucide-react';
+import { TrendingDown, TrendingUp, ChevronRight, ArrowUpRight, ArrowDownRight, Activity } from 'lucide-react';
 import { format } from 'date-fns';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { SpendingDonut } from '@/components/dashboard/SpendingDonut';
@@ -25,10 +25,11 @@ export default function HomePage() {
     isLoading,
   } = useDashboardStats();
 
-  const monthName = format(new Date(), 'MMMM yyyy');
+  const monthName = format(new Date(), 'MMMM');
+  const year = format(new Date(), 'yyyy');
 
   // Batch-fetch refund totals for recent debit transactions
-  const debitTxnIds = useMemo(() => 
+  const debitTxnIds = useMemo(() =>
     recentTxns.filter(t => t.direction === 'debit').map(t => t.id),
     [recentTxns]
   );
@@ -36,150 +37,145 @@ export default function HomePage() {
 
   return (
     <AppLayout>
-      <div className="px-5 pt-8 pb-4 safe-area-top">
-        {/* Header */}
+      <div className="px-6 pt-12 pb-4 safe-area-top max-w-2xl mx-auto">
+        {/* Header - Minimalist */}
         <motion.div
           initial={{ opacity: 0, y: -12 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-          className="flex items-center justify-between mb-8"
+          transition={{ duration: 0.4 }}
+          className="flex items-end justify-between mb-8 border-b border-border/50 pb-4"
         >
           <div>
-            <h1 className="text-2xl font-bold text-foreground">
-              Hi, {user?.user_metadata?.full_name?.split(' ')[0] || 'there'} 👋
+            <p className="text-xs font-mono uppercase tracking-widest text-muted-foreground mb-1">
+              Terminal • {user?.user_metadata?.full_name?.split(' ')[0] || 'User'}
+            </p>
+            <h1 className="text-3xl font-heading font-bold text-foreground leading-none">
+              Dashboard
             </h1>
-            <p className="text-sm text-muted-foreground mt-0.5">{monthName}</p>
+          </div>
+          <div className="text-right">
+            <p className="text-sm font-bold text-primary">{monthName}</p>
+            <p className="text-xs text-muted-foreground font-mono">{year}</p>
           </div>
         </motion.div>
 
-        {/* Hero Stat Card */}
-        <motion.div
-          initial={{ opacity: 0, scale: 0.96 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ delay: 0.1, duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-          className="glass-elevated p-6 mb-5 overflow-hidden relative"
-        >
-          {/* Gradient accent */}
-          <div 
-            className="absolute top-0 right-0 w-32 h-32 opacity-30"
-            style={{
-              background: 'radial-gradient(circle at top right, hsl(252 87% 64% / 0.4), transparent 70%)',
-            }}
-          />
-          
-          <p className="text-2xs text-muted-foreground uppercase tracking-extra-wide font-medium relative">
-            Total Spent This Month
-          </p>
-          
-          {isLoading ? (
-            <Skeleton className="h-12 w-44 bg-muted/30 mt-3" />
-          ) : (
-            <>
-              <h2 className="text-hero text-foreground mt-2 currency-display relative">
-                <span className="text-[0.6em] text-muted-foreground mr-1">₹</span>
-                {formatINR(thisMonthSpent).replace('₹', '')}
-              </h2>
-              <div className="flex items-center gap-2 mt-3 relative">
-                <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${
-                  monthChange > 0 
-                    ? 'bg-destructive/10 text-destructive' 
-                    : 'bg-success/10 text-success'
-                }`}>
-                  {monthChange > 0 ? (
-                    <ArrowUpRight className="w-3.5 h-3.5" />
-                  ) : (
-                    <ArrowDownRight className="w-3.5 h-3.5" />
-                  )}
-                  {Math.abs(monthChange).toFixed(0)}%
-                </div>
-                <span className="text-xs text-muted-foreground">vs last month</span>
-              </div>
-            </>
-          )}
-        </motion.div>
+        {/* Bento Grid Layout */}
+        <div className="grid grid-cols-2 gap-4 mb-8">
 
-        {/* Stat Grid */}
-        <div className="grid grid-cols-2 gap-3 mb-6">
+          {/* Main Hero: Total Spent - Spans 2 cols */}
+          <div className="col-span-2">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.98 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="neo-card p-6 relative overflow-hidden bg-card"
+            >
+              <div className="absolute top-0 right-0 p-4 opacity-50">
+                <Activity className="w-12 h-12 text-muted-foreground/10" />
+              </div>
+
+              <p className="text-xs font-mono uppercase tracking-widest text-muted-foreground mb-2">
+                Total Output
+              </p>
+
+              {isLoading ? (
+                <Skeleton className="h-12 w-48 bg-muted/20" />
+              ) : (
+                <div className="relative z-10">
+                  <h2 className="text-5xl font-heading font-bold text-foreground tracking-tighter">
+                    <span className="text-2xl text-muted-foreground align-top mr-1">₹</span>
+                    {formatINR(thisMonthSpent).replace('₹', '')}
+                  </h2>
+
+                  <div className="flex items-center gap-3 mt-4">
+                    <div className={`flex items-center gap-1.5 px-2 py-1 border text-xs font-mono font-medium ${monthChange > 0
+                        ? 'border-destructive/30 text-destructive bg-destructive/5'
+                        : 'border-primary/30 text-primary bg-primary/5'
+                      }`}>
+                      {monthChange > 0 ? '▲' : '▼'} {Math.abs(monthChange).toFixed(0)}%
+                    </div>
+                    <span className="text-xs text-muted-foreground font-mono uppercase">vs last month</span>
+                  </div>
+                </div>
+              )}
+            </motion.div>
+          </div>
+
+          {/* Quick Stats */}
           <StatCard
             label="Income"
             value={isLoading ? '...' : formatINRCompact(thisMonthIncome)}
-            icon={<TrendingUp className="w-4 h-4 text-success" />}
+            icon={<TrendingUp className="w-4 h-4" />}
+            variant="default"
           />
           <StatCard
             label="Transactions"
             value={isLoading ? '...' : transactionCount.toString()}
-            icon={<TrendingDown className="w-4 h-4 text-primary" />}
+            icon={<TrendingDown className="w-4 h-4" />}
+            variant="default"
           />
         </div>
 
-        {/* Category Breakdown */}
+        {/* Charts & Breakdown */}
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2, duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-          className="glass-card p-5 mb-6"
+          transition={{ delay: 0.2 }}
+          className="neo-card p-6 mb-8 border-border"
         >
-          <h3 className="font-semibold text-foreground mb-1">Spending by Category</h3>
-          <p className="text-xs text-muted-foreground mb-4">Where your money goes</p>
-          
-          {isLoading ? (
-            <div className="h-56 flex items-center justify-center">
-              <Skeleton className="w-44 h-44 rounded-full" />
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="font-heading font-semibold text-foreground">Allocation</h3>
+            <p className="text-xs font-mono text-muted-foreground uppercase">By Category</p>
+          </div>
+
+          <div className="flex flex-col md:flex-row items-center gap-8">
+            <div className="w-full md:w-1/2 flex justify-center">
+              {isLoading ? (
+                <Skeleton className="w-40 h-40 rounded-full bg-muted/10" />
+              ) : chartData.length > 0 ? (
+                <div className="w-48">
+                  <SpendingDonut data={chartData} totalSpent={thisMonthSpent} />
+                </div>
+              ) : (
+                <div className="h-40 flex items-center justify-center text-muted-foreground text-xs font-mono border border-dashed border-border w-full">
+                  NO DATA
+                </div>
+              )}
             </div>
-          ) : chartData.length > 0 ? (
-            <SpendingDonut data={chartData} totalSpent={thisMonthSpent} />
-          ) : (
-            <div className="h-56 flex items-center justify-center text-muted-foreground text-sm">
-              No transactions this month
-            </div>
-          )}
-          
-          {/* Legend */}
-          {chartData.length > 0 && (
-            <div className="grid grid-cols-2 gap-x-4 gap-y-2.5 mt-5 pt-4 border-t border-border/50">
-              {chartData.slice(0, 4).map((item) => (
-                <div key={item.name} className="flex items-center gap-2.5">
-                  <div
-                    className="w-2.5 h-2.5 rounded-full"
-                    style={{ 
-                      backgroundColor: item.color,
-                      boxShadow: `0 0 8px ${item.color}60`,
-                    }}
-                  />
-                  <span className="text-xs text-muted-foreground truncate">
-                    {item.icon} {item.name}
-                  </span>
+
+            <div className="w-full md:w-1/2 grid grid-cols-2 gap-3">
+              {chartData.slice(0, 6).map((item) => (
+                <div key={item.name} className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-none" style={{ backgroundColor: item.color }} />
+                  <span className="text-xs font-medium text-muted-foreground truncate">{item.name}</span>
+                  <span className="text-xs font-mono ml-auto">{((item.value / thisMonthSpent) * 100).toFixed(0)}%</span>
                 </div>
               ))}
             </div>
-          )}
+          </div>
         </motion.div>
 
         {/* Recent Transactions */}
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3, duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+          transition={{ delay: 0.3 }}
         >
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h3 className="font-semibold text-foreground">Recent Transactions</h3>
-              <p className="text-xs text-muted-foreground mt-0.5">Your latest activity</p>
-            </div>
+          <div className="flex items-center justify-between mb-4 border-b border-border/50 pb-2">
+            <h3 className="font-heading font-semibold text-foreground">Activity Log</h3>
             <Link
               to="/transactions"
-              className="text-sm text-primary font-medium flex items-center gap-1 hover:gap-2 transition-all duration-200"
+              className="text-xs font-mono text-primary flex items-center gap-1 hover:underline underline-offset-4"
             >
-              See all
-              <ChevronRight className="w-4 h-4" />
+              VIEW ALL <ChevronRight className="w-3 h-3" />
             </Link>
           </div>
 
-          <div className="space-y-2.5">
+          <div className="space-y-0 border border-border bg-card">
             {isLoading ? (
-              Array.from({ length: 3 }).map((_, i) => (
-                <Skeleton key={i} className="h-[72px] rounded-2xl" />
-              ))
+              <div className="p-4 space-y-4">
+                <Skeleton className="h-12 w-full bg-muted/10" />
+                <Skeleton className="h-12 w-full bg-muted/10" />
+              </div>
             ) : recentTxns.length > 0 ? (
               recentTxns.map((txn, i) => {
                 const refundTotal = refundTotals[txn.id];
@@ -191,9 +187,8 @@ export default function HomePage() {
                 );
               })
             ) : (
-              <div className="text-center py-12 text-muted-foreground">
-                <p className="text-sm">No transactions yet</p>
-                <p className="text-xs mt-1 opacity-70">Add sample data from Settings</p>
+              <div className="text-center py-12 text-muted-foreground font-mono text-xs">
+                NO TRANSACTIONS RECORDED
               </div>
             )}
           </div>

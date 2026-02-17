@@ -12,6 +12,7 @@ import { formatINR, formatINRCompact } from '@/lib/formatCurrency';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+
 type TimeRange = '1-month' | '3-months' | '6-months' | 'custom';
 type ChartMode = 'total' | 'by-group';
 
@@ -36,14 +37,14 @@ function useInsightParam(key: string, defaultValue: string) {
 }
 
 // ─── Custom Month/Year Picker ────────────────────────────────────────────────
-function MonthYearPicker({ 
-  value, 
-  onChange, 
+function MonthYearPicker({
+  value,
+  onChange,
   label,
   maxDate,
-}: { 
-  value: Date; 
-  onChange: (d: Date) => void; 
+}: {
+  value: Date;
+  onChange: (d: Date) => void;
   label: string;
   maxDate?: Date;
 }) {
@@ -76,15 +77,15 @@ function MonthYearPicker({
       <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">{label}</p>
       {/* Year selector */}
       <div className="flex items-center justify-between">
-        <button 
-          onClick={() => changeYear(-1)} 
+        <button
+          onClick={() => changeYear(-1)}
           className="w-8 h-8 rounded-lg bg-muted/50 flex items-center justify-center hover:bg-muted transition-colors"
         >
           <ChevronLeft className="w-4 h-4" />
         </button>
         <span className="text-sm font-bold text-foreground">{year}</span>
-        <button 
-          onClick={() => changeYear(1)} 
+        <button
+          onClick={() => changeYear(1)}
           className={cn(
             "w-8 h-8 rounded-lg bg-muted/50 flex items-center justify-center transition-colors",
             maxDate && year >= getYear(maxDate) ? "opacity-30 cursor-not-allowed" : "hover:bg-muted"
@@ -103,8 +104,8 @@ function MonthYearPicker({
             disabled={isMonthDisabled(i)}
             className={cn(
               'py-2 rounded-lg text-xs font-medium transition-all duration-200',
-              month === i 
-                ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/25' 
+              month === i
+                ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/25'
                 : isMonthDisabled(i)
                   ? 'text-muted-foreground/30 cursor-not-allowed'
                   : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
@@ -136,7 +137,7 @@ export default function InsightsPage() {
   const [customEnd, setCustomEndState] = useState<Date>(
     customEndStr ? new Date(customEndStr) : new Date()
   );
-  
+
   const setCustomStart = useCallback((d: Date) => {
     setCustomStartState(d);
     setSearchParams(prev => {
@@ -145,7 +146,7 @@ export default function InsightsPage() {
       return next;
     }, { replace: true });
   }, [setSearchParams]);
-  
+
   const setCustomEnd = useCallback((d: Date) => {
     setCustomEndState(d);
     setSearchParams(prev => {
@@ -218,7 +219,7 @@ export default function InsightsPage() {
       const key = format(d, 'yyyy-MM');
       const label = format(d, "MMM''yy");
       months[key] = { label, expense: 0, income: 0 };
-      
+
       // Initialize group columns
       if (chartMode === 'by-group') {
         activeGroups.forEach(g => {
@@ -234,7 +235,7 @@ export default function InsightsPage() {
 
       if (t.is_expense) {
         months[key].expense += Number(t.amount);
-        
+
         if (chartMode === 'by-group') {
           const groupKey = t.group_id ? `group_${t.group_id}` : 'group_ungrouped';
           if (months[key][groupKey] !== undefined) {
@@ -253,7 +254,7 @@ export default function InsightsPage() {
   // Category breakdown
   const categoryBreakdown = useMemo(() => {
     const breakdown: Record<string, number> = {};
-    
+
     transactions
       .filter(t => t.is_expense)
       .forEach(t => {
@@ -278,7 +279,7 @@ export default function InsightsPage() {
   // Group breakdown
   const groupBreakdown = useMemo(() => {
     const breakdown: Record<string, number> = {};
-    
+
     transactions
       .filter(t => t.is_expense && t.group_id)
       .forEach(t => {
@@ -302,7 +303,7 @@ export default function InsightsPage() {
   // Top merchants
   const topMerchants = useMemo(() => {
     const merchants: Record<string, number> = {};
-    
+
     transactions
       .filter(t => t.is_expense && t.merchant)
       .forEach(t => {
@@ -359,32 +360,48 @@ export default function InsightsPage() {
     }
   }, [timeRange, customStart, customEnd, dateRange]);
 
-  // Group bar colors
+  // Group bar colors - Neo-Modernist Palette (Lime, White, Greys)
   const GROUP_COLORS = [
-    '#8B5CF6', '#EC4899', '#F97316', '#06B6D4', '#22C55E', 
-    '#EAB308', '#6366F1', '#F43F5E', '#14B8A6', '#A855F7',
+    '#D4FF32', // Acid Lime
+    '#FFFFFF', // White
+    '#A3A3A3', // Neutral 400
+    '#525252', // Neutral 600
+    '#Fefce8', // Yellow 50 (Subtle)
+    '#d9f99d', // Lime 200
+    '#262626', // Neutral 800
+    '#e5e5e5', // Neutral 200
+    '#facc15', // Yellow 400
   ];
 
   const CustomTooltip = ({ active, payload }: any) => {
     if (active && payload && payload.length) {
       return (
-        <div className="glass-card px-3 py-2 text-xs">
-          <p className="font-semibold mb-1">{payload[0].payload.label}</p>
+        <div className="bg-background border border-border p-3 shadow-2xl">
+          <p className="font-mono font-bold text-xs uppercase tracking-wider mb-2 text-muted-foreground">{payload[0].payload.label}</p>
           {payload.map((p: any) => {
             if (p.value === 0) return null;
             let label = p.dataKey;
-            if (label === 'expense') label = 'Spent';
-            else if (label === 'income') label = 'Income';
-            else if (label === 'group_ungrouped') label = 'Ungrouped';
+            let color = p.stroke || p.fill;
+
+            if (label === 'expense') {
+              label = 'OUT';
+              color = 'hsl(var(--primary))';
+            }
+            else if (label === 'income') {
+              label = 'IN';
+              color = 'hsl(var(--foreground))';
+            }
+            else if (label === 'group_ungrouped') label = 'OTHER';
             else if (label.startsWith('group_')) {
               const gId = label.replace('group_', '');
               const g = groups.find(g => g.id === gId);
               label = g?.name || 'Group';
             }
             return (
-              <p key={p.dataKey} className="text-muted-foreground mt-0.5" style={{ color: p.stroke || p.fill }}>
-                {label}: {formatINR(p.value)}
-              </p>
+              <div key={p.dataKey} className="flex justify-between gap-4 text-xs font-mono">
+                <span style={{ color }}>{label.toUpperCase()}</span>
+                <span className="text-foreground">{formatINR(p.value)}</span>
+              </div>
             );
           })}
         </div>
@@ -403,57 +420,58 @@ export default function InsightsPage() {
   return (
     <AppLayout>
       <div className="px-5 pt-8 pb-4 safe-area-top">
-        {/* Header */}
+        {/* Header - Neo Style */}
         <motion.div
           initial={{ opacity: 0, y: -12 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-          className="mb-6"
+          transition={{ duration: 0.4 }}
+          className="mb-8 border-b border-border/50 pb-4"
         >
-          <h1 className="text-2xl font-bold text-foreground">Insights</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">
-            Deep dive into your spending patterns
+          <h1 className="text-3xl font-heading font-bold text-foreground leading-none">Insights</h1>
+          <p className="text-xs font-mono text-muted-foreground mt-2 uppercase tracking-widest">
+            Spending Analytics
           </p>
         </motion.div>
 
-        {/* Time Range Toggle */}
-        <motion.div 
+        {/* Time Range Toggle - Segmented Control */}
+        <motion.div
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1, duration: 0.3 }}
-          className="flex gap-2 mb-4 p-1 bg-card/50 rounded-xl w-fit"
+          transition={{ delay: 0.1 }}
+          className="mb-6 overflow-x-auto"
         >
-          {timeRangeOptions.map((range) => (
-            <button
-              key={range.value}
-              onClick={() => {
-                setTimeRange(range.value);
-                if (range.value === 'custom') setShowCustomPicker(true);
-                else setShowCustomPicker(false);
-              }}
-              className={cn(
-                'px-4 py-2 text-sm font-medium rounded-lg transition-all duration-200',
-                timeRange === range.value 
-                  ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/25' 
-                  : 'text-muted-foreground hover:text-foreground'
-              )}
-            >
-              {range.label}
-            </button>
-          ))}
+          <div className="flex gap-0 border border-border bg-card w-fit">
+            {timeRangeOptions.map((range) => (
+              <button
+                key={range.value}
+                onClick={() => {
+                  setTimeRange(range.value);
+                  if (range.value === 'custom') setShowCustomPicker(true);
+                  else setShowCustomPicker(false);
+                }}
+                className={cn(
+                  'px-4 py-2 text-xs font-mono font-bold uppercase tracking-wider transition-all border-r border-border last:border-r-0 hover:bg-muted/10',
+                  timeRange === range.value
+                    ? 'bg-primary text-primary-foreground'
+                    : 'text-muted-foreground hover:text-foreground'
+                )}
+              >
+                {range.label}
+              </button>
+            ))}
+          </div>
         </motion.div>
 
-        {/* Custom Date Range Picker - Month/Year based */}
+        {/* Custom Date Range Picker */}
         <AnimatePresence>
           {timeRange === 'custom' && showCustomPicker && (
             <motion.div
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: 'auto' }}
               exit={{ opacity: 0, height: 0 }}
-              transition={{ duration: 0.2 }}
-              className="mb-4 overflow-hidden"
+              className="mb-6 overflow-hidden"
             >
-              <div className="glass-card p-4 space-y-4">
+              <div className="neo-card p-4 space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <MonthYearPicker
                     value={customStart}
@@ -468,17 +486,17 @@ export default function InsightsPage() {
                     maxDate={new Date()}
                   />
                 </div>
-                <div className="flex items-center justify-between pt-2 border-t border-border/30">
-                  <p className="text-xs text-muted-foreground">
+                <div className="flex items-center justify-between pt-2 border-t border-border/50">
+                  <p className="text-xs font-mono text-muted-foreground">
                     {format(startOfMonth(customStart), 'MMM yyyy')} – {format(endOfMonth(customEnd), 'MMM yyyy')}
                   </p>
                   <Button
                     size="sm"
                     variant="ghost"
                     onClick={() => setShowCustomPicker(false)}
-                    className="text-xs"
+                    className="text-xs font-bold uppercase"
                   >
-                    Done
+                    Close
                   </Button>
                 </div>
               </div>
@@ -486,212 +504,111 @@ export default function InsightsPage() {
           )}
         </AnimatePresence>
 
-        {/* Custom range summary (when picker is closed) */}
-        {timeRange === 'custom' && !showCustomPicker && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="mb-4"
-          >
-            <button
-              onClick={() => setShowCustomPicker(true)}
-              className="flex items-center gap-2 px-3 py-2 rounded-xl bg-card/60 border border-border/50 text-sm hover:bg-card transition-colors"
-            >
-              <Calendar className="w-4 h-4 text-primary" />
-              <span className="text-foreground">
-                {format(customStart, 'MMM yyyy')} – {format(customEnd, 'MMM yyyy')}
-              </span>
-            </button>
-          </motion.div>
-        )}
-
-        {/* Advanced Filters Toggle */}
-        <motion.div
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.12, duration: 0.3 }}
-          className="flex items-center gap-2 mb-5"
-        >
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
-            className={cn(
-              'gap-2 rounded-xl border-border/50',
-              showAdvancedFilters || hasAdvancedFilters
-                ? 'bg-primary/10 border-primary/30 text-primary'
-                : ''
-            )}
-          >
-            <Filter className="w-4 h-4" />
-            Filters
-            {hasAdvancedFilters && (
-              <span className="w-5 h-5 rounded-full bg-primary text-primary-foreground text-xs flex items-center justify-center">
-                {excludedGroups.size}
-              </span>
-            )}
-          </Button>
-
-          {hasAdvancedFilters && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={clearAdvancedFilters}
-              className="text-muted-foreground hover:text-foreground"
-            >
-              Clear
-            </Button>
-          )}
-        </motion.div>
-
-        {/* Advanced Filters Panel */}
-        <AnimatePresence>
-          {showAdvancedFilters && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-              className="mb-5 space-y-4"
-            >
-              {/* Exclude Groups */}
-              {groups.length > 0 && (
-                <div className="glass-card p-4">
-                  <div className="flex items-center gap-2 mb-3">
-                    <Folder className="w-4 h-4 text-muted-foreground" />
-                    <h4 className="text-sm font-medium text-foreground">Exclude Groups</h4>
-                    <span className="text-2xs text-muted-foreground ml-auto">
-                      {excludedGroups.size === 0 ? 'None excluded' : `${excludedGroups.size} excluded`}
-                    </span>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {groups.map(group => (
-                      <button
-                        key={group.id}
-                        onClick={() => toggleGroup(group.id)}
-                        className={cn(
-                          'px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 border flex items-center gap-1.5',
-                          excludedGroups.has(group.id)
-                            ? 'bg-destructive/10 border-destructive/30 text-destructive line-through'
-                            : 'bg-muted/30 border-border/50 text-muted-foreground hover:text-foreground'
-                        )}
-                      >
-                        <span>{group.icon}</span>
-                        {group.name}
-                        {excludedGroups.has(group.id) && <X className="w-3 h-3" />}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* Summary Stats */}
+        {/* Summary Stats - Neo Style */}
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.14, duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-          className="grid grid-cols-2 gap-3 mb-4"
+          transition={{ delay: 0.14 }}
+          className="grid grid-cols-2 gap-4 mb-6"
         >
-          <div className="glass-card p-4 text-center">
-            <p className="text-2xs text-muted-foreground uppercase tracking-wider font-medium">Total Spent</p>
-            <p className="text-xl font-bold text-foreground currency-display mt-1">
+          <div className="neo-card p-5 border-l-2 border-l-primary">
+            <p className="text-2xs font-mono text-muted-foreground uppercase tracking-wider mb-1">Total Spent</p>
+            <p className="text-2xl font-bold font-heading text-foreground currency-display">
               {isLoading ? '...' : formatINRCompact(totalSpent)}
             </p>
           </div>
-          <div className="glass-card p-4 text-center">
-            <p className="text-2xs text-muted-foreground uppercase tracking-wider font-medium">Total Income</p>
-            <p className="text-xl font-bold text-success currency-display mt-1">
+          <div className="neo-card p-5 border-l-2 border-l-foreground">
+            <p className="text-2xs font-mono text-muted-foreground uppercase tracking-wider mb-1">Total Income</p>
+            <p className="text-2xl font-bold font-heading text-foreground currency-display">
               {isLoading ? '...' : formatINRCompact(totalIncome)}
             </p>
           </div>
         </motion.div>
 
-        {/* Monthly Trend Chart — Bars for spending + Line for income */}
+        {/* Monthly Trend Chart - Neo Style */}
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.15, duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-          className="glass-card p-5 mb-4"
+          transition={{ delay: 0.15 }}
+          className="neo-card p-6 mb-8"
         >
-          <div className="flex items-center justify-between mb-1">
-            <h3 className="font-semibold text-foreground">Trends</h3>
-            {/* Chart mode toggle: Total vs By Group */}
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h3 className="font-heading font-bold text-foreground">Trends</h3>
+              <p className="text-xs font-mono text-muted-foreground mt-1 lowercase">
+                {chartMode === 'total' ? 'spending vs income' : 'group breakdown'}
+              </p>
+            </div>
+
+            {/* Chart mode toggle */}
             {groups.length > 0 && (
-              <div className="flex gap-1 p-0.5 bg-muted/30 rounded-lg">
+              <div className="flex gap-2">
                 <button
                   onClick={() => setChartMode('total')}
                   className={cn(
-                    'px-2.5 py-1 rounded-md text-2xs font-medium transition-all flex items-center gap-1',
-                    chartMode === 'total' 
-                      ? 'bg-card text-foreground shadow-sm' 
-                      : 'text-muted-foreground hover:text-foreground'
+                    'p-2 rounded-none border transition-all',
+                    chartMode === 'total'
+                      ? 'bg-primary border-primary text-primary-foreground'
+                      : 'border-border text-muted-foreground hover:text-foreground'
                   )}
                 >
-                  <BarChart3 className="w-3 h-3" />
-                  Total
+                  <BarChart3 className="w-4 h-4" />
                 </button>
                 <button
                   onClick={() => setChartMode('by-group')}
                   className={cn(
-                    'px-2.5 py-1 rounded-md text-2xs font-medium transition-all flex items-center gap-1',
-                    chartMode === 'by-group' 
-                      ? 'bg-card text-foreground shadow-sm' 
-                      : 'text-muted-foreground hover:text-foreground'
+                    'p-2 rounded-none border transition-all',
+                    chartMode === 'by-group'
+                      ? 'bg-primary border-primary text-primary-foreground'
+                      : 'border-border text-muted-foreground hover:text-foreground'
                   )}
                 >
-                  <Layers className="w-3 h-3" />
-                  Groups
+                  <Layers className="w-4 h-4" />
                 </button>
               </div>
             )}
           </div>
-          <p className="text-xs text-muted-foreground mb-5">
-            {chartMode === 'total' ? 'Spending (bars) vs Income (line)' : 'Spending breakdown by groups'}
-          </p>
-          
+
           {isLoading ? (
-            <Skeleton className="h-52" />
+            <Skeleton className="h-64 w-full bg-muted/20" />
           ) : monthlyTrend.length > 0 ? (
             <>
-              <div className="h-52">
+              <div className="h-64">
                 <ResponsiveContainer width="100%" height="100%">
                   <ComposedChart data={monthlyTrend} barCategoryGap="20%">
                     <defs>
+                      {/* Neo Gradient: Transparent to Lime */}
                       <linearGradient id="expenseBarGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="hsl(252 87% 64%)" stopOpacity={0.9} />
-                        <stop offset="100%" stopColor="hsl(252 87% 64%)" stopOpacity={0.4} />
+                        <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.8} />
+                        <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0.1} />
                       </linearGradient>
                     </defs>
                     <XAxis
                       dataKey="label"
                       axisLine={false}
                       tickLine={false}
-                      tick={{ fill: 'hsl(240 5% 55%)', fontSize: 10, fontWeight: 500 }}
-                      dy={8}
+                      tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10, fontFamily: 'monospace' }}
+                      dy={10}
                     />
-                    <YAxis 
+                    <YAxis
                       axisLine={false}
                       tickLine={false}
-                      tick={{ fill: 'hsl(240 5% 55%)', fontSize: 10, fontWeight: 500 }}
+                      tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10, fontFamily: 'monospace' }}
                       tickFormatter={(val: number) => formatINRCompact(val).replace('₹', '')}
                       width={45}
                     />
-                    <Tooltip content={<CustomTooltip />} cursor={false} />
+                    <Tooltip content={<CustomTooltip />} cursor={{ fill: 'hsl(var(--foreground))', opacity: 0.05 }} />
 
                     {/* Bars: spending */}
                     {chartMode === 'total' ? (
-                      <Bar 
-                        dataKey="expense" 
-                        radius={[6, 6, 0, 0]} 
+                      <Bar
+                        dataKey="expense"
+                        radius={[2, 2, 0, 0]}
                         fill="url(#expenseBarGrad)"
-                        maxBarSize={40}
+                        maxBarSize={50}
                       />
                     ) : (
                       <>
-                        {/* Stacked bars by group */}
                         {activeGroups
                           .filter(g => !hiddenGroupsInChart.has(g.id))
                           .map((g, i) => (
@@ -699,87 +616,39 @@ export default function InsightsPage() {
                               key={g.id}
                               dataKey={`group_${g.id}`}
                               stackId="groups"
-                              radius={i === activeGroups.filter(g => !hiddenGroupsInChart.has(g.id)).length - 1 ? [6, 6, 0, 0] : [0, 0, 0, 0]}
-                              fill={g.color || GROUP_COLORS[i % GROUP_COLORS.length]}
-                              maxBarSize={40}
+                              fill={GROUP_COLORS[i % GROUP_COLORS.length]}
+                              maxBarSize={50}
+                              radius={[0, 0, 0, 0]}
                             />
                           ))}
                         {!hiddenGroupsInChart.has('ungrouped') && (
                           <Bar
                             dataKey="group_ungrouped"
                             stackId="groups"
-                            radius={activeGroups.filter(g => !hiddenGroupsInChart.has(g.id)).length === 0 ? [6, 6, 0, 0] : [0, 0, 0, 0]}
-                            fill="#6B7280"
-                            maxBarSize={40}
+                            fill="#333"
+                            maxBarSize={50}
                           />
                         )}
                       </>
                     )}
 
-                    {/* Line: income overlay */}
+                    {/* Line: income - White Sharp Line */}
                     <Line
-                      type="monotone"
+                      type="linear"
                       dataKey="income"
-                      stroke="hsl(160 84% 39%)"
-                      strokeWidth={2.5}
-                      dot={{ r: 4, fill: 'hsl(160 84% 39%)', strokeWidth: 2, stroke: 'hsl(var(--background))' }}
-                      activeDot={{ r: 6 }}
+                      stroke="hsl(var(--foreground))"
+                      strokeWidth={2}
+                      dot={{ r: 3, fill: 'hsl(var(--background))', strokeWidth: 2, stroke: 'hsl(var(--foreground))' }}
+                      activeDot={{ r: 5, fill: 'hsl(var(--foreground))' }}
                     />
                   </ComposedChart>
                 </ResponsiveContainer>
               </div>
-
-              {/* Legend */}
-              <div className="flex items-center justify-center gap-4 mt-3 pt-3 border-t border-border/30 flex-wrap">
-                {chartMode === 'total' ? (
-                  <>
-                    <div className="flex items-center gap-1.5">
-                      <div className="w-3 h-3 rounded-sm" style={{ background: 'hsl(252 87% 64%)' }} />
-                      <span className="text-xs text-muted-foreground">Expenses</span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <div className="w-4 h-0.5 rounded-full bg-success" />
-                      <span className="text-xs text-muted-foreground">Income</span>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    {activeGroups.map((g, i) => (
-                      <button
-                        key={g.id}
-                        onClick={() => toggleChartGroup(g.id)}
-                        className={cn(
-                          "flex items-center gap-1.5 transition-opacity",
-                          hiddenGroupsInChart.has(g.id) && "opacity-30 line-through"
-                        )}
-                      >
-                        <div 
-                          className="w-3 h-3 rounded-sm" 
-                          style={{ backgroundColor: g.color || GROUP_COLORS[i % GROUP_COLORS.length] }} 
-                        />
-                        <span className="text-xs text-muted-foreground">{g.name}</span>
-                      </button>
-                    ))}
-                    <button
-                      onClick={() => toggleChartGroup('ungrouped')}
-                      className={cn(
-                        "flex items-center gap-1.5 transition-opacity",
-                        hiddenGroupsInChart.has('ungrouped') && "opacity-30 line-through"
-                      )}
-                    >
-                      <div className="w-3 h-3 rounded-sm bg-gray-500" />
-                      <span className="text-xs text-muted-foreground">Ungrouped</span>
-                    </button>
-                    <div className="flex items-center gap-1.5">
-                      <div className="w-4 h-0.5 rounded-full bg-success" />
-                      <span className="text-xs text-muted-foreground">Income</span>
-                    </div>
-                  </>
-                )}
-              </div>
             </>
           ) : (
-            <p className="text-center text-muted-foreground py-8">No data available</p>
+            <div className="h-64 flex items-center justify-center border border-dashed border-border text-muted-foreground font-mono text-xs">
+              NO TREND DATA AVAILABLE
+            </div>
           )}
         </motion.div>
 
@@ -787,20 +656,17 @@ export default function InsightsPage() {
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2, duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-          className="glass-card p-5 mb-4"
+          transition={{ delay: 0.2 }}
+          className="neo-card p-6 mb-6"
         >
-          <h3 className="font-semibold text-foreground mb-1">By Category</h3>
-          <p className="text-xs text-muted-foreground mb-5">Spending breakdown</p>
-          
+          <h3 className="font-heading font-bold text-foreground mb-4">Allocation</h3>
+
           {isLoading ? (
             <div className="space-y-4">
-              {Array.from({ length: 4 }).map((_, i) => (
-                <Skeleton key={i} className="h-14" />
-              ))}
+              <Skeleton className="h-10 w-full bg-muted/20" />
             </div>
           ) : categoryBreakdown.length > 0 ? (
-            <div className="space-y-4">
+            <div className="space-y-9">
               {categoryBreakdown.map((cat, i) => {
                 const percentage = totalSpent > 0 ? (cat.amount / totalSpent) * 100 : 0;
                 return (
@@ -808,44 +674,33 @@ export default function InsightsPage() {
                     key={cat.id}
                     to={cat.id !== 'uncategorized' ? `/transactions?category=${cat.id}${dateFilterParams}` : `/transactions${dateFilterParams ? '?' + dateFilterParams.slice(1) : ''}`}
                   >
-                    <motion.div
-                      initial={{ opacity: 0, x: -12 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: i * 0.04, duration: 0.3 }}
-                      className="space-y-2 group cursor-pointer"
-                    >
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="flex items-center gap-2.5">
-                          <span className="text-base">{cat.icon}</span>
-                          <span className="text-foreground font-medium group-hover:text-primary transition-colors">{cat.name}</span>
-                        </span>
-                        <span className="flex items-center gap-2">
-                          <span className="text-xs text-muted-foreground">{percentage.toFixed(0)}%</span>
-                          <span className="text-foreground font-semibold currency-display">
-                            {formatINRCompact(cat.amount)}
+                    <div className="group cursor-pointer">
+                      <div className="flex items-center justify-between text-sm mb-3">
+                        <span className="flex items-center gap-3">
+                          <span className="font-mono text-muted-foreground bg-muted/20 p-1 rounded">{cat.icon}</span>
+                          <span className="font-bold text-foreground group-hover:text-primary transition-colors uppercase tracking-wide">
+                            {cat.name}
                           </span>
-                          <ChevronRight className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                        </span>
+                        <span className="font-mono text-foreground font-medium">
+                          {percentage.toFixed(0)}% <span className="text-muted-foreground mx-1">/</span> {formatINRCompact(cat.amount)}
                         </span>
                       </div>
-                      <div className="h-2 bg-muted/50 rounded-full overflow-hidden">
+                      <div className="h-1.5 bg-muted/20 w-full overflow-hidden rounded-full mb-2">
                         <motion.div
                           initial={{ width: 0 }}
                           animate={{ width: `${percentage}%` }}
-                          transition={{ delay: i * 0.04 + 0.2, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-                          className="h-full rounded-full"
-                          style={{ 
-                            backgroundColor: cat.color,
-                            boxShadow: `0 0 12px ${cat.color}50`,
-                          }}
+                          transition={{ delay: 0.2, duration: 0.5 }}
+                          className="h-full bg-foreground group-hover:bg-primary transition-colors rounded-full"
                         />
                       </div>
-                    </motion.div>
+                    </div>
                   </Link>
                 );
               })}
             </div>
           ) : (
-            <p className="text-center text-muted-foreground py-8">No data available</p>
+            <p className="text-center text-muted-foreground py-4 font-mono text-xs">NO DATA</p>
           )}
         </motion.div>
 
@@ -854,16 +709,15 @@ export default function InsightsPage() {
           <motion.div
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.22, duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-            className="glass-card p-5 mb-4"
+            transition={{ delay: 0.22 }}
+            className="neo-card p-6 mb-6"
           >
-            <div className="flex items-center gap-2 mb-1">
-              <Folder className="w-4 h-4 text-muted-foreground" />
-              <h3 className="font-semibold text-foreground">By Group</h3>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-heading font-bold text-foreground">Groups</h3>
+              <span className="text-xs font-mono text-muted-foreground uppercase tracking-wider">Project Spending</span>
             </div>
-            <p className="text-xs text-muted-foreground mb-5">Spending by transaction groups</p>
-            
-            <div className="space-y-4">
+
+            <div className="space-y-9">
               {groupBreakdown.map((grp, i) => {
                 const percentage = totalGroupSpent > 0 ? (grp.amount / totalGroupSpent) * 100 : 0;
                 return (
@@ -871,42 +725,27 @@ export default function InsightsPage() {
                     key={grp.id}
                     to={`/transactions?group=${grp.id}${dateFilterParams}`}
                   >
-                    <motion.div
-                      initial={{ opacity: 0, x: -12 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: i * 0.04, duration: 0.3 }}
-                      className="space-y-2 group cursor-pointer"
-                    >
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="flex items-center gap-2.5">
-                          <span 
-                            className="w-7 h-7 rounded-lg flex items-center justify-center text-sm"
-                            style={{ backgroundColor: grp.color + '20' }}
-                          >
-                            {grp.icon}
+                    <div className="group cursor-pointer">
+                      <div className="flex items-center justify-between text-sm mb-2.5">
+                        <span className="flex items-center gap-3">
+                          <span className="font-mono text-muted-foreground bg-muted/20 p-1 rounded">{grp.icon}</span>
+                          <span className="font-bold text-foreground group-hover:text-primary transition-colors uppercase tracking-wide">
+                            {grp.name}
                           </span>
-                          <span className="text-foreground font-medium group-hover:text-primary transition-colors">{grp.name}</span>
                         </span>
-                        <span className="flex items-center gap-2">
-                          <span className="text-foreground font-semibold currency-display">
-                            {formatINRCompact(grp.amount)}
-                          </span>
-                          <ChevronRight className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                        <span className="font-mono text-foreground font-medium">
+                          {formatINRCompact(grp.amount)}
                         </span>
                       </div>
-                      <div className="h-2 bg-muted/50 rounded-full overflow-hidden">
+                      <div className="h-1.5 bg-muted/20 w-full overflow-hidden rounded-full mb-2">
                         <motion.div
                           initial={{ width: 0 }}
                           animate={{ width: `${percentage}%` }}
-                          transition={{ delay: i * 0.04 + 0.2, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-                          className="h-full rounded-full"
-                          style={{ 
-                            backgroundColor: grp.color,
-                            boxShadow: `0 0 12px ${grp.color}50`,
-                          }}
+                          transition={{ delay: 0.2, duration: 0.5 }}
+                          className="h-full bg-foreground group-hover:bg-primary transition-colors rounded-full"
                         />
                       </div>
-                    </motion.div>
+                    </div>
                   </Link>
                 );
               })}
@@ -918,59 +757,40 @@ export default function InsightsPage() {
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.25, duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-          className="glass-card p-5"
+          transition={{ delay: 0.25 }}
+          className="neo-card p-6"
         >
-          <h3 className="font-semibold text-foreground mb-1">Top Merchants</h3>
-          <p className="text-xs text-muted-foreground mb-5">Where you spend most</p>
-          
+          <h3 className="font-heading font-bold text-foreground mb-4">Top Merchants</h3>
+
           {isLoading ? (
-            <div className="space-y-3">
-              {Array.from({ length: 5 }).map((_, i) => (
-                <Skeleton key={i} className="h-12" />
-              ))}
+            <div className="space-y-2">
+              <Skeleton className="h-10 w-full" />
             </div>
           ) : topMerchants.length > 0 ? (
-            <div className="space-y-3">
+            <div className="space-y-2">
               {topMerchants.map((merchant, i) => (
                 <Link
                   key={merchant.name}
                   to={`/transactions?merchant=${encodeURIComponent(merchant.name)}${dateFilterParams}`}
                 >
-                  <motion.div
-                    initial={{ opacity: 0, x: -12 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: i * 0.04, duration: 0.3 }}
-                    className="flex items-center justify-between p-3 rounded-xl bg-muted/30 hover:bg-muted/50 transition-colors group cursor-pointer"
-                  >
-                    <div className="flex items-center gap-3">
-                      <span 
-                        className="w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold"
-                        style={{
-                          background: i === 0 
-                            ? 'linear-gradient(135deg, hsl(252 87% 64%), hsl(280 85% 55%))'
-                            : 'hsl(var(--muted))',
-                          color: i === 0 ? 'white' : 'hsl(var(--muted-foreground))',
-                        }}
-                      >
-                        {i + 1}
+                  <div className="flex items-center justify-between p-3 border border-transparent hover:border-primary/30 hover:bg-primary/5 transition-all group cursor-pointer">
+                    <div className="flex items-center gap-4">
+                      <span className="font-mono text-xs text-muted-foreground group-hover:text-primary">
+                        0{i + 1}
                       </span>
-                      <span className="text-foreground text-sm font-medium truncate max-w-[140px] group-hover:text-primary transition-colors">
+                      <span className="text-sm font-bold text-foreground uppercase tracking-wide">
                         {merchant.name}
                       </span>
                     </div>
-                    <span className="flex items-center gap-2">
-                      <span className="text-foreground font-semibold text-sm currency-display">
-                        {formatINR(merchant.amount)}
-                      </span>
-                      <ChevronRight className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                    <span className="font-mono text-xs text-foreground group-hover:text-primary">
+                      {formatINR(merchant.amount)}
                     </span>
-                  </motion.div>
+                  </div>
                 </Link>
               ))}
             </div>
           ) : (
-            <p className="text-center text-muted-foreground py-8">No data available</p>
+            <p className="text-center text-muted-foreground py-4 font-mono text-xs">NO DATA</p>
           )}
         </motion.div>
       </div>

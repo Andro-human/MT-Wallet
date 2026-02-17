@@ -23,7 +23,7 @@ export function StatCard({
 }: StatCardProps) {
   const trendClasses = {
     up: 'text-destructive',
-    down: 'text-success',
+    down: 'text-primary', // Success is now typically lime/primary in this theme
     neutral: 'text-muted-foreground',
   };
 
@@ -33,49 +33,48 @@ export function StatCard({
       animate={{ opacity: 1, scale: 1 }}
       transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
       className={cn(
-        'glass-card p-4 transition-all duration-300 hover:scale-[1.02]',
-        variant === 'primary' && 'gradient-primary glow-primary',
-        variant === 'success' && 'gradient-success'
+        'neo-card p-5 relative overflow-hidden group',
+        variant === 'primary' && 'border-primary/50 bg-primary/5',
+        variant === 'success' && 'border-primary/50 bg-primary/5'
       )}
     >
-      <div className="flex items-start justify-between">
-        <span className={cn(
-          'text-2xs uppercase tracking-extra-wide font-medium',
-          variant === 'default' ? 'text-muted-foreground' : 'text-white/70'
-        )}>
+      {/* Background Grid Pattern for primary cards */}
+      {(variant === 'primary' || variant === 'success') && (
+        <div className="absolute inset-0 bg-grid-small opacity-30 pointer-events-none" />
+      )}
+
+      <div className="flex items-start justify-between relative z-10">
+        <span className="text-xs font-mono uppercase tracking-widest text-muted-foreground">
           {label}
         </span>
         {icon && (
           <div className={cn(
-            'p-1.5 rounded-lg',
-            variant === 'default' ? 'bg-muted/50' : 'bg-white/10'
+            'p-1.5 rounded-none border',
+            variant === 'default' ? 'border-border text-muted-foreground bg-background' : 'border-primary/30 text-primary bg-primary/10'
           )}>
             {icon}
           </div>
         )}
       </div>
-      
-      <div className="mt-3">
+
+      <div className="mt-4 relative z-10">
         <span className={cn(
-          'text-2xl font-bold currency-display',
-          variant === 'default' ? 'text-foreground' : 'text-white'
+          'text-3xl font-heading font-bold tracking-tight',
+          variant === 'default' ? 'text-foreground' : 'text-primary'
         )}>
           {value}
         </span>
-        
+
         {(subValue || trendValue) && (
-          <div className="flex items-center gap-2 mt-1.5">
+          <div className="flex items-center gap-3 mt-2">
             {subValue && (
-              <span className={cn(
-                'text-xs',
-                variant === 'default' ? 'text-muted-foreground' : 'text-white/70'
-              )}>
+              <span className="text-xs font-mono text-muted-foreground">
                 {subValue}
               </span>
             )}
             {trend && trendValue && (
-              <span className={cn('text-xs font-medium', trendClasses[trend])}>
-                {trend === 'up' ? '↑' : trend === 'down' ? '↓' : ''} {trendValue}
+              <span className={cn('text-xs font-mono font-medium', trendClasses[trend])}>
+                {trend === 'up' ? '↑' : trend === 'down' ? '↓' : '•'} {trendValue}
               </span>
             )}
           </div>

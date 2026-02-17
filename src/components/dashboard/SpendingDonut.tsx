@@ -18,12 +18,12 @@ export function SpendingDonut({ data, totalSpent }: SpendingDonutProps) {
     if (active && payload && payload.length) {
       const item = payload[0].payload;
       return (
-        <div className="glass-card px-3 py-2">
-          <p className="text-sm font-semibold flex items-center gap-2">
+        <div className="neo-card px-3 py-2 bg-background border-border shadow-md">
+          <p className="text-xs font-bold font-mono uppercase tracking-wide flex items-center gap-2 text-muted-foreground">
             <span>{item.icon}</span>
             {item.name}
           </p>
-          <p className="text-xs text-muted-foreground mt-0.5">{formatINR(item.value)}</p>
+          <p className="text-sm font-bold text-foreground mt-0.5">{formatINR(item.value)}</p>
         </div>
       );
     }
@@ -35,10 +35,11 @@ export function SpendingDonut({ data, totalSpent }: SpendingDonutProps) {
       <ResponsiveContainer width="100%" height="100%">
         <PieChart>
           <defs>
+            {/* Simple solid colors or subtle gradients, avoiding glossy looks */}
             {data.map((entry, index) => (
-              <linearGradient key={`gradient-${index}`} id={`gradient-${index}`} x1="0" y1="0" x2="1" y2="1">
-                <stop offset="0%" stopColor={entry.color} stopOpacity={1} />
-                <stop offset="100%" stopColor={entry.color} stopOpacity={0.7} />
+              <linearGradient key={`gradient-${index}`} id={`gradient-${index}`} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor={entry.color} stopOpacity={0.9} />
+                <stop offset="100%" stopColor={entry.color} stopOpacity={0.6} />
               </linearGradient>
             ))}
           </defs>
@@ -48,33 +49,31 @@ export function SpendingDonut({ data, totalSpent }: SpendingDonutProps) {
             cy="50%"
             innerRadius={68}
             outerRadius={95}
-            paddingAngle={4}
+            paddingAngle={2}
             dataKey="value"
-            strokeWidth={0}
-            cornerRadius={6}
+            stroke="hsl(var(--background))"
+            strokeWidth={2}
+            cornerRadius={0}
           >
             {data.map((entry, index) => (
-              <Cell 
-                key={`cell-${index}`} 
+              <Cell
+                key={`cell-${index}`}
                 fill={`url(#gradient-${index})`}
-                style={{
-                  filter: 'drop-shadow(0 2px 8px rgba(0,0,0,0.2))',
-                }}
               />
             ))}
           </Pie>
           <Tooltip content={<CustomTooltip />} />
         </PieChart>
       </ResponsiveContainer>
-      
-      {/* Center content with glass effect */}
+
+      {/* Center content */}
       <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-        <div className="glass-card px-5 py-3 text-center">
-          <span className="text-2xs text-muted-foreground uppercase tracking-extra-wide font-medium">
+        <div className="text-center">
+          <span className="text-[10px] font-mono text-muted-foreground uppercase tracking-widest">
             Total Spent
           </span>
-          <div className="text-xl font-bold text-foreground mt-0.5 currency-display">
-            <span className="currency-symbol text-muted-foreground">₹</span>
+          <div className="text-xl font-bold text-foreground mt-1 tracking-tight font-heading">
+            <span className="text-muted-foreground text-sm mr-0.5">₹</span>
             {formatINR(totalSpent).replace('₹', '')}
           </div>
         </div>

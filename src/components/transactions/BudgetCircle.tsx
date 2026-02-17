@@ -105,12 +105,14 @@ export function BudgetCircle({ spent, budget }: BudgetCircleProps) {
               initial={{ opacity: 0, y: 4 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.6 }}
-              className="flex items-center gap-1.5 mt-2 px-2.5 py-1 rounded-full"
-              style={{ backgroundColor: `${color}15` }}
+              className="flex items-center gap-1.5 mt-3 px-3 py-1 rounded-full shadow-lg"
+              style={{
+                backgroundColor: color,
+                boxShadow: `0 0 15px ${color}40`
+              }}
             >
               <span
-                className="text-xs font-semibold"
-                style={{ color }}
+                className="text-xs font-bold text-black"
               >
                 {percentage.toFixed(0)}%
               </span>
