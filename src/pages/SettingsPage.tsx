@@ -109,7 +109,7 @@ export default function SettingsPage() {
                     initial={{ opacity: 0, y: -12 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.4 }}
-                    className="mb-8 border-b border-border/50 pb-4"
+                    className="mb-6 md:mb-8 border-b border-border/50 pb-4"
                 >
                     <h1 className="text-3xl font-heading font-bold text-foreground leading-none">Settings</h1>
                     <p className="text-xs font-mono text-muted-foreground mt-2 uppercase tracking-widest">

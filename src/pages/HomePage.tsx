@@ -43,7 +43,7 @@ export default function HomePage() {
           initial={{ opacity: 0, y: -12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4 }}
-          className="flex items-end justify-between mb-8 border-b border-border/50 pb-4"
+          className="flex items-end justify-between mb-6 md:mb-8 border-b border-border/50 pb-4"
         >
           <div>
             <p className="text-xs font-mono uppercase tracking-widest text-muted-foreground mb-1">
@@ -60,7 +60,7 @@ export default function HomePage() {
         </motion.div>
 
         {/* Bento Grid Layout */}
-        <div className="grid grid-cols-2 gap-4 mb-8">
+        <div className="grid grid-cols-2 gap-4 mb-4 md:mb-8">
 
           {/* Main Hero: Total Spent - Spans 2 cols */}
           <div className="col-span-2">
@@ -120,7 +120,7 @@ export default function HomePage() {
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
-          className="neo-card p-6 mb-8 border-border"
+          className="neo-card p-6 mb-4 md:mb-8 border-border"
         >
           <div className="flex items-center justify-between mb-6">
             <h3 className="font-heading font-semibold text-foreground">Allocation</h3>

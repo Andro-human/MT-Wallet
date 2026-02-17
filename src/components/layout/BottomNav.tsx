@@ -14,9 +14,9 @@ export function BottomNav() {
   const location = useLocation();
 
   return (
-    <nav className="fixed bottom-6 left-0 right-0 z-50 px-6 safe-area-bottom pointer-events-none">
+    <nav className="fixed bottom-0 md:bottom-6 left-0 right-0 z-50 px-6 pointer-events-none safe-area-bottom pb-2 md:pb-0">
       <div className="mx-auto max-w-sm pointer-events-auto">
-        <div className="bg-card border border-border shadow-2xl flex items-center justify-around h-16 px-2">
+        <div className="bg-card border border-border rounded-2xl shadow-2xl flex items-center justify-around h-16 px-2">
           {navItems.map((item) => {
             const isActive = location.pathname === item.to;
             const Icon = item.icon;
