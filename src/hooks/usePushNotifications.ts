@@ -1,6 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { createClient } from '@supabase/supabase-js';
 import { useAuth } from './useAuth';
+
+// Untyped Supabase client for push_subscriptions (not in generated types yet)
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+const supabaseRaw = createClient(supabaseUrl, supabaseKey);
 
 // VAPID public key generated for this app
 const VAPID_PUBLIC_KEY = 'BG46OyHptYAJwN-PewTCMCHG7MqU9tp-05mC-oBYHYlb0KmHdycNZW8mxRQK4DimoDf0qv8HliuxgnJgMTGRe4o';
@@ -36,14 +41,27 @@ export function usePushNotifications() {
 
         setPermissionState(Notification.permission as PushPermissionState);
 
-        // Check if already subscribed
-        navigator.serviceWorker.ready.then(async (registration) => {
-            const subscription = await registration.pushManager.getSubscription();
-            setIsSubscribed(!!subscription);
+        // Check if a service worker is actually registered
+        // In dev mode, there's no SW, so navigator.serviceWorker.ready hangs forever
+        const checkSubscription = async () => {
+            try {
+                const registrations = await navigator.serviceWorker.getRegistrations();
+                if (registrations.length === 0) {
+                    // No service worker registered (dev mode) — just stop loading
+                    setIsLoading(false);
+                    return;
+                }
+
+                const registration = await navigator.serviceWorker.ready;
+                const subscription = await registration.pushManager.getSubscription();
+                setIsSubscribed(!!subscription);
+            } catch {
+                // Ignore errors
+            }
             setIsLoading(false);
-        }).catch(() => {
-            setIsLoading(false);
-        });
+        };
+
+        checkSubscription();
     }, [isSupported]);
 
     const subscribe = useCallback(async () => {
@@ -67,13 +85,13 @@ export function usePushNotifications() {
             // Subscribe to push
             const subscription = await registration.pushManager.subscribe({
                 userVisibleOnly: true,
-                applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+                applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY) as BufferSource,
             });
 
             const subscriptionJSON = subscription.toJSON();
 
             // Store in Supabase
-            const { error } = await supabase
+            const { error } = await supabaseRaw
                 .from('push_subscriptions')
                 .upsert({
                     user_id: user.id,
@@ -111,7 +129,7 @@ export function usePushNotifications() {
 
             if (subscription) {
                 // Remove from Supabase
-                await supabase
+                await supabaseRaw
                     .from('push_subscriptions')
                     .delete()
                     .eq('user_id', user.id)
