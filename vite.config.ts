@@ -43,6 +43,8 @@ export default defineConfig(({ mode }) => ({
       },
       workbox: {
         globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
+        // Inject our custom push notification handler into the service worker
+        importScripts: ["/sw-push.js"],
         runtimeCaching: [
           {
             // Cache Supabase API calls (short TTL)

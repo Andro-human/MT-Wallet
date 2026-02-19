@@ -1,9 +1,9 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     User, Key, Copy, RefreshCw, LogOut, Check, Loader2,
-    History, ChevronRight, Building2, Tag, Lock,
+    History, ChevronRight, Building2, Tag, Lock, Bell, BellOff,
 } from 'lucide-react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { useAuth } from '@/hooks/useAuth';
@@ -15,6 +15,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
+import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { cn } from '@/lib/utils';
 import { z } from 'zod';
 
@@ -33,6 +34,7 @@ export default function SettingsPage() {
     const { data: bankAccounts = [] } = useBankAccounts();
     const { data: categories = [] } = useCategories();
     const { toast } = useToast();
+    const { isSupported: pushSupported, permissionState, isSubscribed: pushSubscribed, isLoading: pushLoading, subscribe: pushSubscribe, unsubscribe: pushUnsubscribe } = usePushNotifications();
 
     const navigate = useNavigate();
     const [copied, setCopied] = useState(false);
@@ -355,6 +357,60 @@ export default function SettingsPage() {
                             <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
                         </button>
                     </motion.div>
+
+                    {/* Push Notifications */}
+                    {pushSupported && (
+                        <motion.div
+                            initial={{ opacity: 0, x: -10 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ delay: 0.45 }}
+                        >
+                            <button
+                                onClick={async () => {
+                                    if (pushSubscribed) {
+                                        const ok = await pushUnsubscribe();
+                                        if (ok) toast({ title: 'Notifications disabled' });
+                                    } else {
+                                        const ok = await pushSubscribe();
+                                        if (ok) {
+                                            toast({ title: 'Notifications enabled', description: 'You\'ll be notified when new transactions sync.' });
+                                        } else if (permissionState === 'denied') {
+                                            toast({ title: 'Permission denied', description: 'Enable notifications in your browser/device settings.', variant: 'destructive' });
+                                        }
+                                    }
+                                }}
+                                disabled={pushLoading}
+                                className="w-full neo-card p-4 flex items-center gap-4 group hover:bg-muted/5 transition-colors"
+                            >
+                                <div className={cn(
+                                    "w-10 h-10 border flex items-center justify-center transition-colors",
+                                    pushSubscribed
+                                        ? "border-primary/50 bg-primary/10"
+                                        : "border-border group-hover:border-primary/50"
+                                )}>
+                                    {pushSubscribed
+                                        ? <Bell className="w-5 h-5 text-primary" />
+                                        : <BellOff className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />
+                                    }
+                                </div>
+                                <div className="flex-1 text-left">
+                                    <h3 className="font-bold text-sm text-foreground">Push Notifications</h3>
+                                    <p className="text-xs font-mono text-muted-foreground mt-0.5">
+                                        {pushLoading ? 'LOADING...' : pushSubscribed ? 'ENABLED' : 'DISABLED'}
+                                    </p>
+                                </div>
+                                <div className={cn(
+                                    "w-10 h-5 rounded-full relative transition-colors duration-200",
+                                    pushSubscribed ? "bg-primary" : "bg-muted-foreground/30"
+                                )}>
+                                    <div className={cn(
+                                        "absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform duration-200",
+                                        pushSubscribed ? "translate-x-5" : "translate-x-0.5"
+                                    )} />
+                                </div>
+                            </button>
+                        </motion.div>
+                    )}
 
                     {/* Logout */}
                     <motion.div
