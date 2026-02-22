@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Check, X } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useTransactions, useUpdateTransaction } from '@/hooks/useTransactions';
+import { useAuth } from '@/hooks/useAuth';
 import { formatINR } from '@/lib/formatCurrency';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
@@ -15,6 +16,8 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
 
 interface BulkEditSuggestionProps {
   open: boolean;
@@ -42,8 +45,10 @@ export function BulkEditSuggestion({
 }: BulkEditSuggestionProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isApplying, setIsApplying] = useState(false);
+  const [applyToFuture, setApplyToFuture] = useState(false);
 
   // Fetch transactions with the same merchant
   const { data: allTransactions = [] } = useTransactions({
@@ -77,8 +82,8 @@ export function BulkEditSuggestion({
   };
 
   const handleApply = async () => {
-    if (selectedIds.size === 0) return;
-    
+    if (selectedIds.size === 0 && !applyToFuture) return;
+
     setIsApplying(true);
     try {
       const updates: Record<string, any> = {};
@@ -89,17 +94,47 @@ export function BulkEditSuggestion({
         updates.merchant_normalized = newValue;
       }
 
-      const { error } = await supabase
-        .from('transactions')
-        .update(updates)
-        .in('id', Array.from(selectedIds));
+      if (selectedIds.size > 0) {
+        const { error } = await supabase
+          .from('transactions')
+          .update(updates)
+          .in('id', Array.from(selectedIds));
 
-      if (error) throw error;
+        if (error) throw error;
+      }
 
-      toast({ title: `Updated ${selectedIds.size} transaction${selectedIds.size > 1 ? 's' : ''}` });
+      if (applyToFuture && user) {
+        // Save the rule to memory
+        const ruleData = {
+          user_id: user.id,
+          raw_merchant: merchantName,
+          mapped_merchant: field === 'merchant' ? (newValue || merchantName) : merchantName,
+          default_category_id: field === 'category_id' ? newValue : null,
+        };
+
+        const { error: ruleError } = await (supabase as any)
+          .from('user_merchant_mappings')
+          .upsert(ruleData, { onConflict: 'user_id, raw_merchant' });
+
+        if (ruleError) {
+          console.error("Failed to save rule:", ruleError);
+          toast({ title: 'Failed to save future rule', variant: 'destructive' });
+        } else {
+          toast({ title: 'Mapping Rule saved for future!' });
+        }
+      }
+
+      if (selectedIds.size > 0) {
+        toast({ title: `Updated ${selectedIds.size} transaction${selectedIds.size > 1 ? 's' : ''}` });
+      } else if (!applyToFuture) {
+        // Nothing selected and no rule applied
+        return;
+      }
+
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
       onOpenChange(false);
       setSelectedIds(new Set());
+      setApplyToFuture(false);
     } catch {
       toast({ title: 'Failed to update transactions', variant: 'destructive' });
     } finally {
@@ -169,7 +204,26 @@ export function BulkEditSuggestion({
           })}
         </div>
 
-        <div className="flex gap-3 pt-3 border-t border-border/30">
+        <div className="px-6 py-3 border-t border-border/30 bg-muted/10">
+          <div className="flex items-center space-x-3">
+            <Checkbox
+              id="apply-future"
+              checked={applyToFuture}
+              onCheckedChange={(checked) => setApplyToFuture(checked as boolean)}
+            />
+            <Label
+              htmlFor="apply-future"
+              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer text-foreground"
+            >
+              Remember this for all future transactions
+            </Label>
+          </div>
+          <p className="text-xs text-muted-foreground mt-1.5 ml-7">
+            Automatically applies this exact {changeLabel} mapping to any new SMS from {merchantName}.
+          </p>
+        </div>
+
+        <div className="flex gap-3 pt-3 p-6 pt-0">
           <Button
             variant="outline"
             className="flex-1 rounded-xl border-border/50"
@@ -180,9 +234,11 @@ export function BulkEditSuggestion({
           <Button
             className="flex-1 rounded-xl"
             onClick={handleApply}
-            disabled={selectedIds.size === 0 || isApplying}
+            disabled={(selectedIds.size === 0 && !applyToFuture) || isApplying}
           >
-            {isApplying ? 'Applying...' : `Apply to ${selectedIds.size}`}
+            {isApplying ? 'Applying...' :
+              applyToFuture && selectedIds.size === 0 ? 'Save Rule Only' :
+                `Apply to ${selectedIds.size}`}
           </Button>
         </div>
       </DialogContent>
