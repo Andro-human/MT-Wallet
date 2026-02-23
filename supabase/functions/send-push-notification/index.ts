@@ -178,10 +178,17 @@ async function createVapidAuthHeader(
     const unsignedToken = `${headerB64}.${claimsB64}`;
 
     // Import VAPID private key for signing
+    // WebCrypto cannot import ECDSA private keys as "raw" — must use JWK format.
+    // VAPID private key is a 32-byte raw scalar; combined with the public key to form JWK.
     const privateKeyBytes = base64UrlDecode(vapidPrivateKey);
+    const publicKeyBytes = base64UrlDecode(vapidPublicKey);
+    // The public key is an uncompressed 65-byte point (0x04 || x || y)
+    const x = base64UrlEncode(publicKeyBytes.slice(1, 33));
+    const y = base64UrlEncode(publicKeyBytes.slice(33, 65));
+    const d = base64UrlEncode(privateKeyBytes);
     const privateKey = await crypto.subtle.importKey(
-        "raw",
-        toArrayBuffer(privateKeyBytes),
+        "jwk",
+        { kty: "EC", crv: "P-256", x, y, d, ext: true },
         { name: "ECDSA", namedCurve: "P-256" },
         false,
         ["sign"],
@@ -324,7 +331,7 @@ async function sendWebPush(
 
     // Build the aes128gcm header: salt (16) + rs (4) + idlen (1) + keyid (65)
     const rs = new Uint8Array(4);
-    new DataView(toArrayBuffer(rs)).setUint32(0, 4096);
+    new DataView(rs.buffer as ArrayBuffer).setUint32(0, 4096);
     const idlen = new Uint8Array([serverPublicKeyBytes.length]);
     const header = concatBuffers(salt, rs, idlen, serverPublicKeyBytes);
     const body = concatBuffers(header, encrypted);
