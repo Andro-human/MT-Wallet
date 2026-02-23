@@ -31,6 +31,7 @@ interface SyncRunPayload {
         skipped: number;
         errors: number;
         total_messages: number;
+        transactions?: { amount: number; direction: string; merchant: string | null }[];
     };
 }
 
@@ -70,9 +71,41 @@ serve(async (req) => {
         console.log(`[Push] Found ${subscriptions.length} subscription(s), sending...`);
 
         // Build notification payload
+        const txns = record.transactions || [];
+        let title: string;
+        let body: string;
+
+        if (txns.length === 1) {
+            // Single transaction — rich detail
+            const t = txns[0];
+            const amt = `₹${t.amount.toLocaleString("en-IN")}`;
+            const verb = t.direction === "debit" ? "debited" : "credited";
+            title = `${amt} ${verb}`;
+            body = t.merchant
+                ? `${t.direction === "debit" ? "Payment to" : "Received from"} ${t.merchant}`
+                : `Transaction ${verb} successfully`;
+        } else if (txns.length > 1) {
+            // Multiple transactions — summarize
+            title = `${txns.length} new transactions synced`;
+            const MAX_SHOWN = 3;
+            const lines = txns.slice(0, MAX_SHOWN).map(t => {
+                const amt = `₹${t.amount.toLocaleString("en-IN")}`;
+                const verb = t.direction === "debit" ? "debited" : "credited";
+                return t.merchant ? `${amt} ${verb} · ${t.merchant}` : `${amt} ${verb}`;
+            });
+            if (txns.length > MAX_SHOWN) {
+                lines.push(`... and ${txns.length - MAX_SHOWN} more`);
+            }
+            body = lines.join("\n");
+        } else {
+            // Fallback — no transaction details
+            title = "MTWallet — Sync Complete";
+            body = `${record.inserted} new transaction${record.inserted > 1 ? "s" : ""} synced${record.errors > 0 ? ` (${record.errors} error${record.errors > 1 ? "s" : ""})` : ""}`;
+        }
+
         const notificationPayload = JSON.stringify({
-            title: "MTWallet — Sync Complete",
-            body: `${record.inserted} new transaction${record.inserted > 1 ? "s" : ""} synced${record.errors > 0 ? ` (${record.errors} error${record.errors > 1 ? "s" : ""})` : ""}`,
+            title,
+            body,
             url: "/transactions",
             syncRunId: record.id,
         });
