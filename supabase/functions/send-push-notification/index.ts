@@ -78,7 +78,7 @@ serve(async (req) => {
         if (txns.length === 1) {
             // Single transaction — rich detail
             const t = txns[0];
-            const amt = `₹${t.amount.toLocaleString("en-IN")}`;
+            const amt = `₹${t.amount}`;
             const verb = t.direction === "debit" ? "debited" : "credited";
             title = `${amt} ${verb}`;
             body = t.merchant
@@ -89,7 +89,7 @@ serve(async (req) => {
             title = `${txns.length} new transactions synced`;
             const MAX_SHOWN = 3;
             const lines = txns.slice(0, MAX_SHOWN).map(t => {
-                const amt = `₹${t.amount.toLocaleString("en-IN")}`;
+                const amt = `₹${t.amount}`;
                 const verb = t.direction === "debit" ? "debited" : "credited";
                 return t.merchant ? `${amt} ${verb} · ${t.merchant}` : `${amt} ${verb}`;
             });
