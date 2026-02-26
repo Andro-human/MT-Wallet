@@ -75,19 +75,19 @@ serve(async (req) => {
             // Single transaction — rich detail
             const t = txns[0];
             const amt = `₹${t.amount}`;
-            const verb = t.direction === "debit" ? "debited" : "credited";
-            title = `${amt} ${verb}`;
+            const verb = t.direction === "debit" ? "Paid" : "Received";
+            title = "New Transaction";
             body = t.merchant
-                ? `${t.direction === "debit" ? "Payment to" : "Received from"} ${t.merchant}`
-                : `Transaction ${verb} successfully`;
+                ? `${verb} ${amt} ${t.direction === "debit" ? "to" : "from"} ${t.merchant}`
+                : `${verb} ${amt} successfully`;
         } else if (txns.length > 1) {
             // Multiple transactions — summarize
-            title = `${txns.length} new transactions synced`;
+            title = `${txns.length} new transactions`;
             const MAX_SHOWN = 3;
             const lines = txns.slice(0, MAX_SHOWN).map(t => {
                 const amt = `₹${t.amount}`;
-                const verb = t.direction === "debit" ? "debited" : "credited";
-                return t.merchant ? `${amt} ${verb} · ${t.merchant}` : `${amt} ${verb}`;
+                const verb = t.direction === "debit" ? "Paid" : "Received";
+                return t.merchant ? `${verb} ${amt} ${t.direction === "debit" ? "to" : "from"} ${t.merchant}` : `${verb} ${amt}`;
             });
             if (txns.length > MAX_SHOWN) {
                 lines.push(`... and ${txns.length - MAX_SHOWN} more`);

@@ -14,7 +14,8 @@ self.addEventListener('push', (event) => {
         };
     }
 
-    const title = data.title || 'MTWallet';
+    // iOS & Android will both append the App Name natively, so don't force 'MTWallet' if a title is blank or generic
+    const title = data.title || '';
     const options = {
         body: data.body || 'New transactions synced',
         icon: '/icon-192.png',
