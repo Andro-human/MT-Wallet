@@ -39,7 +39,6 @@ serve(async (req) => {
     try {
         const payload: SyncRunPayload = await req.json();
         const { record } = payload;
-        console.log(`[Push] Received request for user ${record.user_id}, inserted: ${record.inserted}`);
 
         // Only notify if transactions were actually inserted
         if (!record.inserted || record.inserted === 0) {
@@ -61,14 +60,11 @@ serve(async (req) => {
             .eq("user_id", record.user_id);
 
         if (error || !subscriptions || subscriptions.length === 0) {
-            console.log(`[Push] No subscriptions found for user ${record.user_id}`, error);
             return new Response(JSON.stringify({ message: "No push subscriptions found" }), {
                 status: 200,
                 headers: { "Content-Type": "application/json" },
             });
         }
-
-        console.log(`[Push] Found ${subscriptions.length} subscription(s), sending...`);
 
         // Build notification payload
         const txns = record.transactions || [];
