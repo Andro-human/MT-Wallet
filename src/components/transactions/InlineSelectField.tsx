@@ -32,7 +32,7 @@ export function InlineSelectField({
   const triggerRef = useRef<HTMLButtonElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
-  const [dropdownPos, setDropdownPos] = useState({ top: 0, right: 0, minWidth: 0 });
+  const [dropdownPos, setDropdownPos] = useState<{ top: number; right?: number; left?: number; minWidth: number }>({ top: 0, right: 0, minWidth: 0 });
 
   const selectedOption = options.find(opt => opt.value === value);
   const display = displayValue || selectedOption?.label || emptyLabel;
@@ -43,15 +43,28 @@ export function InlineSelectField({
     return options.filter(o => o.label.toLowerCase().includes(q));
   }, [options, searchQuery]);
 
-  // Calculate dropdown position — anchor to right edge of trigger so it never overflows
+  // Calculate dropdown position — prefer right anchor, but switch to left if trigger is in the left half
   const updatePosition = useCallback(() => {
     if (!triggerRef.current) return;
     const rect = triggerRef.current.getBoundingClientRect();
-    setDropdownPos({
-      top: rect.bottom + 4,
-      right: window.innerWidth - rect.right,
-      minWidth: Math.max(rect.width, 220),
-    });
+    const minW = Math.max(rect.width, 220);
+
+    // If the trigger's left edge is too close to the left, anchor from the left instead
+    if (rect.left < minW) {
+      setDropdownPos({
+        top: rect.bottom + 4,
+        left: Math.max(8, rect.left),
+        right: undefined,
+        minWidth: minW,
+      });
+    } else {
+      setDropdownPos({
+        top: rect.bottom + 4,
+        left: undefined,
+        right: window.innerWidth - rect.right,
+        minWidth: minW,
+      });
+    }
   }, []);
 
   const handleSelect = async (newValue: string) => {
@@ -167,9 +180,10 @@ export function InlineSelectField({
           className="fixed rounded-xl border border-border/50 bg-popover shadow-lg overflow-hidden"
           style={{
             top: dropdownPos.top,
-            right: dropdownPos.right,
+            ...(dropdownPos.right != null ? { right: dropdownPos.right } : {}),
+            ...(dropdownPos.left != null ? { left: dropdownPos.left } : {}),
             minWidth: dropdownPos.minWidth,
-            maxWidth: `calc(100vw - ${dropdownPos.right}px - 8px)`,
+            maxWidth: 'calc(100vw - 16px)',
             zIndex: 9999,
           }}
         >

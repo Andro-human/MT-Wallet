@@ -1,12 +1,14 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ArrowLeft, MessageSquare, TrendingUp, TrendingDown, ChevronRight, Folder, MoreVertical, RefreshCw, Pencil, Trash2, Wallet, Banknote } from 'lucide-react';
+import { ArrowLeft, MessageSquare, TrendingUp, TrendingDown, ChevronRight, Folder, MoreVertical, RefreshCw, Pencil, Trash2, Wallet, Banknote, Copy, AlertTriangle, Link2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { useTransaction, useUpdateTransaction } from '@/hooks/useTransactions';
 import { useTransactionGroups } from '@/hooks/useTransactionGroups';
 import { useCategories } from '@/hooks/useCategories';
 import { useRefundTransactions } from '@/hooks/useRefundLinks';
+import { useDuplicateTransactions, useCreateDuplicateLink } from '@/hooks/useDuplicateLinks';
+import { usePotentialDuplicates } from '@/hooks/usePotentialDuplicates';
 import { useBankAccounts, parseBankAccount } from '@/hooks/useBankAccounts';
 import { formatINR } from '@/lib/formatCurrency';
 import { Textarea } from '@/components/ui/textarea';
@@ -16,6 +18,7 @@ import { useToast } from '@/hooks/use-toast';
 import { EditTransactionDialog } from '@/components/transactions/EditTransactionDialog';
 import { DeleteTransactionDialog } from '@/components/transactions/DeleteTransactionDialog';
 import { LinkRefundDialog } from '@/components/transactions/LinkRefundDialog';
+import { LinkDuplicateDialog } from '@/components/transactions/LinkDuplicateDialog';
 import { BulkEditSuggestion } from '@/components/transactions/BulkEditSuggestion';
 import { InlineEditableField } from '@/components/transactions/InlineEditableField';
 import { InlineSelectField } from '@/components/transactions/InlineSelectField';
@@ -36,6 +39,9 @@ export default function TransactionDetailPage() {
   const { data: groups = [] } = useTransactionGroups();
   const { data: categories = [] } = useCategories();
   const { data: linkedRefunds = [] } = useRefundTransactions(id!);
+  const { data: linkedDuplicates = [] } = useDuplicateTransactions(id!);
+  const potentialDuplicates = usePotentialDuplicates(transaction);
+  const createDuplicateLink = useCreateDuplicateLink();
   const { data: bankAccounts = [] } = useBankAccounts();
   const updateMutation = useUpdateTransaction();
 
@@ -46,6 +52,7 @@ export default function TransactionDetailPage() {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [linkRefundOpen, setLinkRefundOpen] = useState(false);
+  const [linkDuplicateOpen, setLinkDuplicateOpen] = useState(false);
   const [bulkEditOpen, setBulkEditOpen] = useState(false);
   const [bulkEditConfig, setBulkEditConfig] = useState<{
     field: 'category_id' | 'group_id' | 'merchant';
@@ -110,6 +117,29 @@ export default function TransactionDetailPage() {
       label: ba.nickname ? `${ba.display} (${ba.technicalDisplay})` : ba.technicalDisplay,
     }))
   ], [bankAccounts]);
+
+  // Debounced notes save ref — must be before early returns (Rules of Hooks)
+  const notesTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const debouncedNotesSave = useCallback(async (val: string) => {
+    if (!transaction) return;
+    try {
+      await updateMutation.mutateAsync({
+        id: transaction.id,
+        updates: { notes: val },
+      });
+      setEditingNotes(false);
+      toast({ title: 'Notes saved' });
+    } catch {
+      toast({ title: 'Failed to save notes', variant: 'destructive' });
+    }
+  }, [transaction?.id, updateMutation, toast]);
+
+  // Cleanup timer on unmount
+  useEffect(() => {
+    return () => {
+      if (notesTimerRef.current) clearTimeout(notesTimerRef.current);
+    };
+  }, []);
 
   if (isLoading) {
     return (
@@ -304,6 +334,10 @@ export default function TransactionDetailPage() {
                   </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-48 glass-elevated border-border/50">
+                  <DropdownMenuItem onClick={() => setLinkDuplicateOpen(true)} className="gap-2">
+                    <Copy className="w-4 h-4" />
+                    Link Duplicate
+                  </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => setLinkRefundOpen(true)} className="gap-2">
                     <RefreshCw className="w-4 h-4" />
                     Link Refund
@@ -357,6 +391,67 @@ export default function TransactionDetailPage() {
               />
             </div>
           </div>
+
+          {/* Refund indicator */}
+          {/* Duplicate indicator */}
+          {linkedDuplicates.length > 0 && (
+            <div className="mt-4 p-3 rounded-xl bg-amber-500/10 border border-amber-500/20">
+              <div className="flex items-center gap-2 mb-2">
+                <Copy className="w-4 h-4 text-amber-500" />
+                <span className="text-sm font-medium text-amber-600 dark:text-amber-400">
+                  {linkedDuplicates.length} duplicate{linkedDuplicates.length > 1 ? 's' : ''} linked
+                </span>
+              </div>
+              {linkedDuplicates.map((dup) => (
+                <div key={dup.id} className="flex items-center justify-between text-sm mt-1">
+                  <span className="text-muted-foreground truncate">
+                    {dup.merchant || 'Unknown'} · {format(new Date(dup.transacted_at), 'MMM d, h:mm a')}
+                  </span>
+                  <span className="font-medium text-amber-500">
+                    ₹{formatINR(Number(dup.amount)).replace('₹', '')}
+                  </span>
+                </div>
+              ))}
+              <p className="text-xs text-muted-foreground mt-2">Not counted in analytics</p>
+            </div>
+          )}
+
+          {/* Potential duplicates suggestion */}
+          {potentialDuplicates.length > 0 && (
+            <div className="mt-4 p-3 rounded-xl bg-orange-500/10 border border-orange-500/20">
+              <div className="flex items-center gap-2 mb-2">
+                <AlertTriangle className="w-4 h-4 text-orange-500" />
+                <span className="text-sm font-medium text-orange-600 dark:text-orange-400">
+                  Possible duplicate{potentialDuplicates.length > 1 ? 's' : ''} found
+                </span>
+              </div>
+              {potentialDuplicates.map((dup) => (
+                <div key={dup.id} className="flex items-center justify-between text-sm mt-1.5">
+                  <span className="text-muted-foreground truncate flex-1">
+                    {dup.merchant || 'Unknown'} · {format(new Date(dup.transacted_at), 'MMM d, h:mm a')}
+                  </span>
+                  <button
+                    onClick={async () => {
+                      try {
+                        await createDuplicateLink.mutateAsync({
+                          primaryTransactionId: transaction.id,
+                          duplicateTransactionId: dup.id,
+                        });
+                        toast({ title: 'Linked as duplicate' });
+                      } catch {
+                        toast({ title: 'Failed to link', variant: 'destructive' });
+                      }
+                    }}
+                    disabled={createDuplicateLink.isPending}
+                    className="ml-2 flex items-center gap-1 text-xs font-medium text-orange-600 dark:text-orange-400 hover:text-orange-700 dark:hover:text-orange-300 transition-colors px-2 py-1 rounded-lg hover:bg-orange-500/10"
+                  >
+                    <Link2 className="w-3.5 h-3.5" />
+                    Link
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
 
           {/* Refund indicator */}
           {linkedRefunds.length > 0 && (
@@ -533,6 +628,12 @@ export default function TransactionDetailPage() {
               } else {
                 setNotes(e.target.value);
               }
+              // Debounced autosave: reset timer on every keystroke
+              if (notesTimerRef.current) clearTimeout(notesTimerRef.current);
+              const val = e.target.value;
+              notesTimerRef.current = setTimeout(() => {
+                debouncedNotesSave(val);
+              }, 3000);
             }}
             onFocus={() => {
               if (!editingNotes) {
@@ -541,6 +642,8 @@ export default function TransactionDetailPage() {
               }
             }}
             onBlur={() => {
+              // Save immediately on blur, cancel pending timer
+              if (notesTimerRef.current) clearTimeout(notesTimerRef.current);
               if (editingNotes) {
                 handleNotesSubmit();
               }
@@ -550,7 +653,7 @@ export default function TransactionDetailPage() {
             rows={2}
           />
           {editingNotes && (
-            <p className="text-2xs text-muted-foreground mt-1.5 text-right">Saves automatically</p>
+            <p className="text-2xs text-muted-foreground mt-1.5 text-right">Auto-saves after 3s</p>
           )}
         </motion.div>
 
@@ -653,6 +756,17 @@ export default function TransactionDetailPage() {
         onOpenChange={setLinkRefundOpen}
         transactionId={transaction.id}
         transactionAmount={Number(transaction.amount)}
+      />
+
+      {/* Link Duplicate Dialog */}
+      <LinkDuplicateDialog
+        open={linkDuplicateOpen}
+        onOpenChange={setLinkDuplicateOpen}
+        transactionId={transaction.id}
+        transactionAmount={Number(transaction.amount)}
+        transactionMerchant={transaction.merchant}
+        transactionDate={transaction.transacted_at}
+        transactionDirection={transaction.direction}
       />
 
       {/* Bulk Edit Suggestion */}

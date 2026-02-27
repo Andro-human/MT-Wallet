@@ -7,12 +7,14 @@ import { AppLayout } from '@/components/layout/AppLayout';
 import { TransactionCard } from '@/components/transactions/TransactionCard';
 import { ActivitySummary } from '@/components/transactions/ActivitySummary';
 import { AddTransactionDialog } from '@/components/transactions/AddTransactionDialog';
+import { DuplicateSuggestionsCard } from '@/components/transactions/DuplicateSuggestionsCard';
 import { SpendingDonut } from '@/components/dashboard/SpendingDonut';
 import { useTransactions } from '@/hooks/useTransactions';
 import { useCategories } from '@/hooks/useCategories';
 import { useTransactionGroups } from '@/hooks/useTransactionGroups';
 import { useBankAccounts } from '@/hooks/useBankAccounts';
 import { useRefundTotals } from '@/hooks/useRefundLinks';
+import { usePotentialDuplicatesList } from '@/hooks/usePotentialDuplicates';
 import { formatINR } from '@/lib/formatCurrency';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -258,6 +260,9 @@ export default function TransactionsPage() {
   );
   const { data: refundTotals = {} } = useRefundTotals(debitTxnIds);
 
+  // Detect potential duplicate pairs across loaded transactions
+  const { pairs: duplicatePairs, dismiss: dismissDuplicatePair } = usePotentialDuplicatesList(sortedTransactions);
+
   const groupedTransactions = useMemo(() => {
     if ((sortMode as SortMode) === 'amount') {
       // When sorting by amount, don't group by date
@@ -493,6 +498,14 @@ export default function TransactionsPage() {
           <FilteredViewSummary
             transactions={transactions}
             categories={categories}
+          />
+        )}
+
+        {/* Duplicate Suggestions */}
+        {!isSelectMode && (
+          <DuplicateSuggestionsCard
+            pairs={duplicatePairs}
+            onDismiss={dismissDuplicatePair}
           />
         )}
 

@@ -150,7 +150,9 @@ export function useCreateRefundLink() {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['refund-links', variables.originalTransactionId] });
       queryClient.invalidateQueries({ queryKey: ['refund-transactions', variables.originalTransactionId] });
+      queryClient.invalidateQueries({ queryKey: ['refund-totals'] });
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
+      queryClient.invalidateQueries({ queryKey: ['transaction', variables.originalTransactionId] });
       queryClient.invalidateQueries({ queryKey: ['transaction', variables.refundTransactionId] });
     },
   });
@@ -184,7 +186,9 @@ export function useDeleteRefundLink() {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['refund-links', variables.originalTransactionId] });
       queryClient.invalidateQueries({ queryKey: ['refund-transactions', variables.originalTransactionId] });
+      queryClient.invalidateQueries({ queryKey: ['refund-totals'] });
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
+      queryClient.invalidateQueries({ queryKey: ['transaction', variables.originalTransactionId] });
       queryClient.invalidateQueries({ queryKey: ['transaction', variables.refundTransactionId] });
     },
   });
