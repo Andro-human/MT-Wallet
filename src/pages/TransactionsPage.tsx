@@ -2,7 +2,7 @@ import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import { Search, SlidersHorizontal, X, ChevronDown, ChevronLeft, ChevronRight, ArrowLeft, Plus, Calendar as CalendarIcon, Trash2, Building2 } from 'lucide-react';
-import { format, startOfMonth, endOfMonth, subMonths, setMonth, setYear, getYear, getMonth } from 'date-fns';
+import { format, startOfMonth, endOfMonth, subMonths, addMonths, setMonth, setYear, getYear, getMonth } from 'date-fns';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { TransactionCard } from '@/components/transactions/TransactionCard';
 import { ActivitySummary } from '@/components/transactions/ActivitySummary';
@@ -282,6 +282,40 @@ export default function TransactionsPage() {
     setSearchParams({}, { replace: true });
   };
 
+  const handlePrevMonth = () => {
+    const curStart = dateRange.startDate || startOfMonth(new Date());
+    const prev = subMonths(curStart, 1);
+    
+    setDateFilter('custom');
+    setCustomStartState(startOfMonth(prev));
+    setCustomEndState(endOfMonth(prev));
+
+    setSearchParams(p => {
+      const next = new URLSearchParams(p);
+      next.set('date', 'custom');
+      next.set('from', format(startOfMonth(prev), 'yyyy-MM-dd'));
+      next.set('to', format(endOfMonth(prev), 'yyyy-MM-dd'));
+      return next;
+    }, { replace: true });
+  };
+
+  const handleNextMonth = () => {
+    const curStart = dateRange.startDate || startOfMonth(new Date());
+    const next = addMonths(curStart, 1);
+    
+    setDateFilter('custom');
+    setCustomStartState(startOfMonth(next));
+    setCustomEndState(endOfMonth(next));
+
+    setSearchParams(p => {
+      const nextParams = new URLSearchParams(p);
+      nextParams.set('date', 'custom');
+      nextParams.set('from', format(startOfMonth(next), 'yyyy-MM-dd'));
+      nextParams.set('to', format(endOfMonth(next), 'yyyy-MM-dd'));
+      return nextParams;
+    }, { replace: true });
+  };
+
   const hasActiveFilters = (dateFilter !== defaultDateFilter) || directionFilter !== 'all' || categoryFilter !== 'all' || groupFilter !== 'all' || effectiveSearch || searchInput;
 
   const activeGroup = groups.find(g => g.id === groupFilter);
@@ -553,6 +587,32 @@ export default function TransactionsPage() {
             Filters
             <ChevronDown className={cn('w-3.5 h-3.5 transition-transform duration-200', showFilters && 'rotate-180')} />
           </Button>
+
+          {/* Quick Month Navigation */}
+          {!isSelectMode && (
+            <div className="flex items-center ml-auto gap-0 bg-card/50 border border-border/50 rounded-xl px-1">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="w-7 h-7"
+                onClick={handlePrevMonth}
+              >
+                <ChevronLeft className="w-4 h-4 text-muted-foreground" />
+              </Button>
+              <span className="text-xs font-mono font-medium min-w-[70px] text-center text-foreground">
+                {dateRange.startDate ? format(dateRange.startDate, 'MMM yyyy') : 'All'}
+              </span>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="w-7 h-7"
+                onClick={handleNextMonth}
+                disabled={dateRange.startDate ? addMonths(dateRange.startDate, 1) > new Date() : true}
+              >
+                <ChevronRight className="w-4 h-4 text-muted-foreground" />
+              </Button>
+            </div>
+          )}
 
           {!isSelectMode && (
             <Button

@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
-import { useDuplicateTransactions } from './useDuplicateLinks';
+import { useDuplicateTransactions, useAllLinkedTransactionIds } from './useDuplicateLinks';
 import { TransactionWithCategory } from '@/types/database';
 
 function makePairKey(id1: string, id2: string): [string, string] {
@@ -35,8 +35,10 @@ function useDismissedDuplicates() {
 
       const set = new Set<string>();
       for (const row of (data || []) as any[]) {
-        const [a, b] = makePairKey(row.transaction_id_1, row.transaction_id_2);
-        set.add(`${a}|${b}`);
+        if (row.transaction_id_1 && row.transaction_id_2) {
+          const [a, b] = makePairKey(row.transaction_id_1, row.transaction_id_2);
+          set.add(`${a}|${b}`);
+        }
       }
       return set;
     },
@@ -89,6 +91,7 @@ export function usePotentialDuplicates(transaction: TransactionWithCategory | nu
  */
 export function usePotentialDuplicatesList(transactions: TransactionWithCategory[]) {
   const { data: dismissed = new Set<string>() } = useDismissedDuplicates();
+  const { data: allLinkedIds = new Set<string>() } = useAllLinkedTransactionIds();
   const dismissMutation = useDismissDuplicate();
 
   const pairs = useMemo(() => {
@@ -101,6 +104,9 @@ export function usePotentialDuplicatesList(transactions: TransactionWithCategory
       for (let j = i + 1; j < transactions.length; j++) {
         const a = transactions[i];
         const b = transactions[j];
+
+        // Skip if either is already verified as a duplicate
+        if (allLinkedIds.has(a.id) || allLinkedIds.has(b.id)) continue;
 
         if (Number(a.amount) !== Number(b.amount)) continue;
         if (a.direction !== b.direction) continue;
@@ -122,7 +128,7 @@ export function usePotentialDuplicatesList(transactions: TransactionWithCategory
     }
 
     return result;
-  }, [transactions, dismissed]);
+  }, [transactions, dismissed, allLinkedIds]);
 
   const dismiss = (pairKey: string) => {
     const [id1, id2] = pairKey.split('|');

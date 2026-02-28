@@ -44,6 +44,37 @@ export function useDuplicateLinks(transactionId: string) {
 }
 
 /**
+ * Fetch all transaction IDs that are already part of ANY duplicate link.
+ * Used by the list view to filter out already-linked pairs from suggestions.
+ */
+export function useAllLinkedTransactionIds() {
+  const { user } = useAuth();
+
+  return useQuery({
+    queryKey: ['all-duplicate-links', user?.id],
+    queryFn: async () => {
+      if (!user) return new Set<string>();
+
+      const { data, error } = await supabase
+        .from('duplicate_links' as any)
+        .select('primary_transaction_id, duplicate_transaction_id')
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+
+      const linkedIds = new Set<string>();
+      for (const row of (data || []) as any[]) {
+        linkedIds.add(row.primary_transaction_id);
+        linkedIds.add(row.duplicate_transaction_id);
+      }
+
+      return linkedIds;
+    },
+    enabled: !!user,
+  });
+}
+
+/**
  * Fetch the actual duplicate transactions linked to this one (bidirectional).
  */
 export function useDuplicateTransactions(transactionId: string) {
@@ -134,6 +165,7 @@ export function useCreateDuplicateLink() {
 
 export function useDeleteDuplicateLink() {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
 
   return useMutation({
     mutationFn: async ({
@@ -143,23 +175,29 @@ export function useDeleteDuplicateLink() {
       primaryTransactionId: string;
       duplicateTransactionId: string;
     }) => {
+      if (!user) throw new Error('Not authenticated');
+
       // Try deleting in both directions (since user might unlink from either side)
+      // Must include user_id so RLS policy allows the deletion
       const { error: e1 } = await supabase
         .from('duplicate_links' as any)
         .delete()
         .eq('primary_transaction_id', primaryTransactionId)
-        .eq('duplicate_transaction_id', duplicateTransactionId);
+        .eq('duplicate_transaction_id', duplicateTransactionId)
+        .eq('user_id', user.id);
 
-      if (e1) {
-        // Try reverse direction
-        const { error: e2 } = await supabase
-          .from('duplicate_links' as any)
-          .delete()
-          .eq('primary_transaction_id', duplicateTransactionId)
-          .eq('duplicate_transaction_id', primaryTransactionId);
+      // If e1 is present, it actually means a network/syntax error. 
+      // If 0 rows are deleted due to direction, it DOES NOT throw an error in Supabase by default, 
+      // but we should just blindly try the reverse direction too just in case.
+      
+      const { error: e2 } = await supabase
+        .from('duplicate_links' as any)
+        .delete()
+        .eq('primary_transaction_id', duplicateTransactionId)
+        .eq('duplicate_transaction_id', primaryTransactionId)
+        .eq('user_id', user.id);
 
-        if (e2) throw e2;
-      }
+      if (e1 && e2) throw e1; // Only throw if BOTH actually threw real PostgREST errors
 
       // Restore the duplicate's expense/income flags
       await supabase

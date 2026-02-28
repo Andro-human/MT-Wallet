@@ -1,10 +1,11 @@
-// Format amount in Indian numbering system (₹1,00,000 format)
-export function formatINR(amount: number): string {
+// Format amount in Indian numbering system (₹1,00,000.50 format)
+export function formatINR(amount: number, showDecimals: boolean | 'auto' = 'auto'): string {
   const isNegative = amount < 0;
   const absAmount = Math.abs(amount);
   
   // Convert to string with 2 decimal places
-  const [intPart, decPart = '00'] = absAmount.toFixed(2).split('.');
+  const fixedStr = absAmount.toFixed(2);
+  const [intPart, decPart] = fixedStr.split('.');
   
   // Indian numbering: first 3 digits, then groups of 2
   let result = '';
@@ -26,21 +27,30 @@ export function formatINR(amount: number): string {
       result = remaining + ',' + result;
     }
   }
+
+  // Handle decimals based on option
+  if (showDecimals === true || (showDecimals === 'auto' && decPart !== '00')) {
+    result += `.${decPart}`;
+  }
   
   const formatted = `₹${result}`;
   return isNegative ? `-${formatted}` : formatted;
 }
 
-// Format compact (₹1.2L, ₹50K)
-export function formatINRCompact(amount: number): string {
+// Format compact with up to 2 decimals, dropping trailing zeros (e.g., ₹4.52L, ₹8.7L)
+export function formatINRCompact(amount: number, maxPrecision: number = 2): string {
   const absAmount = Math.abs(amount);
+  const isNegative = amount < 0;
+  const sign = isNegative ? '-' : '';
   
+  const formatNum = (val: number) => parseFloat(val.toFixed(maxPrecision)).toString();
+
   if (absAmount >= 10000000) {
-    return `₹${(amount / 10000000).toFixed(1)}Cr`;
+    return `${sign}₹${formatNum(absAmount / 10000000)}Cr`;
   } else if (absAmount >= 100000) {
-    return `₹${(amount / 100000).toFixed(1)}L`;
+    return `${sign}₹${formatNum(absAmount / 100000)}L`;
   } else if (absAmount >= 1000) {
-    return `₹${(amount / 1000).toFixed(1)}K`;
+    return `${sign}₹${formatNum(absAmount / 1000)}K`;
   }
   
   return formatINR(amount);

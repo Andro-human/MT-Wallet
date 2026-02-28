@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import { ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { startOfMonth, endOfMonth, subMonths, format, eachMonthOfInterval, startOfDay, endOfDay, setMonth, setYear, getYear, getMonth } from 'date-fns';
 import { ChevronRight, ChevronLeft, Folder, Calendar, X, Filter, BarChart3, Layers } from 'lucide-react';
@@ -53,8 +53,10 @@ function MonthYearPicker({
   const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
   const changeYear = (delta: number) => {
-    const newDate = setYear(value, year + delta);
-    if (maxDate && newDate > maxDate) return;
+    let newDate = setYear(value, year + delta);
+    if (maxDate && newDate > maxDate) {
+      newDate = maxDate;
+    }
     onChange(newDate);
   };
 
@@ -121,6 +123,7 @@ function MonthYearPicker({
 
 // ─── Main Component ──────────────────────────────────────────────────────────
 export default function InsightsPage() {
+  const navigate = useNavigate();
   // Persist key filters in URL so they survive navigation
   const [timeRange, setTimeRange] = useInsightParam('range', '6-months');
   const [chartModeParam, setChartModeParam] = useInsightParam('mode', 'total');
@@ -218,7 +221,7 @@ export default function InsightsPage() {
     monthIntervals.forEach(d => {
       const key = format(d, 'yyyy-MM');
       const label = format(d, "MMM''yy");
-      months[key] = { label, expense: 0, income: 0 };
+      months[key] = { label, rawDate: d, expense: 0, income: 0 };
 
       // Initialize group columns
       if (chartMode === 'by-group') {
@@ -575,7 +578,14 @@ export default function InsightsPage() {
             <>
               <div className="h-64">
                 <ResponsiveContainer width="100%" height="100%">
-                  <ComposedChart data={monthlyTrend} barCategoryGap="20%">
+                  <ComposedChart data={monthlyTrend} barCategoryGap="20%" onClick={(state: any) => {
+                    if (state?.activePayload?.[0]?.payload?.rawDate) {
+                      const rawDate = state.activePayload[0].payload.rawDate;
+                      const fromDate = format(startOfMonth(rawDate), 'yyyy-MM-dd');
+                      const toDate = format(endOfMonth(rawDate), 'yyyy-MM-dd');
+                      navigate(`/transactions?date=custom&from=${fromDate}&to=${toDate}`);
+                    }
+                  }} className="cursor-pointer">
                     <defs>
                       {/* Neo Gradient: Transparent to Lime */}
                       <linearGradient id="expenseBarGrad" x1="0" y1="0" x2="0" y2="1">
