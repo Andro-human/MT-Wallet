@@ -94,11 +94,19 @@ function SyncRunCard({ run, onClick }: { run: SyncRun; onClick: () => void }) {
 
 export default function SyncHistoryPage() {
   const navigate = useNavigate();
-  const { data: runs, isLoading } = useSyncRuns();
+  const { 
+    data, 
+    isLoading, 
+    hasNextPage, 
+    fetchNextPage, 
+    isFetchingNextPage 
+  } = useSyncRuns();
 
-  const totalInserted = runs?.reduce((sum, r) => sum + r.inserted, 0) || 0;
-  const totalRuns = runs?.length || 0;
-  const successRuns = runs?.filter(r => r.status === 'success').length || 0;
+  const allRuns = data?.pages.flatMap(p => p.runs) || [];
+
+  const totalInserted = allRuns.reduce((sum, r) => sum + r.inserted, 0);
+  const totalRuns = data?.pages?.[0]?.totalCount ?? allRuns.length;
+  const successRuns = data?.pages?.[0]?.successCount ?? allRuns.filter(r => r.status === 'success').length;
 
   return (
     <AppLayout>
@@ -123,7 +131,7 @@ export default function SyncHistoryPage() {
         </motion.div>
 
         {/* Summary stats */}
-        {!isLoading && runs && runs.length > 0 && (
+        {!isLoading && allRuns.length > 0 && (
           <motion.div
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
@@ -151,7 +159,7 @@ export default function SyncHistoryPage() {
             Array.from({ length: 5 }).map((_, i) => (
               <Skeleton key={i} className="h-24 rounded-2xl" />
             ))
-          ) : !runs || runs.length === 0 ? (
+          ) : allRuns.length === 0 ? (
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -164,19 +172,33 @@ export default function SyncHistoryPage() {
               </p>
             </motion.div>
           ) : (
-            runs.map((run, i) => (
-              <motion.div
-                key={run.id}
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.03, duration: 0.3 }}
-              >
-                <SyncRunCard
-                  run={run}
-                  onClick={() => navigate(`/sync/${run.id}`)}
-                />
-              </motion.div>
-            ))
+            <>
+              {allRuns.map((run, i) => (
+                <motion.div
+                  key={run.id}
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: Math.min(i, 20) * 0.03, duration: 0.3 }}
+                >
+                  <SyncRunCard
+                    run={run}
+                    onClick={() => navigate(`/sync/${run.id}`)}
+                  />
+                </motion.div>
+              ))}
+              
+              {hasNextPage && (
+                <div className="pt-4 pb-8 flex justify-center">
+                  <button
+                    onClick={() => fetchNextPage()}
+                    disabled={isFetchingNextPage}
+                    className="px-6 py-2.5 rounded-full bg-muted/30 hover:bg-muted/50 text-foreground text-sm font-medium transition-colors disabled:opacity-50"
+                  >
+                    {isFetchingNextPage ? 'Loading...' : 'Load older runs'}
+                  </button>
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>

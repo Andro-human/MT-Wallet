@@ -581,9 +581,20 @@ export default function InsightsPage() {
                   <ComposedChart data={monthlyTrend} barCategoryGap="20%" onClick={(state: any) => {
                     if (state?.activePayload?.[0]?.payload?.rawDate) {
                       const rawDate = state.activePayload[0].payload.rawDate;
-                      const fromDate = format(startOfMonth(rawDate), 'yyyy-MM-dd');
-                      const toDate = format(endOfMonth(rawDate), 'yyyy-MM-dd');
-                      navigate(`/transactions?date=custom&from=${fromDate}&to=${toDate}`);
+                      const start = startOfMonth(rawDate);
+                      const end = endOfMonth(rawDate);
+                      
+                      setCustomStartState(start);
+                      setCustomEndState(end);
+                      setShowCustomPicker(false);
+                      
+                      setSearchParams(prev => {
+                        const next = new URLSearchParams(prev);
+                        next.set('range', 'custom');
+                        next.set('from', format(start, 'yyyy-MM-dd'));
+                        next.set('to', format(end, 'yyyy-MM-dd'));
+                        return next;
+                      }, { replace: true });
                     }
                   }} className="cursor-pointer">
                     <defs>

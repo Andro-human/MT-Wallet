@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 
@@ -42,19 +42,52 @@ export interface SyncRun {
 
 export function useSyncRuns() {
   const { user } = useAuth();
+  const PAGE_SIZE = 50;
 
-  return useQuery({
+  return useInfiniteQuery({
     queryKey: ['sync-runs', user?.id],
-    queryFn: async () => {
-      const { data, error } = await supabase
+    queryFn: async ({ pageParam = 0 }) => {
+      const start = pageParam * PAGE_SIZE;
+      const end = start + PAGE_SIZE - 1;
+
+      const { data, error } = await (supabase as any)
         .from('sync_runs')
         .select('id, started_at, completed_at, duration_ms, status, total_messages, inserted, skipped, errors, error_message, source, rowid_range, created_at')
         .order('started_at', { ascending: false })
-        .limit(100);
+        .range(start, end);
 
       if (error) throw error;
-      return (data || []) as SyncRun[];
+      
+      let totalCount: number | null = null;
+      let successCount: number | null = null;
+      
+      // Only fetch the global totals on the first page load
+      if (pageParam === 0 && user?.id) {
+        const { count: total, error: countErr } = await (supabase as any)
+          .from('sync_runs')
+          .select('*', { count: 'exact', head: true })
+          .eq('user_id', user.id);
+          
+        const { count: success, error: successErr } = await (supabase as any)
+          .from('sync_runs')
+          .select('*', { count: 'exact', head: true })
+          .eq('status', 'success')
+          .eq('user_id', user.id);
+          
+        if (!countErr && total !== null) totalCount = total;
+        if (!successErr && success !== null) successCount = success;
+      }
+      
+      const runs = (data || []) as SyncRun[];
+      return {
+        runs,
+        totalCount,
+        successCount,
+        nextCursor: runs.length === PAGE_SIZE ? pageParam + 1 : undefined,
+      };
     },
+    getNextPageParam: (lastPage) => lastPage.nextCursor,
+    initialPageParam: 0,
     enabled: !!user,
   });
 }
@@ -67,7 +100,7 @@ export function useSyncRun(id: string | undefined) {
     queryFn: async () => {
       if (!id) throw new Error('No run ID');
 
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('sync_runs')
         .select('*')
         .eq('id', id)
