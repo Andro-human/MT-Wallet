@@ -17,6 +17,7 @@ import SyncHistoryPage from "./pages/SyncHistoryPage";
 import SyncRunDetailPage from "./pages/SyncRunDetailPage";
 import BankAccountsPage from "./pages/BankAccountsPage";
 import CategoriesPage from "./pages/CategoriesPage";
+import MerchantRulesPage from "./pages/MerchantRulesPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -73,6 +74,12 @@ const App = () => (
             <Route path="/settings" element={
               <ProtectedRoute>
                 <SettingsPage />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/settings/rules" element={
+              <ProtectedRoute>
+                <MerchantRulesPage />
               </ProtectedRoute>
             } />
             

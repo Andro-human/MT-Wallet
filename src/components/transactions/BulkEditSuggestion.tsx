@@ -9,6 +9,7 @@ import { formatINR } from '@/lib/formatCurrency';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { useQueryClient } from '@tanstack/react-query';
+import { useMerchantMappings } from '@/hooks/useMerchantMappings';
 import {
   Dialog,
   DialogContent,
@@ -27,9 +28,9 @@ interface BulkEditSuggestionProps {
   /** The transaction ID that was just edited (to exclude from list) */
   currentTransactionId: string;
   /** The field that was changed */
-  field: 'category_id' | 'group_id' | 'merchant';
+  field: 'category_id' | 'group_id' | 'merchant' | 'is_expense' | 'is_income';
   /** The new value */
-  newValue: string | null;
+  newValue: string | boolean | null;
   /** Human-readable label for the change */
   changeLabel: string;
 }
@@ -50,6 +51,26 @@ export function BulkEditSuggestion({
   const [isApplying, setIsApplying] = useState(false);
   const [applyToFuture, setApplyToFuture] = useState(false);
 
+  // Fetch saved mapping rules
+  const { data: mappings = [] } = useMerchantMappings();
+
+  // If a rule ALREADY exists for this exact field & merchant combination, block the popup
+  // If the user is just changing a transaction, let them change it without bothering them about a rule they already created.
+  const hasExistingRuleForField = useMemo(() => {
+    if (!open) return false;
+    
+    // The raw merchant string is what rules are bound to
+    const existingRule = mappings.find(m => m.raw_merchant.toLowerCase() === merchantName.toLowerCase());
+    if (!existingRule) return false;
+
+    if (field === 'merchant' && existingRule.mapped_merchant) return true;
+    if (field === 'category_id' && existingRule.default_category_id !== null) return true;
+    if (field === 'is_expense' && existingRule.default_is_expense !== null) return true;
+    if (field === 'is_income' && existingRule.default_is_income !== null) return true;
+    
+    return false;
+  }, [open, mappings, merchantName, field]);
+
   // Fetch transactions with the same merchant
   const { data: allTransactions = [] } = useTransactions({
     search: merchantName,
@@ -63,6 +84,8 @@ export function BulkEditSuggestion({
         if (field === 'category_id') return t.category_id !== newValue;
         if (field === 'group_id') return (t as any).group_id !== newValue;
         if (field === 'merchant') return t.merchant !== newValue;
+        if (field === 'is_expense') return t.is_expense !== newValue;
+        if (field === 'is_income') return t.is_income !== newValue;
         return false;
       })
       .slice(0, 20);
@@ -93,6 +116,8 @@ export function BulkEditSuggestion({
         updates.merchant = newValue;
         updates.merchant_normalized = newValue;
       }
+      else if (field === 'is_expense') updates.is_expense = newValue;
+      else if (field === 'is_income') updates.is_income = newValue;
 
       if (selectedIds.size > 0) {
         const { error } = await supabase
@@ -105,12 +130,15 @@ export function BulkEditSuggestion({
 
       if (applyToFuture && user) {
         // Save the rule to memory
-        const ruleData = {
+        const ruleData: any = {
           user_id: user.id,
           raw_merchant: merchantName,
           mapped_merchant: field === 'merchant' ? (newValue || merchantName) : merchantName,
-          default_category_id: field === 'category_id' ? newValue : null,
         };
+        
+        if (field === 'category_id') ruleData.default_category_id = newValue;
+        if (field === 'is_expense') ruleData.default_is_expense = newValue;
+        if (field === 'is_income') ruleData.default_is_income = newValue;
 
         const { error: ruleError } = await (supabase as any)
           .from('user_merchant_mappings')
@@ -142,69 +170,84 @@ export function BulkEditSuggestion({
     }
   };
 
-  if (relatedTransactions.length === 0) return null;
+  // If there's already an automation rule for this exact edit, quietly hide the popup entirely
+  if (hasExistingRuleForField) {
+    if (open) {
+      setTimeout(() => onOpenChange(false), 0);
+    }
+    return null;
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="glass-elevated border-border/50 max-w-md max-h-[80vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle className="text-base font-semibold">
-            Apply to similar transactions?
+            {relatedTransactions.length > 0 ? 'Apply to similar transactions?' : 'Create automation rule?'}
           </DialogTitle>
           <p className="text-sm text-muted-foreground mt-1">
-            Set <span className="font-medium text-foreground">{changeLabel}</span> on other "{merchantName}" transactions
+            {relatedTransactions.length > 0 
+              ? <>Set <span className="font-medium text-foreground">{changeLabel}</span> on other "{merchantName}" transactions</>
+              : <>We couldn't find past transactions from "{merchantName}". Would you like to save this as a rule for all future transactions?</>}
           </p>
         </DialogHeader>
 
-        <div className="flex items-center justify-between py-2">
-          <span className="text-xs text-muted-foreground">
-            {relatedTransactions.length} transaction{relatedTransactions.length > 1 ? 's' : ''} found
-          </span>
-          <button
-            onClick={selectAll}
-            className="text-xs text-primary font-medium hover:underline"
-          >
-            Select all
-          </button>
-        </div>
+        {relatedTransactions.length > 0 && (
+          <div className="flex items-center justify-between py-2 mt-2">
+            <span className="text-xs text-muted-foreground">
+              {relatedTransactions.length} transaction{relatedTransactions.length > 1 ? 's' : ''} found
+            </span>
+            <button
+              onClick={selectAll}
+              className="text-xs text-primary font-medium hover:underline"
+            >
+              Select all
+            </button>
+          </div>
+        )}
 
-        <div className="flex-1 overflow-y-auto -mx-6 px-6 space-y-1.5" style={{ WebkitOverflowScrolling: 'touch', maxHeight: '50vh' }}>
-          {relatedTransactions.map((txn) => {
-            const isSelected = selectedIds.has(txn.id);
-            return (
-              <button
-                key={txn.id}
-                onClick={() => toggleTransaction(txn.id)}
-                className={cn(
-                  "w-full flex items-center gap-3 p-3 rounded-xl text-left transition-colors",
-                  isSelected
-                    ? "bg-primary/10 border border-primary/30"
-                    : "bg-muted/20 border border-transparent hover:bg-muted/40"
-                )}
-              >
-                <div className={cn(
-                  "w-5 h-5 rounded-md border-2 flex items-center justify-center flex-shrink-0 transition-colors",
-                  isSelected ? "bg-primary border-primary" : "border-border"
-                )}>
-                  {isSelected && <Check className="w-3 h-3 text-primary-foreground" />}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-foreground truncate">
-                    {txn.merchant || 'Unknown'}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {format(new Date(txn.transacted_at), 'MMM d, yyyy')} · {txn.direction === 'credit' ? '+' : '−'}₹{formatINR(txn.amount).replace('₹', '')}
-                  </p>
-                </div>
-                {txn.categories && (
-                  <span className="text-sm flex-shrink-0">{txn.categories.icon}</span>
-                )}
-              </button>
-            );
-          })}
-        </div>
+        {relatedTransactions.length > 0 && (
+          <div className="flex-1 overflow-y-auto -mx-6 px-6 space-y-1.5 mb-4" style={{ WebkitOverflowScrolling: 'touch', maxHeight: '40vh' }}>
+            {relatedTransactions.map((txn) => {
+              const isSelected = selectedIds.has(txn.id);
+              return (
+                <button
+                  key={txn.id}
+                  onClick={() => toggleTransaction(txn.id)}
+                  className={cn(
+                    "w-full flex items-center gap-3 p-3 rounded-xl text-left transition-colors",
+                    isSelected
+                      ? "bg-primary/10 border border-primary/30"
+                      : "bg-muted/20 border border-transparent hover:bg-muted/40"
+                  )}
+                >
+                  <div className={cn(
+                    "w-5 h-5 rounded-md border-2 flex items-center justify-center flex-shrink-0 transition-colors",
+                    isSelected ? "bg-primary border-primary" : "border-border"
+                  )}>
+                    {isSelected && <Check className="w-3 h-3 text-primary-foreground" />}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-foreground truncate">
+                      {txn.merchant || 'Unknown'}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {format(new Date(txn.transacted_at), 'MMM d, yyyy')} · {txn.direction === 'credit' ? '+' : '−'}₹{formatINR(txn.amount).replace('₹', '')}
+                    </p>
+                  </div>
+                  {txn.categories && (
+                    <span className="text-sm flex-shrink-0">{txn.categories.icon}</span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        )}
 
-        <div className="px-6 py-3 border-t border-border/30 bg-muted/10">
+        <div className={cn(
+          "px-6 py-4 border-t border-border/30 bg-muted/10",
+          relatedTransactions.length === 0 && "mt-4 border-t-0 bg-muted/20 rounded-xl mx-6 mb-4"
+        )}>
           <div className="flex items-center space-x-3">
             <Checkbox
               id="apply-future"

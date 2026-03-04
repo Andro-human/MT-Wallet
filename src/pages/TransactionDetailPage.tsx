@@ -55,8 +55,8 @@ export default function TransactionDetailPage() {
   const [linkDuplicateOpen, setLinkDuplicateOpen] = useState(false);
   const [bulkEditOpen, setBulkEditOpen] = useState(false);
   const [bulkEditConfig, setBulkEditConfig] = useState<{
-    field: 'category_id' | 'group_id' | 'merchant';
-    newValue: string | null;
+    field: 'category_id' | 'group_id' | 'merchant' | 'is_expense' | 'is_income';
+    newValue: string | boolean | null;
     changeLabel: string;
     merchantName: string;
   } | null>(null);
@@ -177,13 +177,24 @@ export default function TransactionDetailPage() {
 
   const toggleExpense = async () => {
     try {
+      const newValue = !transaction.is_expense;
       await updateMutation.mutateAsync({
         id: transaction.id,
-        updates: { is_expense: !transaction.is_expense },
+        updates: { is_expense: newValue },
       });
       toast({ 
-        title: transaction.is_expense ? 'Not counted as expense' : 'Counted as expense' 
+        title: newValue ? 'Counted as expense' : 'Not counted as expense' 
       });
+      
+      if (transaction.merchant) {
+        setBulkEditConfig({
+          field: 'is_expense',
+          newValue,
+          changeLabel: newValue ? 'Count as Expense' : 'Do not count as Expense',
+          merchantName: transaction.merchant,
+        });
+        setBulkEditOpen(true);
+      }
     } catch {
       toast({ title: 'Failed to update', variant: 'destructive' });
     }
@@ -191,13 +202,24 @@ export default function TransactionDetailPage() {
 
   const toggleIncome = async () => {
     try {
+      const newValue = !transaction.is_income;
       await updateMutation.mutateAsync({
         id: transaction.id,
-        updates: { is_income: !transaction.is_income },
+        updates: { is_income: newValue },
       });
       toast({ 
-        title: transaction.is_income ? 'Not counted as income' : 'Counted as income' 
+        title: newValue ? 'Counted as income' : 'Not counted as income' 
       });
+      
+      if (transaction.merchant) {
+        setBulkEditConfig({
+          field: 'is_income',
+          newValue,
+          changeLabel: newValue ? 'Count as Income' : 'Do not count as Income',
+          merchantName: transaction.merchant,
+        });
+        setBulkEditOpen(true);
+      }
     } catch {
       toast({ title: 'Failed to update', variant: 'destructive' });
     }
