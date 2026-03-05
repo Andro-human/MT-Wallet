@@ -11,6 +11,11 @@ export interface UserMerchantMapping {
   default_category_id: string | null;
   default_is_expense: boolean | null;
   default_is_income: boolean | null;
+  amount_operator: '<' | '>' | '<=' | '>=' | '=' | null;
+  amount_threshold: number | null;
+  date_operator: '<' | '>' | '<=' | '>=' | '=' | null;
+  date_threshold: number | null;
+  match_type: 'exact' | 'contains';
   created_at: string;
   updated_at: string;
 }
@@ -58,6 +63,34 @@ export function useDeleteMerchantMapping() {
     onError: (error) => {
       console.error('Failed to delete mapping:', error);
       toast({ title: 'Failed to delete rule', variant: 'destructive' });
+    },
+  });
+}
+
+export function useUpdateMerchantMapping() {
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: async ({ id, updates }: { id: string; updates: Partial<UserMerchantMapping> }) => {
+      if (!user) throw new Error('Not authenticated');
+
+      const { error } = await (supabase as any)
+        .from('user_merchant_mappings')
+        .update(updates)
+        .eq('id', id)
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['merchant-mappings'] });
+      toast({ title: 'Automation rule updated successfully' });
+    },
+    onError: (error) => {
+      console.error('Failed to update mapping:', error);
+      toast({ title: 'Failed to update rule', variant: 'destructive' });
     },
   });
 }

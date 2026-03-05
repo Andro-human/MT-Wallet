@@ -86,7 +86,7 @@ export function ActivitySummary({ transactions, dateRange, isLoading }: Activity
       <BudgetCircle spent={stats.expenses} budget={budget} />
 
       {/* Stats Row */}
-      <div className="grid grid-cols-3 gap-px mt-5">
+      <div className="grid grid-cols-4 gap-px mt-5">
         {/* Income */}
         <div className="text-center py-3 border-r border-border/30">
           <div className="flex items-center justify-center gap-1.5 mb-1">
@@ -117,6 +117,39 @@ export function ActivitySummary({ transactions, dateRange, isLoading }: Activity
               <p className={`text-sm font-bold currency-display ${remaining > 0 ? 'text-success' : 'text-destructive'}`}>
                 {formatINR(Math.round(perDay))}
               </p>
+            );
+          })() : (
+            <p className="text-xs text-muted-foreground">Set budget</p>
+          )}
+        </div>
+
+        {/* Budget Pacing */}
+        <div className="text-center py-3 border-r border-border/30">
+          <div className="flex items-center justify-center gap-1.5 mb-1">
+            <span className="text-2xs text-muted-foreground uppercase tracking-wider font-medium">
+              Pacing
+            </span>
+          </div>
+          {budget > 0 ? (() => {
+            const today = new Date();
+            const currentDay = today.getDate();
+            const daysInMonth = endOfMonth(today).getDate();
+            
+            // Expected spend at this point in the month
+            const expectedSpend = (budget / daysInMonth) * currentDay;
+            const actualSpend = stats.expenses;
+            
+            // Difference positive == good (ahead of budget)
+            // Difference negative == bad (behind budget / overspending)
+            const difference = expectedSpend - actualSpend;
+            const isAhead = difference >= 0;
+
+            return (
+              <div className="flex flex-col items-center">
+                <p className={`text-sm font-bold currency-display ${isAhead ? 'text-success' : 'text-destructive'}`}>
+                  {isAhead ? '+' : '-'}{formatINR(Math.abs(difference))}
+                </p>
+              </div>
             );
           })() : (
             <p className="text-xs text-muted-foreground">Set budget</p>

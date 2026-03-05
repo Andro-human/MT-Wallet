@@ -1,12 +1,14 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ArrowLeft, Wand2, Trash2, Search, Tag, Wallet, Banknote, Edit3 } from 'lucide-react';
+import { ArrowLeft, Wand2, Trash2, Search, Tag, Wallet, Banknote, Edit3, Plus, Pencil } from 'lucide-react';
 import { AppLayout } from '@/components/layout/AppLayout';
-import { useMerchantMappings, useDeleteMerchantMapping } from '@/hooks/useMerchantMappings';
+import { useMerchantMappings, useDeleteMerchantMapping, UserMerchantMapping } from '@/hooks/useMerchantMappings';
 import { useCategories } from '@/hooks/useCategories';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Button } from '@/components/ui/button';
+import { AddRuleDialog } from '@/components/settings/AddRuleDialog';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -26,6 +28,8 @@ export default function MerchantRulesPage() {
 
   const [search, setSearch] = useState('');
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [showAddDialog, setShowAddDialog] = useState(false);
+  const [editingRule, setEditingRule] = useState<UserMerchantMapping | null>(null);
 
   const categoryMap = useMemo(() => {
     return new Map(categories.map(c => [c.id, c]));
@@ -50,7 +54,7 @@ export default function MerchantRulesPage() {
     <AppLayout>
       <div className="px-5 pt-6 md:pt-12 pb-24 safe-area-top min-h-screen">
         {/* Header */}
-        <div className="sticky top-0 z-10 backdrop-blur-xl bg-background/80 border-b border-border/50 pb-4 mb-6">
+        <div className="sticky top-0 z-10 backdrop-blur-xl bg-background/80 border-b border-border/50 pb-4 mb-6 flex items-center justify-between">
           <div className="flex items-center gap-3">
              <button 
               onClick={() => navigate(-1)}
@@ -65,6 +69,17 @@ export default function MerchantRulesPage() {
               </p>
             </div>
           </div>
+          <Button 
+            onClick={() => {
+              setEditingRule(null);
+              setShowAddDialog(true);
+            }}
+            size="sm" 
+            className="rounded-full shadow-lg shadow-primary/20"
+          >
+            <Plus className="w-4 h-4 mr-1.5" />
+            Add Rule
+          </Button>
         </div>
 
         {/* Info Card */}
@@ -129,12 +144,23 @@ export default function MerchantRulesPage() {
                       {mapping.raw_merchant}
                     </h3>
                   </div>
-                  <button 
-                    onClick={() => setDeletingId(mapping.id)}
-                    className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors shrink-0"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                  <div className="flex items-center gap-1">
+                    <button 
+                      onClick={() => {
+                        setEditingRule(mapping);
+                        setShowAddDialog(true);
+                      }}
+                      className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:bg-secondary/10 hover:text-secondary transition-colors shrink-0"
+                    >
+                      <Pencil className="w-4 h-4" />
+                    </button>
+                    <button 
+                      onClick={() => setDeletingId(mapping.id)}
+                      className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors shrink-0"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
                 
                 <div className="p-4 bg-background space-y-3">
@@ -142,6 +168,29 @@ export default function MerchantRulesPage() {
                     Automatically Apply
                   </span>
                   
+                  {/* Filter Constraints */}
+                  {(mapping.amount_operator || mapping.date_operator || mapping.match_type === 'contains') && (
+                    <div className="flex items-center gap-2 mb-3 pb-3 border-b border-border/50">
+                      {mapping.match_type === 'contains' && (
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-muted text-muted-foreground uppercase">
+                          MATCH CONTAINS
+                        </span>
+                      )}
+                      
+                      {mapping.amount_operator && (
+                         <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-primary/10 text-primary uppercase flex items-center gap-1">
+                           IF AMT {mapping.amount_operator} ₹{mapping.amount_threshold}
+                         </span>
+                      )}
+
+                      {mapping.date_operator && (
+                         <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-secondary/10 text-secondary uppercase flex items-center gap-1">
+                           IF DAY {mapping.date_operator} {mapping.date_threshold}
+                         </span>
+                      )}
+                    </div>
+                  )}
+
                   {/* Name Mapping */}
                   {mapping.mapped_merchant && mapping.mapped_merchant !== mapping.raw_merchant && (
                     <div className="flex items-center gap-3 text-sm">
@@ -190,6 +239,16 @@ export default function MerchantRulesPage() {
           )}
         </div>
       </div>
+
+      <AddRuleDialog 
+        open={showAddDialog} 
+        onOpenChange={(open) => {
+          setShowAddDialog(open);
+          if (!open) setEditingRule(null);
+        }} 
+        categories={categories} 
+        editingRule={editingRule}
+      />
 
       <AlertDialog open={!!deletingId} onOpenChange={(o) => !o && setDeletingId(null)}>
         <AlertDialogContent className="glass-elevated border-border/50">
