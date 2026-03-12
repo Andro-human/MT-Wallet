@@ -142,7 +142,7 @@ export function BulkEditSuggestion({
 
         const { error: ruleError } = await (supabase as any)
           .from('user_merchant_mappings')
-          .upsert(ruleData, { onConflict: 'user_id, raw_merchant' });
+          .insert(ruleData);
 
         if (ruleError) {
           console.error("Failed to save rule:", ruleError);

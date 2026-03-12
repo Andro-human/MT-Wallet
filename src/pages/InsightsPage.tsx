@@ -8,6 +8,7 @@ import { AppLayout } from '@/components/layout/AppLayout';
 import { useTransactions } from '@/hooks/useTransactions';
 import { useCategories } from '@/hooks/useCategories';
 import { useTransactionGroups } from '@/hooks/useTransactionGroups';
+import { useRefundTotals } from '@/hooks/useRefundLinks';
 import { formatINR, formatINRCompact } from '@/lib/formatCurrency';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
@@ -188,6 +189,19 @@ export default function InsightsPage() {
 
   const { data: allTransactions = [], isLoading } = useTransactions(dateRange);
 
+  // Batch-fetch refund totals for all debit transactions
+  const debitTxnIds = useMemo(() =>
+    allTransactions.filter(t => t.direction === 'debit').map(t => t.id),
+    [allTransactions]
+  );
+  const { data: refundTotals = {} } = useRefundTotals(debitTxnIds);
+
+  // Helper: get refund-adjusted amount for a transaction
+  const netAmount = useCallback((t: { id: string; amount: number | string }) => {
+    const refund = refundTotals[t.id] || 0;
+    return Math.max(Number(t.amount) - refund, 0);
+  }, [refundTotals]);
+
   // Apply advanced filters (group exclusion)
   const transactions = useMemo(() => {
     let filtered = allTransactions;
@@ -237,12 +251,12 @@ export default function InsightsPage() {
       if (!months[key]) return;
 
       if (t.is_expense) {
-        months[key].expense += Number(t.amount);
+        months[key].expense += netAmount(t);
 
         if (chartMode === 'by-group') {
           const groupKey = t.group_id ? `group_${t.group_id}` : 'group_ungrouped';
           if (months[key][groupKey] !== undefined) {
-            months[key][groupKey] += Number(t.amount);
+            months[key][groupKey] += netAmount(t);
           }
         }
       }
@@ -262,7 +276,7 @@ export default function InsightsPage() {
       .filter(t => t.is_expense)
       .forEach(t => {
         const catId = t.category_id || 'uncategorized';
-        breakdown[catId] = (breakdown[catId] || 0) + Number(t.amount);
+        breakdown[catId] = (breakdown[catId] || 0) + netAmount(t);
       });
 
     return Object.entries(breakdown)
@@ -277,7 +291,7 @@ export default function InsightsPage() {
         };
       })
       .sort((a, b) => b.amount - a.amount);
-  }, [transactions, categories]);
+  }, [transactions, categories, netAmount]);
 
   // Group breakdown
   const groupBreakdown = useMemo(() => {
@@ -286,7 +300,7 @@ export default function InsightsPage() {
     transactions
       .filter(t => t.is_expense && t.group_id)
       .forEach(t => {
-        breakdown[t.group_id!] = (breakdown[t.group_id!] || 0) + Number(t.amount);
+        breakdown[t.group_id!] = (breakdown[t.group_id!] || 0) + netAmount(t);
       });
 
     return Object.entries(breakdown)
@@ -301,7 +315,7 @@ export default function InsightsPage() {
         };
       })
       .sort((a, b) => b.amount - a.amount);
-  }, [transactions, groups]);
+  }, [transactions, groups, netAmount]);
 
   // Top merchants
   const topMerchants = useMemo(() => {
@@ -311,14 +325,14 @@ export default function InsightsPage() {
       .filter(t => t.is_expense && t.merchant)
       .forEach(t => {
         const merchant = t.merchant_normalized || t.merchant!;
-        merchants[merchant] = (merchants[merchant] || 0) + Number(t.amount);
+        merchants[merchant] = (merchants[merchant] || 0) + netAmount(t);
       });
 
     return Object.entries(merchants)
       .map(([name, amount]) => ({ name, amount }))
       .sort((a, b) => b.amount - a.amount)
       .slice(0, 5);
-  }, [transactions]);
+  }, [transactions, netAmount]);
 
   // Summary stats
   const totalSpent = categoryBreakdown.reduce((sum, c) => sum + c.amount, 0);

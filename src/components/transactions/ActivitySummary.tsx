@@ -13,9 +13,10 @@ interface ActivitySummaryProps {
   transactions: TransactionWithCategory[];
   dateRange: { startDate?: Date; endDate?: Date };
   isLoading?: boolean;
+  refundTotals?: Record<string, number>;
 }
 
-export function ActivitySummary({ transactions, dateRange, isLoading }: ActivitySummaryProps) {
+export function ActivitySummary({ transactions, dateRange, isLoading, refundTotals = {} }: ActivitySummaryProps) {
   const { data: profile } = useProfile();
   const updateBudget = useUpdateBudget();
   const [editingBudget, setEditingBudget] = useState(false);
@@ -24,14 +25,17 @@ export function ActivitySummary({ transactions, dateRange, isLoading }: Activity
   const stats = useMemo(() => {
     const expenses = transactions
       .filter(t => t.is_expense)
-      .reduce((sum, t) => sum + Number(t.amount), 0);
+      .reduce((sum, t) => {
+        const refund = refundTotals[t.id] || 0;
+        return sum + Math.max(Number(t.amount) - refund, 0);
+      }, 0);
 
     const income = transactions
       .filter(t => t.is_income)
       .reduce((sum, t) => sum + Number(t.amount), 0);
 
     return { expenses, income, net: income - expenses };
-  }, [transactions]);
+  }, [transactions, refundTotals]);
 
   const budget = profile?.monthly_budget ?? 0;
 
@@ -86,7 +90,7 @@ export function ActivitySummary({ transactions, dateRange, isLoading }: Activity
       <BudgetCircle spent={stats.expenses} budget={budget} />
 
       {/* Stats Row */}
-      <div className="grid grid-cols-4 gap-px mt-5">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-px mt-5">
         {/* Income */}
         <div className="text-center py-3 border-r border-border/30">
           <div className="flex items-center justify-center gap-1.5 mb-1">
@@ -101,7 +105,7 @@ export function ActivitySummary({ transactions, dateRange, isLoading }: Activity
         </div>
 
         {/* Safe to Spend / day */}
-        <div className="text-center py-3 border-r border-border/30">
+        <div className="text-center py-3 sm:border-r border-border/30">
           <div className="flex items-center justify-center gap-1.5 mb-1">
             <span className="text-2xs text-muted-foreground uppercase tracking-wider font-medium">
               Safe/Day
@@ -124,7 +128,7 @@ export function ActivitySummary({ transactions, dateRange, isLoading }: Activity
         </div>
 
         {/* Budget Pacing */}
-        <div className="text-center py-3 border-r border-border/30">
+        <div className="text-center py-3 border-r sm:border-r border-border/30">
           <div className="flex items-center justify-center gap-1.5 mb-1">
             <span className="text-2xs text-muted-foreground uppercase tracking-wider font-medium">
               Pacing

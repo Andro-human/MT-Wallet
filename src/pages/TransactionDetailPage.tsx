@@ -1,13 +1,14 @@
 import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ArrowLeft, MessageSquare, TrendingUp, TrendingDown, ChevronRight, Folder, MoreVertical, RefreshCw, Pencil, Trash2, Wallet, Banknote, Copy, AlertTriangle, Link2 } from 'lucide-react';
+import { ArrowLeft, MessageSquare, TrendingUp, TrendingDown, ChevronRight, Folder, MoreVertical, RefreshCw, Pencil, Trash2, Wallet, Banknote, Copy, AlertTriangle, Link2, Bell } from 'lucide-react';
 import { format } from 'date-fns';
 import { useTransaction, useUpdateTransaction } from '@/hooks/useTransactions';
 import { useTransactionGroups } from '@/hooks/useTransactionGroups';
 import { useCategories } from '@/hooks/useCategories';
 import { useRefundTransactions } from '@/hooks/useRefundLinks';
 import { useDuplicateTransactions, useCreateDuplicateLink } from '@/hooks/useDuplicateLinks';
+import { CreateReminderFromTransactionDialog } from '@/components/reminders/CreateReminderFromTransactionDialog';
 import { usePotentialDuplicates } from '@/hooks/usePotentialDuplicates';
 import { useBankAccounts, parseBankAccount } from '@/hooks/useBankAccounts';
 import { formatINR } from '@/lib/formatCurrency';
@@ -53,6 +54,7 @@ export default function TransactionDetailPage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [linkRefundOpen, setLinkRefundOpen] = useState(false);
   const [linkDuplicateOpen, setLinkDuplicateOpen] = useState(false);
+  const [createReminderOpen, setCreateReminderOpen] = useState(false);
   const [bulkEditOpen, setBulkEditOpen] = useState(false);
   const [bulkEditConfig, setBulkEditConfig] = useState<{
     field: 'category_id' | 'group_id' | 'merchant' | 'is_expense' | 'is_income';
@@ -371,6 +373,10 @@ export default function TransactionDetailPage() {
                   <DropdownMenuItem onClick={() => setDeleteDialogOpen(true)} className="gap-2 text-destructive focus:text-destructive">
                     <Trash2 className="w-4 h-4" />
                     Delete
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setCreateReminderOpen(true)} className="gap-2">
+                    <Bell className="w-4 h-4" />
+                    Create Reminder
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -804,6 +810,15 @@ export default function TransactionDetailPage() {
           field={bulkEditConfig.field}
           newValue={bulkEditConfig.newValue}
           changeLabel={bulkEditConfig.changeLabel}
+        />
+      )}
+
+      {/* Create Reminder from Transaction */}
+      {createReminderOpen && (
+        <CreateReminderFromTransactionDialog
+          transaction={transaction}
+          open={createReminderOpen}
+          onOpenChange={setCreateReminderOpen}
         />
       )}
     </div>

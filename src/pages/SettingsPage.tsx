@@ -3,11 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     User, Key, Copy, RefreshCw, LogOut, Check, Loader2,
-    History, ChevronRight, Building2, Tag, Lock, Bell, BellOff, Wand2,
+    History, ChevronRight, Building2, Tag, Lock, Bell, BellOff, Wand2, FileCheck,
 } from 'lucide-react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { useAuth } from '@/hooks/useAuth';
-import { useProfile, useRegenerateApiKey } from '@/hooks/useProfile';
+import { useProfile, useRegenerateApiKey, useUpdateReviewMode } from '@/hooks/useProfile';
 import { useBankAccounts } from '@/hooks/useBankAccounts';
 import { useCategories } from '@/hooks/useCategories';
 import { Button } from '@/components/ui/button';
@@ -31,6 +31,7 @@ export default function SettingsPage() {
     const { user, signOut, updatePassword } = useAuth();
     const { data: profile, isLoading } = useProfile();
     const regenerateApiKey = useRegenerateApiKey();
+    const updateReviewMode = useUpdateReviewMode();
     const { data: bankAccounts = [] } = useBankAccounts();
     const { data: categories = [] } = useCategories();
     const { toast } = useToast();
@@ -434,6 +435,41 @@ export default function SettingsPage() {
                             </button>
                         </motion.div>
                     )}
+
+                    {/* Soft Reviews Toggle */}
+                    <motion.div
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.45 }}
+                    >
+                        <div className="w-full neo-card p-4 flex items-center gap-4 hover:bg-muted/5 transition-colors">
+                            <div className="w-10 h-10 rounded-xl bg-orange-500/10 flex items-center justify-center flex-shrink-0">
+                                <FileCheck className="w-4 h-4 text-orange-400" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                                <h3 className="font-bold text-sm text-foreground">Transaction Inbox</h3>
+                                <p className="text-xs font-mono text-muted-foreground mt-0.5">
+                                    {profile?.enable_review_mode ? 'ENABLED' : 'DISABLED'}
+                                </p>
+                            </div>
+                            <div
+                                onClick={() => {
+                                    if (profile) {
+                                        updateReviewMode.mutate(!profile.enable_review_mode);
+                                    }
+                                }}
+                                className={cn(
+                                    "w-10 h-5 rounded-full relative transition-colors duration-200 cursor-pointer flex-shrink-0",
+                                    profile?.enable_review_mode ? "bg-primary" : "bg-muted-foreground/30"
+                                )}
+                            >
+                                <div className={cn(
+                                    "absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform duration-200",
+                                    profile?.enable_review_mode ? "translate-x-5" : "translate-x-0.5"
+                                )} />
+                            </div>
+                        </div>
+                    </motion.div>
 
                     {/* Logout */}
                     <motion.div

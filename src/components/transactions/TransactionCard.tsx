@@ -53,6 +53,13 @@ export function TransactionCard({ transaction, onClick, index = 0, netAmount }: 
         {category?.icon || '📦'}
       </div>
 
+      {/* Needs Review indicator */}
+      {(transaction as any).needs_review && (
+        <div className="relative flex-shrink-0">
+          <div className="w-2.5 h-2.5 rounded-full bg-orange-400 animate-pulse" />
+        </div>
+      )}
+
       <div className="flex-1 min-w-0">
         <h4 className={cn(
           "font-medium truncate text-sm font-sans",

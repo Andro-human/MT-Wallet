@@ -1,11 +1,12 @@
 import { NavLink, useLocation } from 'react-router-dom';
-import { Home, Receipt, TrendingUp, Settings } from 'lucide-react';
+import { Home, Receipt, TrendingUp, Settings, Bell } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 
 const navItems = [
   { to: '/', icon: Home, label: 'Home' },
   { to: '/transactions', icon: Receipt, label: 'Activity' },
+  { to: '/reminders', icon: Bell, label: 'Reminders' },
   { to: '/insights', icon: TrendingUp, label: 'Insights' },
   { to: '/settings', icon: Settings, label: 'Settings' },
 ];

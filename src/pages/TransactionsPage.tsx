@@ -1,8 +1,8 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link, useSearchParams, useNavigate } from 'react-router-dom';
-import { Search, SlidersHorizontal, X, ChevronDown, ChevronLeft, ChevronRight, ArrowLeft, Plus, Calendar as CalendarIcon, Trash2, Building2 } from 'lucide-react';
-import { format, startOfMonth, endOfMonth, subMonths, addMonths, setMonth, setYear, getYear, getMonth } from 'date-fns';
+import { Search, SlidersHorizontal, X, ChevronDown, ChevronLeft, ChevronRight, ArrowLeft, Plus, Calendar as CalendarIcon, Trash2, Building2, Inbox, CheckCheck } from 'lucide-react';
+import { format, startOfMonth, endOfMonth, subMonths, setMonth, setYear, getYear, getMonth } from 'date-fns';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { TransactionCard } from '@/components/transactions/TransactionCard';
 import { ActivitySummary } from '@/components/transactions/ActivitySummary';
@@ -25,6 +25,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useQueryClient } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
+import { useProfile } from '@/hooks/useProfile';
 
 type DateFilter = 'this-month' | 'last-month' | 'last-3-months' | 'custom' | 'all';
 type DirectionFilter = 'all' | 'credit' | 'debit';
@@ -263,57 +264,54 @@ export default function TransactionsPage() {
   // Detect potential duplicate pairs across loaded transactions
   const { pairs: duplicatePairs, dismiss: dismissDuplicatePair } = usePotentialDuplicatesList(sortedTransactions);
 
+  // Review Mode (Inbox)
+  const { data: profile } = useProfile();
+  const reviewEnabled = profile?.enable_review_mode ?? false;
+  const [reviewMode, setReviewMode] = useParamState('inbox', 'false');
+  const isInboxMode = reviewMode === 'true' && reviewEnabled;
+
   const groupedTransactions = useMemo(() => {
+    // When inbox mode, filter to only unreviewed
+    const txns = isInboxMode 
+      ? sortedTransactions.filter(t => (t as any).needs_review)
+      : sortedTransactions;
+
     if ((sortMode as SortMode) === 'amount') {
-      // When sorting by amount, don't group by date
-      return { _all: sortedTransactions };
+      return { _all: txns };
     }
-    const grouped: Record<string, typeof sortedTransactions> = {};
-    sortedTransactions.forEach(txn => {
+    const grouped: Record<string, typeof txns> = {};
+    txns.forEach(txn => {
       const date = format(new Date(txn.transacted_at), 'yyyy-MM-dd');
       if (!grouped[date]) grouped[date] = [];
       grouped[date].push(txn);
     });
     return grouped;
-  }, [sortedTransactions, sortMode]);
+  }, [sortedTransactions, sortMode, isInboxMode]);
 
   const clearFilters = () => {
     setSearchInput('');
     setSearchParams({}, { replace: true });
   };
 
-  const handlePrevMonth = () => {
-    const curStart = dateRange.startDate || startOfMonth(new Date());
-    const prev = subMonths(curStart, 1);
-    
-    setDateFilter('custom');
-    setCustomStartState(startOfMonth(prev));
-    setCustomEndState(endOfMonth(prev));
+  const handleApproveAll = async () => {
+    if (!user) return;
+    try {
+      const unreviewedIds = sortedTransactions
+        .filter(t => (t as any).needs_review)
+        .map(t => t.id);
+      if (unreviewedIds.length === 0) return;
 
-    setSearchParams(p => {
-      const next = new URLSearchParams(p);
-      next.set('date', 'custom');
-      next.set('from', format(startOfMonth(prev), 'yyyy-MM-dd'));
-      next.set('to', format(endOfMonth(prev), 'yyyy-MM-dd'));
-      return next;
-    }, { replace: true });
-  };
+      const { error } = await supabase
+        .from('transactions')
+        .update({ needs_review: false } as any)
+        .in('id', unreviewedIds);
 
-  const handleNextMonth = () => {
-    const curStart = dateRange.startDate || startOfMonth(new Date());
-    const next = addMonths(curStart, 1);
-    
-    setDateFilter('custom');
-    setCustomStartState(startOfMonth(next));
-    setCustomEndState(endOfMonth(next));
-
-    setSearchParams(p => {
-      const nextParams = new URLSearchParams(p);
-      nextParams.set('date', 'custom');
-      nextParams.set('from', format(startOfMonth(next), 'yyyy-MM-dd'));
-      nextParams.set('to', format(endOfMonth(next), 'yyyy-MM-dd'));
-      return nextParams;
-    }, { replace: true });
+      if (error) throw error;
+      queryClient.invalidateQueries({ queryKey: ['transactions'] });
+      toast({ title: 'All Approved', description: `${unreviewedIds.length} transactions approved.` });
+    } catch {
+      toast({ title: 'Error', description: 'Failed to approve.', variant: 'destructive' });
+    }
   };
 
   const hasActiveFilters = (dateFilter !== defaultDateFilter) || directionFilter !== 'all' || categoryFilter !== 'all' || groupFilter !== 'all' || effectiveSearch || searchInput;
@@ -524,6 +522,7 @@ export default function TransactionsPage() {
             transactions={transactions}
             dateRange={dateRange}
             isLoading={isLoading}
+            refundTotals={refundTotals}
           />
         )}
 
@@ -588,30 +587,38 @@ export default function TransactionsPage() {
             <ChevronDown className={cn('w-3.5 h-3.5 transition-transform duration-200', showFilters && 'rotate-180')} />
           </Button>
 
-          {/* Quick Month Navigation */}
-          {!isSelectMode && (
-            <div className="flex items-center ml-auto gap-0 bg-card/50 border border-border/50 rounded-xl px-1">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="w-7 h-7"
-                onClick={handlePrevMonth}
-              >
-                <ChevronLeft className="w-4 h-4 text-muted-foreground" />
-              </Button>
-              <span className="text-xs font-mono font-medium min-w-[70px] text-center text-foreground">
-                {dateRange.startDate ? format(dateRange.startDate, 'MMM yyyy') : 'All'}
-              </span>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="w-7 h-7"
-                onClick={handleNextMonth}
-                disabled={dateRange.startDate ? addMonths(dateRange.startDate, 1) > new Date() : true}
-              >
-                <ChevronRight className="w-4 h-4 text-muted-foreground" />
-              </Button>
-            </div>
+          {/* Inbox toggle */}
+          {reviewEnabled && !isSelectMode && (
+            <Button
+              variant={isInboxMode ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setReviewMode(isInboxMode ? 'false' : 'true')}
+              className={cn(
+                'gap-1.5 rounded-xl border-border/50',
+                isInboxMode && 'bg-orange-500 hover:bg-orange-600 border-orange-600'
+              )}
+            >
+              <Inbox className="w-3.5 h-3.5" />
+              Inbox
+              {sortedTransactions.filter(t => (t as any).needs_review).length > 0 && (
+                <span className="ml-0.5 text-xs bg-white/20 px-1.5 rounded-full">
+                  {sortedTransactions.filter(t => (t as any).needs_review).length}
+                </span>
+              )}
+            </Button>
+          )}
+
+          {/* Approve All */}
+          {isInboxMode && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5 rounded-xl border-green-500/40 text-green-400 hover:bg-green-500/10"
+              onClick={handleApproveAll}
+            >
+              <CheckCheck className="w-3.5 h-3.5" />
+              Approve All
+            </Button>
           )}
 
           {!isSelectMode && (

@@ -47,6 +47,7 @@ export interface Transaction {
   notes: string | null;
   is_expense: boolean;
   is_income: boolean;
+  needs_review?: boolean;
   created_at: string;
   updated_at: string;
   category?: Category;
@@ -58,6 +59,7 @@ export interface Profile {
   full_name: string | null;
   api_key: string | null;
   monthly_budget: number;
+  enable_review_mode: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -74,4 +76,22 @@ export interface CategorizationRule {
 
 export interface TransactionWithCategory extends Transaction {
   categories: Category | null;
+}
+
+export type ReminderType = 'subscription' | 'emi' | 'lent' | 'borrowed' | 'custom';
+export type RecurrenceInterval = 'weekly' | 'monthly' | 'yearly';
+
+export interface Reminder {
+  id: string;
+  user_id: string;
+  title: string;
+  amount: number;
+  currency: string;
+  type: ReminderType;
+  due_date: string;
+  is_recurring: boolean;
+  recurrence_interval: RecurrenceInterval | null;
+  is_completed: boolean;
+  created_at: string;
+  updated_at: string;
 }

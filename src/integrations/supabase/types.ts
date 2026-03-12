@@ -152,6 +152,7 @@ export type Database = {
         Row: {
           api_key: string | null
           created_at: string
+          enable_review_mode: boolean
           full_name: string | null
           id: string
           monthly_budget: number | null
@@ -250,6 +251,59 @@ export type Database = {
         }
         Relationships: []
       }
+      reminders: {
+        Row: {
+          id: string
+          user_id: string
+          title: string
+          amount: number
+          currency: string
+          type: 'subscription' | 'emi' | 'lent' | 'borrowed' | 'custom'
+          due_date: string
+          is_recurring: boolean
+          recurrence_interval: 'weekly' | 'monthly' | 'yearly' | null
+          is_completed: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          title: string
+          amount: number
+          currency?: string
+          type: 'subscription' | 'emi' | 'lent' | 'borrowed' | 'custom'
+          due_date: string
+          is_recurring?: boolean
+          recurrence_interval?: 'weekly' | 'monthly' | 'yearly' | null
+          is_completed?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          title?: string
+          amount?: number
+          currency?: string
+          type?: 'subscription' | 'emi' | 'lent' | 'borrowed' | 'custom'
+          due_date?: string
+          is_recurring?: boolean
+          recurrence_interval?: 'weekly' | 'monthly' | 'yearly' | null
+          is_completed?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reminders_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
       transactions: {
         Row: {
           account_last4: string | null
@@ -264,6 +318,7 @@ export type Database = {
           is_income: boolean
           merchant: string | null
           merchant_normalized: string | null
+          needs_review: boolean | null
           notes: string | null
           payment_method: string | null
           raw_sms: string | null
