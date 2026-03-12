@@ -531,6 +531,7 @@ export default function TransactionsPage() {
           <FilteredViewSummary
             transactions={transactions}
             categories={categories}
+            refundTotals={refundTotals}
           />
         )}
 
@@ -888,15 +889,22 @@ export default function TransactionsPage() {
 // ─── Filtered View Summary (Category / Merchant / Group page) ────────────────
 function FilteredViewSummary({
   transactions,
-  categories
+  categories,
+  refundTotals = {}
 }: {
   transactions: any[];
   categories: any[];
+  refundTotals?: Record<string, number>;
 }) {
   const stats = useMemo(() => {
+    const netAmount = (t: any) => {
+      const refund = refundTotals[t.id] || 0;
+      return Math.max(Number(t.amount) - refund, 0);
+    };
+
     const totalSpent = transactions
       .filter(t => t.is_expense)
-      .reduce((sum: number, t: any) => sum + Number(t.amount), 0);
+      .reduce((sum: number, t: any) => sum + netAmount(t), 0);
 
     const totalIncome = transactions
       .filter((t: any) => t.is_income)
@@ -910,7 +918,7 @@ function FilteredViewSummary({
       .filter((t: any) => t.is_expense)
       .forEach((t: any) => {
         const catId = t.category_id || 'uncategorized';
-        catBreakdown[catId] = (catBreakdown[catId] || 0) + Number(t.amount);
+        catBreakdown[catId] = (catBreakdown[catId] || 0) + netAmount(t);
       });
 
     const donutData = Object.entries(catBreakdown)
@@ -926,7 +934,7 @@ function FilteredViewSummary({
       .sort((a, b) => b.value - a.value);
 
     return { totalSpent, totalIncome, txnCount, donutData };
-  }, [transactions, categories]);
+  }, [transactions, categories, refundTotals]);
 
   return (
     <motion.div

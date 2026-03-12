@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { startOfMonth, endOfMonth, subMonths } from 'date-fns';
 import { useTransactions } from './useTransactions';
 import { useCategories } from './useCategories';
+import { useRefundTotals } from './useRefundLinks';
 
 export function useDashboardStats() {
   const now = new Date();
@@ -22,16 +23,31 @@ export function useDashboardStats() {
 
   const { data: categories = [] } = useCategories();
 
+  // Fetch refund totals for all debit transactions across both months
+  const allDebitIds = useMemo(() =>
+    [...thisMonthTxns, ...lastMonthTxns]
+      .filter(t => t.direction === 'debit')
+      .map(t => t.id),
+    [thisMonthTxns, lastMonthTxns]
+  );
+  const { data: refundTotals = {} } = useRefundTotals(allDebitIds);
+
   const stats = useMemo(() => {
+    // Helper: get refund-adjusted amount
+    const netAmount = (t: { id: string; amount: number | string }) => {
+      const refund = refundTotals[t.id] || 0;
+      return Math.max(Number(t.amount) - refund, 0);
+    };
+
     // Calculate this month's spending (only transactions marked as expense)
     const thisMonthSpent = thisMonthTxns
       .filter(t => t.is_expense)
-      .reduce((sum, t) => sum + Number(t.amount), 0);
+      .reduce((sum, t) => sum + netAmount(t), 0);
 
     // Calculate last month's spending
     const lastMonthSpent = lastMonthTxns
       .filter(t => t.is_expense)
-      .reduce((sum, t) => sum + Number(t.amount), 0);
+      .reduce((sum, t) => sum + netAmount(t), 0);
 
     // Calculate month-over-month change
     const monthChange = lastMonthSpent > 0
@@ -48,7 +64,7 @@ export function useDashboardStats() {
       .filter(t => t.is_expense)
       .reduce((acc, t) => {
         const catId = t.category_id || 'uncategorized';
-        acc[catId] = (acc[catId] || 0) + Number(t.amount);
+        acc[catId] = (acc[catId] || 0) + netAmount(t);
         return acc;
       }, {} as Record<string, number>);
 
@@ -79,7 +95,7 @@ export function useDashboardStats() {
       recentTxns,
       transactionCount: thisMonthTxns.length,
     };
-  }, [thisMonthTxns, lastMonthTxns, categories]);
+  }, [thisMonthTxns, lastMonthTxns, categories, refundTotals]);
 
   return {
     ...stats,
