@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import { ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts';
@@ -124,6 +124,7 @@ function MonthYearPicker({
 
 // ─── Main Component ──────────────────────────────────────────────────────────
 export default function InsightsPage() {
+  const lastTappedBarRef = useRef<string | null>(null);
   const navigate = useNavigate();
   // Persist key filters in URL so they survive navigation
   const [timeRange, setTimeRange] = useInsightParam('range', '6-months');
@@ -593,23 +594,33 @@ export default function InsightsPage() {
               <div className="h-64">
                 <ResponsiveContainer width="100%" height="100%">
                   <ComposedChart data={monthlyTrend} barCategoryGap="20%" onClick={(state: any) => {
-                    if (state?.activePayload?.[0]?.payload?.rawDate) {
-                      const rawDate = state.activePayload[0].payload.rawDate;
-                      const start = startOfMonth(rawDate);
-                      const end = endOfMonth(rawDate);
-                      
-                      setCustomStartState(start);
-                      setCustomEndState(end);
-                      setShowCustomPicker(false);
-                      
-                      setSearchParams(prev => {
-                        const next = new URLSearchParams(prev);
-                        next.set('range', 'custom');
-                        next.set('from', format(start, 'yyyy-MM-dd'));
-                        next.set('to', format(end, 'yyyy-MM-dd'));
-                        return next;
-                      }, { replace: true });
+                    if (!state?.activePayload?.[0]?.payload?.rawDate) return;
+
+                    const label = state.activePayload[0].payload.label;
+                    const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+
+                    // On mobile: first tap shows tooltip, second tap on same bar filters
+                    if (isTouchDevice && lastTappedBarRef.current !== label) {
+                      lastTappedBarRef.current = label;
+                      return; // Just show the tooltip, don't navigate
                     }
+
+                    lastTappedBarRef.current = null;
+                    const rawDate = state.activePayload[0].payload.rawDate;
+                    const start = startOfMonth(rawDate);
+                    const end = endOfMonth(rawDate);
+                      
+                    setCustomStartState(start);
+                    setCustomEndState(end);
+                    setShowCustomPicker(false);
+                      
+                    setSearchParams(prev => {
+                      const next = new URLSearchParams(prev);
+                      next.set('range', 'custom');
+                      next.set('from', format(start, 'yyyy-MM-dd'));
+                      next.set('to', format(end, 'yyyy-MM-dd'));
+                      return next;
+                    }, { replace: true });
                   }} className="cursor-pointer">
                     <defs>
                       {/* Neo Gradient: Transparent to Lime */}
