@@ -3,6 +3,7 @@ import { format } from 'date-fns';
 import { Search, Check, X, RefreshCw } from 'lucide-react';
 import { useTransactions } from '@/hooks/useTransactions';
 import { useRefundTransactions, useCreateRefundLink, useDeleteRefundLink } from '@/hooks/useRefundLinks';
+import { useAllLinkedTransactionIds } from '@/hooks/useDuplicateLinks';
 import { useToast } from '@/hooks/use-toast';
 import { formatINR } from '@/lib/formatCurrency';
 import { cn } from '@/lib/utils';
@@ -35,6 +36,7 @@ export function LinkRefundDialog({
   // Fetch all credit transactions (potential refunds)
   const { data: allTransactions = [] } = useTransactions({ direction: 'credit' });
   const { data: linkedRefunds = [] } = useRefundTransactions(transactionId);
+  const { data: duplicateLinkedIds = new Set<string>() } = useAllLinkedTransactionIds();
   const createLink = useCreateRefundLink();
   const deleteLink = useDeleteRefundLink();
 
@@ -52,10 +54,10 @@ export function LinkRefundDialog({
 
   const filteredTransactions = useMemo(() => {
     return allTransactions
-      .filter(t => t.id !== transactionId) // Exclude current transaction
+      .filter(t => t.id !== transactionId)
+      .filter(t => !duplicateLinkedIds.has(t.id))
       .filter(t => {
         if (!search) return true;
-        // Search by amount (primary) and merchant (secondary)
         const searchLower = search.toLowerCase().trim();
         const amountStr = t.amount.toString();
         const formattedAmount = formatINR(t.amount).replace('₹', '').replace(',', '');
@@ -66,7 +68,7 @@ export function LinkRefundDialog({
           t.merchant?.toLowerCase().includes(searchLower)
         );
       });
-  }, [allTransactions, transactionId, search]);
+  }, [allTransactions, transactionId, search, duplicateLinkedIds]);
 
   const handleLink = async (refundId: string) => {
     try {

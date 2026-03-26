@@ -30,7 +30,7 @@ export function useDashboardStats() {
       .map(t => t.id),
     [thisMonthTxns, lastMonthTxns]
   );
-  const { data: refundTotals = {} } = useRefundTotals(allDebitIds);
+  const { data: refundTotals = {}, isLoading: refundTotalsLoading } = useRefundTotals(allDebitIds);
 
   const stats = useMemo(() => {
     // Helper: get refund-adjusted amount
@@ -99,6 +99,6 @@ export function useDashboardStats() {
 
   return {
     ...stats,
-    isLoading: thisMonthLoading || lastMonthLoading,
+    isLoading: thisMonthLoading || lastMonthLoading || (allDebitIds.length > 0 && refundTotalsLoading),
   };
 }

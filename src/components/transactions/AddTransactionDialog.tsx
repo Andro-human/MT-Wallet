@@ -6,6 +6,7 @@ import { useTransactionGroups } from '@/hooks/useTransactionGroups';
 import { useBankAccounts, parseBankAccount } from '@/hooks/useBankAccounts';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
+import { useProfile } from '@/hooks/useProfile';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
@@ -49,6 +50,7 @@ export function AddTransactionDialog({ open, onOpenChange }: AddTransactionDialo
   const { data: categories = [] } = useCategories();
   const { data: groups = [] } = useTransactionGroups();
   const { data: bankAccounts = [] } = useBankAccounts();
+  const { data: profile } = useProfile();
 
   const [merchant, setMerchant] = useState('');
   const [amount, setAmount] = useState('');
@@ -170,6 +172,7 @@ export function AddTransactionDialog({ open, onOpenChange }: AddTransactionDialo
           is_expense: direction === 'debit' ? isExpense : false,
           is_income: direction === 'credit' ? isIncome : false,
           notes: notes.trim() || null,
+          needs_review: profile?.enable_review_mode ? true : false,
         } as any);
 
       if (error) throw error;

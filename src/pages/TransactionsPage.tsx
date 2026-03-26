@@ -259,7 +259,8 @@ export default function TransactionsPage() {
     sortedTransactions.filter(t => t.direction === 'debit').map(t => t.id),
     [sortedTransactions]
   );
-  const { data: refundTotals = {} } = useRefundTotals(debitTxnIds);
+  const { data: refundTotals = {}, isLoading: refundTotalsLoading } = useRefundTotals(debitTxnIds);
+  const isRefundReady = !refundTotalsLoading || debitTxnIds.length === 0;
 
   // Detect potential duplicate pairs across loaded transactions
   const { pairs: duplicatePairs, dismiss: dismissDuplicatePair } = usePotentialDuplicatesList(sortedTransactions);
@@ -369,9 +370,23 @@ export default function TransactionsPage() {
     setSelectedIds(new Set());
   };
 
+  const handleSwipeApprove = async (txnId: string) => {
+    try {
+      const { error } = await supabase
+        .from('transactions')
+        .update({ needs_review: false } as any)
+        .eq('id', txnId);
+      if (error) throw error;
+      queryClient.invalidateQueries({ queryKey: ['transactions'] });
+      toast({ title: 'Approved' });
+    } catch {
+      toast({ title: 'Failed to approve', variant: 'destructive' });
+    }
+  };
+
   return (
     <AppLayout>
-      <div className="px-5 pt-6 md:pt-12 pb-24 safe-area-top">
+      <div className="px-4 sm:px-5 pt-6 md:pt-12 pb-24 safe-area-top">
         {/* Back Button for Filtered Views */}
         {isFilteredView && !isSelectMode && (
           <motion.button
@@ -521,13 +536,13 @@ export default function TransactionsPage() {
           <ActivitySummary
             transactions={transactions}
             dateRange={dateRange}
-            isLoading={isLoading}
+            isLoading={isLoading || !isRefundReady}
             refundTotals={refundTotals}
           />
         )}
 
         {/* Filtered View Spending Summary (category / merchant / group pages) */}
-        {isFilteredView && transactions.length > 0 && !isSelectMode && (
+        {isFilteredView && transactions.length > 0 && !isSelectMode && isRefundReady && (
           <FilteredViewSummary
             transactions={transactions}
             categories={categories}
@@ -572,14 +587,14 @@ export default function TransactionsPage() {
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.15, duration: 0.3 }}
-          className="flex items-center gap-2 mb-4"
+          className="flex items-center gap-2 mb-4 overflow-x-auto pb-1 -mx-1 px-1"
         >
           <Button
             variant="outline"
             size="sm"
             onClick={() => setShowFilters(!showFilters)}
             className={cn(
-              'gap-2 rounded-xl border-border/50',
+              'gap-2 rounded-xl border-border/50 flex-shrink-0',
               showFilters ? 'bg-primary/10 border-primary/30 text-primary' : ''
             )}
           >
@@ -595,7 +610,7 @@ export default function TransactionsPage() {
               size="sm"
               onClick={() => setReviewMode(isInboxMode ? 'false' : 'true')}
               className={cn(
-                'gap-1.5 rounded-xl border-border/50',
+                'gap-1.5 rounded-xl border-border/50 flex-shrink-0',
                 isInboxMode && 'bg-orange-500 hover:bg-orange-600 border-orange-600'
               )}
             >
@@ -614,7 +629,7 @@ export default function TransactionsPage() {
             <Button
               variant="outline"
               size="sm"
-              className="gap-1.5 rounded-xl border-green-500/40 text-green-400 hover:bg-green-500/10"
+              className="gap-1.5 rounded-xl border-green-500/40 text-green-400 hover:bg-green-500/10 flex-shrink-0"
               onClick={handleApproveAll}
             >
               <CheckCheck className="w-3.5 h-3.5" />
@@ -627,7 +642,7 @@ export default function TransactionsPage() {
               variant="outline"
               size="sm"
               onClick={() => setIsSelectMode(true)}
-              className="gap-2 rounded-xl border-border/50"
+              className="gap-2 rounded-xl border-border/50 flex-shrink-0"
             >
               Select
             </Button>
@@ -638,7 +653,7 @@ export default function TransactionsPage() {
               variant="ghost"
               size="sm"
               onClick={clearFilters}
-              className="text-muted-foreground hover:text-foreground ml-auto"
+              className="text-muted-foreground hover:text-foreground ml-auto flex-shrink-0"
             >
               Clear all
             </Button>
@@ -812,7 +827,7 @@ export default function TransactionsPage() {
                 )}
                 <div className="flex flex-col gap-3">
                   {txns.map((txn, i) => {
-                    const refundTotal = refundTotals[txn.id];
+                    const refundTotal = isRefundReady ? refundTotals[txn.id] : undefined;
                     const net = refundTotal ? Number(txn.amount) - refundTotal : undefined;
                     const isSelected = selectedIds.has(txn.id);
 
@@ -844,7 +859,12 @@ export default function TransactionsPage() {
 
                     return (
                       <Link key={txn.id} to={`/transactions/${txn.id}`} className="block">
-                        <TransactionCard transaction={txn} index={i} netAmount={net} />
+                        <TransactionCard
+                          transaction={txn}
+                          index={i}
+                          netAmount={net}
+                          onSwipeApprove={reviewEnabled ? handleSwipeApprove : undefined}
+                        />
                       </Link>
                     );
                   })}

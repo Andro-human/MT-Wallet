@@ -33,11 +33,12 @@ export default function HomePage() {
     recentTxns.filter(t => t.direction === 'debit').map(t => t.id),
     [recentTxns]
   );
-  const { data: refundTotals = {} } = useRefundTotals(debitTxnIds);
+  const { data: refundTotals = {}, isLoading: refundTotalsLoading } = useRefundTotals(debitTxnIds);
+  const isRefundReady = !refundTotalsLoading || debitTxnIds.length === 0;
 
   return (
     <AppLayout>
-      <div className="px-6 pt-6 md:pt-12 pb-4 safe-area-top max-w-2xl mx-auto">
+      <div className="px-4 sm:px-6 pt-6 md:pt-12 pb-4 safe-area-top max-w-2xl mx-auto">
         {/* Header - Minimalist */}
         <motion.div
           initial={{ opacity: 0, y: -12 }}
@@ -178,7 +179,7 @@ export default function HomePage() {
               </div>
             ) : recentTxns.length > 0 ? (
               recentTxns.map((txn, i) => {
-                const refundTotal = refundTotals[txn.id];
+                const refundTotal = isRefundReady ? refundTotals[txn.id] : undefined;
                 const net = refundTotal ? Number(txn.amount) - refundTotal : undefined;
                 return (
                   <Link key={txn.id} to={`/transactions/${txn.id}`}>

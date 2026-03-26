@@ -188,14 +188,16 @@ export default function InsightsPage() {
     }
   }, [timeRange, customStart, customEnd]);
 
-  const { data: allTransactions = [], isLoading } = useTransactions(dateRange);
+  const { data: allTransactions = [], isLoading: txnsLoading } = useTransactions(dateRange);
 
   // Batch-fetch refund totals for all debit transactions
   const debitTxnIds = useMemo(() =>
     allTransactions.filter(t => t.direction === 'debit').map(t => t.id),
     [allTransactions]
   );
-  const { data: refundTotals = {} } = useRefundTotals(debitTxnIds);
+  const { data: refundTotals = {}, isLoading: refundTotalsLoading } = useRefundTotals(debitTxnIds);
+  const isRefundReady = !refundTotalsLoading || debitTxnIds.length === 0;
+  const isLoading = txnsLoading || !isRefundReady;
 
   // Helper: get refund-adjusted amount for a transaction
   const netAmount = useCallback((t: { id: string; amount: number | string }) => {

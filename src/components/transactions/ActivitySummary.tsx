@@ -90,16 +90,16 @@ export function ActivitySummary({ transactions, dateRange, isLoading, refundTota
       <BudgetCircle spent={stats.expenses} budget={budget} />
 
       {/* Stats Row */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-px mt-5">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-0 mt-5">
         {/* Income */}
         <div className="text-center py-3 border-r border-border/30">
           <div className="flex items-center justify-center gap-1.5 mb-1">
-            <ArrowDownRight className="w-3.5 h-3.5 text-success" />
-            <span className="text-2xs text-muted-foreground uppercase tracking-wider font-medium">
+            <ArrowDownRight className="w-3.5 h-3.5 text-success flex-shrink-0" />
+            <span className="text-2xs text-muted-foreground uppercase tracking-wider font-medium truncate">
               Income
             </span>
           </div>
-          <p className="text-sm font-bold text-foreground currency-display">
+          <p className="text-xs sm:text-sm font-bold text-foreground currency-display truncate px-1">
             {formatINR(stats.income)}
           </p>
         </div>
@@ -107,7 +107,7 @@ export function ActivitySummary({ transactions, dateRange, isLoading, refundTota
         {/* Safe to Spend / day */}
         <div className="text-center py-3 sm:border-r border-border/30">
           <div className="flex items-center justify-center gap-1.5 mb-1">
-            <span className="text-2xs text-muted-foreground uppercase tracking-wider font-medium">
+            <span className="text-2xs text-muted-foreground uppercase tracking-wider font-medium truncate">
               Safe/Day
             </span>
           </div>
@@ -118,7 +118,7 @@ export function ActivitySummary({ transactions, dateRange, isLoading, refundTota
             const daysLeft = Math.max(differenceInDays(monthEnd, today) + 1, 1);
             const perDay = remaining / daysLeft;
             return (
-              <p className={`text-sm font-bold currency-display ${remaining > 0 ? 'text-success' : 'text-destructive'}`}>
+              <p className={`text-xs sm:text-sm font-bold currency-display truncate px-1 ${remaining > 0 ? 'text-success' : 'text-destructive'}`}>
                 {formatINR(Math.round(perDay))}
               </p>
             );
@@ -128,9 +128,9 @@ export function ActivitySummary({ transactions, dateRange, isLoading, refundTota
         </div>
 
         {/* Budget Pacing */}
-        <div className="text-center py-3 border-r sm:border-r border-border/30">
+        <div className="text-center py-3 border-r border-border/30 border-t sm:border-t-0">
           <div className="flex items-center justify-center gap-1.5 mb-1">
-            <span className="text-2xs text-muted-foreground uppercase tracking-wider font-medium">
+            <span className="text-2xs text-muted-foreground uppercase tracking-wider font-medium truncate">
               Pacing
             </span>
           </div>
@@ -139,18 +139,14 @@ export function ActivitySummary({ transactions, dateRange, isLoading, refundTota
             const currentDay = today.getDate();
             const daysInMonth = endOfMonth(today).getDate();
             
-            // Expected spend at this point in the month
             const expectedSpend = (budget / daysInMonth) * currentDay;
             const actualSpend = stats.expenses;
-            
-            // Difference positive == good (ahead of budget)
-            // Difference negative == bad (behind budget / overspending)
             const difference = expectedSpend - actualSpend;
             const isAhead = difference >= 0;
 
             return (
               <div className="flex flex-col items-center">
-                <p className={`text-sm font-bold currency-display ${isAhead ? 'text-success' : 'text-destructive'}`}>
+                <p className={`text-xs sm:text-sm font-bold currency-display truncate px-1 ${isAhead ? 'text-success' : 'text-destructive'}`}>
                   {isAhead ? '+' : '-'}{formatINR(Math.abs(difference))}
                 </p>
               </div>
@@ -161,15 +157,15 @@ export function ActivitySummary({ transactions, dateRange, isLoading, refundTota
         </div>
 
         {/* Budget */}
-        <div className="text-center py-3">
+        <div className="text-center py-3 border-t sm:border-t-0">
           <div className="flex items-center justify-center gap-1.5 mb-1">
-            <span className="text-2xs text-muted-foreground uppercase tracking-wider font-medium">
+            <span className="text-2xs text-muted-foreground uppercase tracking-wider font-medium truncate">
               Budget
             </span>
             {!editingBudget && (
               <button
                 onClick={handleStartEdit}
-                className="text-muted-foreground hover:text-foreground transition-colors"
+                className="text-muted-foreground hover:text-foreground transition-colors flex-shrink-0"
               >
                 <Pencil className="w-3 h-3" />
               </button>
@@ -177,7 +173,7 @@ export function ActivitySummary({ transactions, dateRange, isLoading, refundTota
           </div>
 
           {editingBudget ? (
-            <div className="flex items-center justify-center gap-1.5">
+            <div className="flex items-center justify-center gap-1">
               <span className="text-xs text-muted-foreground">₹</span>
               <Input
                 type="number"
@@ -187,7 +183,7 @@ export function ActivitySummary({ transactions, dateRange, isLoading, refundTota
                   if (e.key === 'Enter') handleSaveBudget();
                   if (e.key === 'Escape') handleCancelEdit();
                 }}
-                className="w-20 h-7 text-xs text-center bg-muted/30 border-border/50 rounded-lg"
+                className="w-16 sm:w-20 h-7 text-xs text-center bg-muted/30 border-border/50 rounded-lg"
                 autoFocus
                 placeholder="25000"
               />
@@ -206,7 +202,7 @@ export function ActivitySummary({ transactions, dateRange, isLoading, refundTota
             </div>
           ) : (
             <p
-              className="text-sm font-bold text-foreground currency-display cursor-pointer hover:text-primary transition-colors"
+              className="text-xs sm:text-sm font-bold text-foreground currency-display cursor-pointer hover:text-primary transition-colors truncate px-1"
               onClick={handleStartEdit}
             >
               {budget > 0 ? formatINR(budget) : 'Set budget'}

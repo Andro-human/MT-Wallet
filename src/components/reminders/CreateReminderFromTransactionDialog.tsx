@@ -12,6 +12,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Transaction, ReminderType, RecurrenceInterval } from '@/types/database';
 import { Banknote, Calendar, RefreshCw } from 'lucide-react';
 import { format, addMonths } from 'date-fns';
+import { cn } from '@/lib/utils';
 
 interface CreateReminderFromTransactionDialogProps {
   transaction: Transaction;
@@ -125,7 +126,7 @@ export function CreateReminderFromTransactionDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="w-[calc(100%-2rem)] sm:max-w-[425px] max-h-[90vh] overflow-y-auto rounded-lg">
         <DialogHeader>
           <DialogTitle>Create Reminder</DialogTitle>
         </DialogHeader>
@@ -136,7 +137,7 @@ export function CreateReminderFromTransactionDialog({
             <Input id="title" {...register('title', { required: true })} placeholder="e.g. Netflix Subscription" />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="amount">Amount (₹)</Label>
               <div className="relative">
@@ -153,14 +154,12 @@ export function CreateReminderFromTransactionDialog({
             
             <div className="space-y-2">
               <Label htmlFor="due_date">Due Date</Label>
-              <div className="relative">
-                <Input 
-                  id="due_date" 
-                  type="date" 
-                  {...register('due_date', { required: true })} 
-                  className={errors.due_date ? "border-red-500" : ""}
-                />
-              </div>
+              <Input 
+                id="due_date" 
+                type="date" 
+                {...register('due_date', { required: true })} 
+                className={cn("w-full text-foreground", errors.due_date && "border-red-500")}
+              />
             </div>
           </div>
 
