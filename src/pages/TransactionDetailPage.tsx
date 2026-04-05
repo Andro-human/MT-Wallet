@@ -112,13 +112,14 @@ export default function TransactionDetailPage() {
     ...groups.map(g => ({ value: g.id, label: g.name, icon: g.icon, color: g.color }))
   ], [groups]);
 
-  const bankAccountOptions = useMemo(() => [
-    { value: '', label: 'None' },
-    ...bankAccounts.map(ba => ({
-      value: ba.technicalDisplay,
-      label: ba.nickname ? `${ba.display} (${ba.technicalDisplay})` : ba.technicalDisplay,
-    }))
-  ], [bankAccounts]);
+  const bankAccountOptions = useMemo(
+    () =>
+      bankAccounts.map((ba) => ({
+        value: ba.technicalDisplay,
+        label: ba.nickname ? `${ba.display} (${ba.technicalDisplay})` : ba.technicalDisplay,
+      })),
+    [bankAccounts]
+  );
 
   // Debounced notes save ref — must be before early returns (Rules of Hooks)
   const notesTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -522,7 +523,9 @@ export default function TransactionDetailPage() {
                 onSave={(value) => handleUpdateField('bank_account', value)}
                 options={bankAccountOptions}
                 allowCustom
-                emptyLabel="None"
+                allowClear
+                clearLabel="No bank account"
+                emptyLabel="No bank account"
                 placeholder="e.g., HDFC ••1234"
                 className="text-foreground font-medium"
               />

@@ -10,6 +10,9 @@ interface InlineSelectFieldProps {
   onSave: (value: string) => Promise<void>;
   options: { value: string; label: string; icon?: string; color?: string }[];
   allowCustom?: boolean;
+  /** When set, show a separate control to clear the value (do not add a fake "None" option to `options`) */
+  allowClear?: boolean;
+  clearLabel?: string;
   placeholder?: string;
   className?: string;
   emptyLabel?: string;
@@ -21,6 +24,8 @@ export function InlineSelectField({
   onSave,
   options,
   allowCustom = false,
+  allowClear = false,
+  clearLabel = 'Clear selection',
   placeholder = 'Select...',
   className,
   emptyLabel = 'None',
@@ -35,7 +40,8 @@ export function InlineSelectField({
   const [dropdownPos, setDropdownPos] = useState<{ top: number; right?: number; left?: number; minWidth: number }>({ top: 0, right: 0, minWidth: 0 });
 
   const selectedOption = options.find(opt => opt.value === value);
-  const display = displayValue || selectedOption?.label || emptyLabel;
+  // Show raw value when it is set but not yet in options (e.g. custom bank before list refreshes)
+  const display = displayValue || selectedOption?.label || value || emptyLabel;
 
   const filteredOptions = useMemo(() => {
     if (!searchQuery.trim()) return options;
@@ -201,6 +207,19 @@ export function InlineSelectField({
                   className="w-full h-8 pl-8 pr-3 text-sm bg-muted/30 border border-border/50 rounded-lg outline-none focus:border-primary/50 transition-colors"
                 />
               </div>
+            </div>
+          )}
+
+          {allowClear && value !== '' && (
+            <div className="px-1 pt-1 pb-0">
+              <button
+                type="button"
+                onClick={() => handleSelect('')}
+                disabled={isSaving}
+                className="w-full flex items-center px-3 py-2 text-sm rounded-lg text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-colors text-left"
+              >
+                {clearLabel}
+              </button>
             </div>
           )}
 

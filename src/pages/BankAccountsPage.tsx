@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ArrowLeft, Building2, ChevronRight, Trash2, Merge, Loader2, AlertTriangle, Unlink, Pencil } from 'lucide-react';
+import { ArrowLeft, Building2, ChevronRight, Trash2, Merge, Loader2, AlertTriangle, Unlink, Pencil, Plus } from 'lucide-react';
 import {
   useBankAccounts,
   useRemoveBankAccount,
@@ -10,6 +10,8 @@ import {
   useDeleteBankAccountAlias,
   useSetBankAccountNickname,
   useDeleteBankAccountNickname,
+  useCreateSavedBankAccount,
+  useDeleteSavedBankAccount,
   BankAccountInfo,
 } from '@/hooks/useBankAccounts';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -51,6 +53,8 @@ export default function BankAccountsPage() {
   const deleteAlias = useDeleteBankAccountAlias();
   const setNickname = useSetBankAccountNickname();
   const deleteNickname = useDeleteBankAccountNickname();
+  const createSavedBankAccount = useCreateSavedBankAccount();
+  const deleteSavedBankAccount = useDeleteSavedBankAccount();
 
   // Remove dialog
   const [removeDialog, setRemoveDialog] = useState<{
@@ -59,7 +63,13 @@ export default function BankAccountsPage() {
     accountLast4: string;
     display: string;
     count: number;
-  }>({ open: false, bankName: '', accountLast4: '', display: '', count: 0 });
+    savedAccountId: string | null;
+  }>({ open: false, bankName: '', accountLast4: '', display: '', count: 0, savedAccountId: null });
+
+  // Add saved account dialog
+  const [addDialogOpen, setAddDialogOpen] = useState(false);
+  const [addBankName, setAddBankName] = useState('');
+  const [addLast4, setAddLast4] = useState('');
 
   // Link (alias) dialog
   const [mergeDialog, setMergeDialog] = useState<{
@@ -77,14 +87,52 @@ export default function BankAccountsPage() {
 
   const handleRemove = async () => {
     try {
-      await removeBankAccount.mutateAsync({
-        bankName: removeDialog.bankName,
-        accountLast4: removeDialog.accountLast4,
+      if (removeDialog.savedAccountId) {
+        await deleteSavedBankAccount.mutateAsync(removeDialog.savedAccountId);
+        toast({ title: 'Saved account removed' });
+      } else {
+        await removeBankAccount.mutateAsync({
+          bankName: removeDialog.bankName,
+          accountLast4: removeDialog.accountLast4,
+        });
+        toast({ title: `"${removeDialog.display}" removed from ${removeDialog.count} transactions` });
+      }
+      setRemoveDialog({
+        open: false,
+        bankName: '',
+        accountLast4: '',
+        display: '',
+        count: 0,
+        savedAccountId: null,
       });
-      toast({ title: `"${removeDialog.display}" removed from ${removeDialog.count} transactions` });
-      setRemoveDialog({ open: false, bankName: '', accountLast4: '', display: '', count: 0 });
     } catch {
       toast({ title: 'Failed to remove bank account', variant: 'destructive' });
+    }
+  };
+
+  const handleAddSavedAccount = async () => {
+    const name = addBankName.trim();
+    if (!name) {
+      toast({ title: 'Enter a bank name', variant: 'destructive' });
+      return;
+    }
+    try {
+      await createSavedBankAccount.mutateAsync({
+        bankName: name,
+        accountLast4: addLast4,
+      });
+      toast({ title: 'Account added' });
+      setAddDialogOpen(false);
+      setAddBankName('');
+      setAddLast4('');
+    } catch (err: unknown) {
+      const code = err && typeof err === 'object' && 'code' in err ? String((err as { code?: string }).code) : '';
+      const msg = err && typeof err === 'object' && 'message' in err ? String((err as { message?: string }).message) : '';
+      if (code === '23505' || /duplicate|unique/i.test(msg)) {
+        toast({ title: 'This account is already in your list', variant: 'destructive' });
+      } else {
+        toast({ title: 'Failed to add account', variant: 'destructive' });
+      }
     }
   };
 
@@ -182,7 +230,20 @@ export default function BankAccountsPage() {
           >
             <ArrowLeft className="w-5 h-5 text-foreground" />
           </button>
-          <h1 className="text-lg font-semibold text-foreground">Bank Accounts</h1>
+          <h1 className="text-lg font-semibold text-foreground flex-1">Bank Accounts</h1>
+          <Button
+            type="button"
+            size="sm"
+            className="rounded-xl gap-1.5"
+            onClick={() => {
+              setAddBankName('');
+              setAddLast4('');
+              setAddDialogOpen(true);
+            }}
+          >
+            <Plus className="w-4 h-4" />
+            Add
+          </Button>
         </div>
       </div>
 
@@ -215,8 +276,20 @@ export default function BankAccountsPage() {
             <Building2 className="w-12 h-12 text-muted-foreground/30 mx-auto mb-4" />
             <p className="text-base text-muted-foreground">No bank accounts linked yet</p>
             <p className="text-sm text-muted-foreground/60 mt-1">
-              Bank accounts are automatically detected from your transactions
+              Add accounts here or they are detected from your transactions
             </p>
+            <Button
+              type="button"
+              className="mt-4 rounded-xl gap-2"
+              onClick={() => {
+                setAddBankName('');
+                setAddLast4('');
+                setAddDialogOpen(true);
+              }}
+            >
+              <Plus className="w-4 h-4" />
+              Add bank account
+            </Button>
           </motion.div>
         ) : (
           bankAccounts.map((account, i) => {
@@ -287,6 +360,7 @@ export default function BankAccountsPage() {
                           accountLast4: account.accountLast4,
                           display: account.display,
                           count: account.transactionCount,
+                          savedAccountId: account.savedAccountId,
                         })
                       }
                       className="w-9 h-9 rounded-xl flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
@@ -357,12 +431,20 @@ export default function BankAccountsPage() {
                 <p className="text-base">
                   Are you sure you want to remove <strong className="text-foreground">{removeDialog.display}</strong>?
                 </p>
-                <p className="text-amber-400 font-medium text-base">
-                  {removeDialog.count} transaction{removeDialog.count !== 1 ? 's' : ''} will be unlinked.
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  The transactions themselves won't be deleted — only the bank account info will be cleared.
-                </p>
+                {removeDialog.savedAccountId ? (
+                  <p className="text-sm text-muted-foreground">
+                    This only removes the saved name from your list. No transactions will be changed.
+                  </p>
+                ) : (
+                  <>
+                    <p className="text-amber-400 font-medium text-base">
+                      {removeDialog.count} transaction{removeDialog.count !== 1 ? 's' : ''} will be unlinked.
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      The transactions themselves won&apos;t be deleted — only the bank account info will be cleared.
+                    </p>
+                  </>
+                )}
               </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -371,14 +453,69 @@ export default function BankAccountsPage() {
             <AlertDialogAction
               onClick={handleRemove}
               className="rounded-xl bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              disabled={removeBankAccount.isPending}
+              disabled={removeBankAccount.isPending || deleteSavedBankAccount.isPending}
             >
-              {removeBankAccount.isPending && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
+              {(removeBankAccount.isPending || deleteSavedBankAccount.isPending) && (
+                <Loader2 className="w-4 h-4 animate-spin mr-2" />
+              )}
               Remove
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
+        <DialogContent className="glass-elevated border-border/50 max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-semibold flex items-center gap-2">
+              <Plus className="w-5 h-5 text-primary" />
+              Add bank account
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label htmlFor="add-bank-name">Bank name</Label>
+              <Input
+                id="add-bank-name"
+                value={addBankName}
+                onChange={(e) => setAddBankName(e.target.value)}
+                placeholder="e.g. HDFC Bank, Amazon Pay"
+                className="bg-muted/30 border-border/50 rounded-xl"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="add-last4">Last 4 digits (optional)</Label>
+              <Input
+                id="add-last4"
+                value={addLast4}
+                onChange={(e) => setAddLast4(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                placeholder="1234"
+                inputMode="numeric"
+                className="bg-muted/30 border-border/50 rounded-xl"
+              />
+            </div>
+          </div>
+          <div className="flex gap-3 pt-2">
+            <Button
+              type="button"
+              variant="outline"
+              className="flex-1 rounded-xl border-border/50"
+              onClick={() => setAddDialogOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              className="flex-1 rounded-xl"
+              onClick={handleAddSavedAccount}
+              disabled={!addBankName.trim() || createSavedBankAccount.isPending}
+            >
+              {createSavedBankAccount.isPending && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
+              Save
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Link / Merge Dialog */}
       <Dialog

@@ -20,6 +20,8 @@ export interface BankAccountInfo {
   transactionCount: number;
   /** Raw accounts that map to this group (including itself) */
   rawAccounts: { bankName: string; accountLast4: string }[];
+  /** Set when this row exists only as a saved preset (no transactions yet) */
+  savedAccountId: string | null;
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -33,6 +35,29 @@ function makeDisplay(bankName: string, accountLast4: string) {
   if (bankName) return bankName;
   if (accountLast4) return `••${accountLast4}`;
   return '';
+}
+
+/** PostgREST defaults to max 1000 rows per request — page until we have all rows. */
+const TX_BANK_PAGE_SIZE = 1000;
+
+async function fetchAllUserTransactionBankFields(userId: string) {
+  const rows: { bank_name: string | null; account_last4: string | null }[] = [];
+  let from = 0;
+  for (;;) {
+    const { data, error } = await supabase
+      .from('transactions')
+      .select('bank_name, account_last4')
+      .eq('user_id', userId)
+      .order('id', { ascending: true })
+      .range(from, from + TX_BANK_PAGE_SIZE - 1);
+
+    if (error) throw error;
+    if (!data?.length) break;
+    rows.push(...data);
+    if (data.length < TX_BANK_PAGE_SIZE) break;
+    from += TX_BANK_PAGE_SIZE;
+  }
+  return rows;
 }
 
 // ─── Aliases ────────────────────────────────────────────────────────────────
@@ -199,6 +224,60 @@ export function useDeleteBankAccountNickname() {
   });
 }
 
+/** Create a saved bank account preset (shows in lists before any transaction uses it) */
+export function useCreateSavedBankAccount() {
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+
+  return useMutation({
+    mutationFn: async ({
+      bankName,
+      accountLast4,
+    }: {
+      bankName: string;
+      accountLast4: string;
+    }) => {
+      if (!user) throw new Error('Not authenticated');
+
+      const trimmedName = bankName.trim();
+      if (!trimmedName) throw new Error('Bank name is required');
+
+      const digits = (accountLast4 || '').replace(/\D/g, '').slice(0, 4);
+
+      const { data, error } = await supabase
+        .from('saved_bank_accounts')
+        .insert({
+          user_id: user.id,
+          bank_name: trimmedName,
+          account_last4: digits,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['bank-accounts'] });
+    },
+  });
+}
+
+/** Remove a saved preset (no effect on transactions) */
+export function useDeleteSavedBankAccount() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('saved_bank_accounts').delete().eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['bank-accounts'] });
+    },
+  });
+}
+
 // ─── Bank Accounts (alias + nickname aware) ─────────────────────────────────
 
 /**
@@ -213,12 +292,9 @@ export function useBankAccounts() {
     queryFn: async () => {
       if (!user) return [];
 
-      // Fetch transactions, aliases, and nicknames in parallel
-      const [txResult, aliasResult, nicknameResult] = await Promise.all([
-        supabase
-          .from('transactions')
-          .select('bank_name, account_last4')
-          .eq('user_id', user.id),
+      // Fetch transactions (paginated — avoids 1000-row cap), aliases, nicknames, saved presets
+      const [txRows, aliasResult, nicknameResult, savedResult] = await Promise.all([
+        fetchAllUserTransactionBankFields(user.id),
         supabase
           .from('bank_account_aliases')
           .select('*')
@@ -227,11 +303,20 @@ export function useBankAccounts() {
           .from('bank_account_nicknames')
           .select('*')
           .eq('user_id', user.id),
+        supabase
+          .from('saved_bank_accounts')
+          .select('*')
+          .eq('user_id', user.id),
       ]);
 
-      if (txResult.error) throw txResult.error;
       if (aliasResult.error) throw aliasResult.error;
       if (nicknameResult.error) throw nicknameResult.error;
+
+      const savedRows =
+        savedResult.error != null ? [] : (savedResult.data ?? []);
+      if (savedResult.error != null) {
+        console.warn('saved_bank_accounts:', savedResult.error.message);
+      }
 
       const aliases = aliasResult.data as BankAccountAlias[];
       const nicknames = nicknameResult.data as BankAccountNickname[];
@@ -268,10 +353,16 @@ export function useBankAccounts() {
       // Group transactions by resolved account
       const groupMap = new Map<
         string,
-        { bankName: string; accountLast4: string; count: number; rawAccounts: Set<string> }
+        {
+          bankName: string;
+          accountLast4: string;
+          count: number;
+          rawAccounts: Set<string>;
+          savedAccountId: string | null;
+        }
       >();
 
-      for (const t of txResult.data) {
+      for (const t of txRows) {
         if (!t.bank_name && !t.account_last4) continue;
 
         const rawBankName = t.bank_name || '';
@@ -291,12 +382,30 @@ export function useBankAccounts() {
             accountLast4: resolved.accountLast4,
             count: 1,
             rawAccounts: new Set([rawKey]),
+            savedAccountId: null,
           });
         }
       }
 
+      // Saved presets that do not yet appear in transactions (same resolved key)
+      for (const row of savedRows) {
+        const bn = row.bank_name ?? '';
+        const l4 = row.account_last4 ?? '';
+        const resolved = resolve(bn, l4);
+        const resolvedKey = makeKey(resolved.bankName, resolved.accountLast4);
+        if (groupMap.has(resolvedKey)) continue;
+
+        groupMap.set(resolvedKey, {
+          bankName: resolved.bankName,
+          accountLast4: resolved.accountLast4,
+          count: 0,
+          rawAccounts: new Set([makeKey(bn, l4)]),
+          savedAccountId: row.id,
+        });
+      }
+
       const accounts: BankAccountInfo[] = [];
-      groupMap.forEach(({ bankName, accountLast4, count, rawAccounts }) => {
+      groupMap.forEach(({ bankName, accountLast4, count, rawAccounts, savedAccountId }) => {
         const technicalDisplay = makeDisplay(bankName, accountLast4);
         if (!technicalDisplay) return;
 
@@ -316,6 +425,7 @@ export function useBankAccounts() {
             const [bn, al4] = k.split('|');
             return { bankName: bn, accountLast4: al4 };
           }),
+          savedAccountId,
         });
       });
 
