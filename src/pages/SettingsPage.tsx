@@ -3,13 +3,14 @@ import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     User, Key, Copy, RefreshCw, LogOut, Check, Loader2,
-    History, ChevronRight, Building2, Tag, Lock, Bell, BellOff, Wand2, FileCheck,
+    History, ChevronRight, Building2, Tag, Lock, Bell, BellOff, Wand2, FileCheck, FolderKanban,
 } from 'lucide-react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { useAuth } from '@/hooks/useAuth';
 import { useProfile, useRegenerateApiKey, useUpdateReviewMode } from '@/hooks/useProfile';
 import { useBankAccounts } from '@/hooks/useBankAccounts';
 import { useCategories } from '@/hooks/useCategories';
+import { useTransactionGroups } from '@/hooks/useTransactionGroups';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -34,6 +35,7 @@ export default function SettingsPage() {
     const updateReviewMode = useUpdateReviewMode();
     const { data: bankAccounts = [] } = useBankAccounts();
     const { data: categories = [] } = useCategories();
+    const { data: transactionGroups = [] } = useTransactionGroups();
     const { toast } = useToast();
     const { isSupported: pushSupported, permissionState, isSubscribed: pushSubscribed, isLoading: pushLoading, subscribe: pushSubscribe, unsubscribe: pushUnsubscribe } = usePushNotifications();
 
@@ -187,6 +189,29 @@ export default function SettingsPage() {
                                 <h3 className="font-bold text-sm text-foreground">Categories</h3>
                                 <p className="text-xs font-mono text-muted-foreground mt-0.5">
                                     {categories.length} DEFINED
+                                </p>
+                            </div>
+                            <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
+                        </button>
+                    </motion.div>
+
+                    {/* Groups */}
+                    <motion.div
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: 0.27 }}
+                    >
+                        <button
+                            onClick={() => navigate('/settings/groups')}
+                            className="w-full neo-card p-4 flex items-center gap-4 group hover:bg-muted/5 transition-colors"
+                        >
+                            <div className="w-10 h-10 border border-border flex items-center justify-center group-hover:border-primary/50 transition-colors">
+                                <FolderKanban className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />
+                            </div>
+                            <div className="flex-1 text-left">
+                                <h3 className="font-bold text-sm text-foreground">Groups</h3>
+                                <p className="text-xs font-mono text-muted-foreground mt-0.5">
+                                    {transactionGroups.length} DEFINED
                                 </p>
                             </div>
                             <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />

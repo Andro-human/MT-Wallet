@@ -11,6 +11,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
 import { canonicalMerchantCasing, normalizeMerchant } from '@/lib/merchantCanonical';
+import { visibleGroups } from '@/lib/visibleGroups';
 import {
   Dialog,
   DialogContent,
@@ -38,6 +39,7 @@ import { ComboboxSelect } from '@/components/ui/ComboboxSelect';
 import { SearchableSelect } from '@/components/ui/SearchableSelect';
 import { CreateCategoryDialog } from './CreateCategoryDialog';
 import { CreateGroupDialog } from './CreateGroupDialog';
+import { CreateBankAccountDialog } from './CreateBankAccountDialog';
 
 interface AddTransactionDialogProps {
   open: boolean;
@@ -71,6 +73,7 @@ export function AddTransactionDialog({ open, onOpenChange }: AddTransactionDialo
   
   const [showCreateCategory, setShowCreateCategory] = useState(false);
   const [showCreateGroup, setShowCreateGroup] = useState(false);
+  const [showCreateBank, setShowCreateBank] = useState(false);
 
   // Fetch existing merchants for autocomplete, sorted by frequency (most used first)
   const { data: existingMerchants = [] } = useQuery({
@@ -385,7 +388,7 @@ export function AddTransactionDialog({ open, onOpenChange }: AddTransactionDialo
                 onValueChange={setGroupId}
                 options={[
                   { value: 'none', label: 'No group' },
-                  ...groups.map(grp => ({
+                  ...visibleGroups(groups, groupId === 'none' ? null : groupId).map(grp => ({
                     value: grp.id,
                     label: grp.name,
                     icon: grp.icon,
@@ -397,7 +400,17 @@ export function AddTransactionDialog({ open, onOpenChange }: AddTransactionDialo
 
             {/* Bank Account (combined) */}
             <div className="space-y-2">
-              <Label className="text-sm text-muted-foreground">Bank Account</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-sm text-muted-foreground">Bank Account</Label>
+                <button
+                  type="button"
+                  onClick={() => setShowCreateBank(true)}
+                  className="text-xs text-primary hover:underline flex items-center gap-1"
+                >
+                  <Plus className="w-3 h-3" />
+                  New
+                </button>
+              </div>
               <ComboboxSelect
                 value={bankAccount}
                 onChange={setBankAccount}
@@ -502,6 +515,12 @@ export function AddTransactionDialog({ open, onOpenChange }: AddTransactionDialo
         open={showCreateGroup}
         onOpenChange={setShowCreateGroup}
         onCreated={(id) => setGroupId(id)}
+      />
+
+      <CreateBankAccountDialog
+        open={showCreateBank}
+        onOpenChange={setShowCreateBank}
+        onCreated={(display) => setBankAccount(display)}
       />
     </>
   );

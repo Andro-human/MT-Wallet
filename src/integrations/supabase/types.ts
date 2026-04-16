@@ -244,6 +244,7 @@ export type Database = {
       }
       transaction_groups: {
         Row: {
+          archived_at: string | null
           color: string
           created_at: string
           description: string | null
@@ -254,6 +255,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          archived_at?: string | null
           color?: string
           created_at?: string
           description?: string | null
@@ -264,6 +266,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          archived_at?: string | null
           color?: string
           created_at?: string
           description?: string | null
@@ -341,6 +344,7 @@ export type Database = {
           is_expense: boolean
           is_income: boolean
           merchant: string | null
+          merchant_lower: string | null
           merchant_normalized: string | null
           needs_review: boolean | null
           notes: string | null
@@ -362,6 +366,7 @@ export type Database = {
           is_expense?: boolean
           is_income?: boolean
           merchant?: string | null
+          merchant_lower?: string | null
           merchant_normalized?: string | null
           notes?: string | null
           payment_method?: string | null
@@ -382,6 +387,7 @@ export type Database = {
           is_expense?: boolean
           is_income?: boolean
           merchant?: string | null
+          merchant_lower?: string | null
           merchant_normalized?: string | null
           notes?: string | null
           payment_method?: string | null

@@ -12,6 +12,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
 import { canonicalMerchantCasing } from '@/lib/merchantCanonical';
+import { visibleGroups } from '@/lib/visibleGroups';
 import {
   Dialog,
   DialogContent,
@@ -37,6 +38,7 @@ import {
 import { ComboboxSelect } from '@/components/ui/ComboboxSelect';
 import { CreateCategoryDialog } from './CreateCategoryDialog';
 import { CreateGroupDialog } from './CreateGroupDialog';
+import { CreateBankAccountDialog } from './CreateBankAccountDialog';
 
 interface EditTransactionDialogProps {
   transaction: TransactionWithCategory;
@@ -85,6 +87,7 @@ export function EditTransactionDialog({
   
   const [showCreateCategory, setShowCreateCategory] = useState(false);
   const [showCreateGroup, setShowCreateGroup] = useState(false);
+  const [showCreateBank, setShowCreateBank] = useState(false);
 
   useEffect(() => {
     if (open) {
@@ -314,7 +317,7 @@ export function EditTransactionDialog({
                 </SelectTrigger>
                 <SelectContent className="glass-card border-border/50">
                   <SelectItem value="none">No group</SelectItem>
-                  {groups.map(grp => (
+                  {visibleGroups(groups, groupId === 'none' ? null : groupId).map(grp => (
                     <SelectItem key={grp.id} value={grp.id}>
                       {grp.icon} {grp.name}
                     </SelectItem>
@@ -325,7 +328,17 @@ export function EditTransactionDialog({
 
             {/* Bank Account (combined) */}
             <div className="space-y-2">
-              <Label className="text-sm text-muted-foreground">Bank Account</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-sm text-muted-foreground">Bank Account</Label>
+                <button
+                  type="button"
+                  onClick={() => setShowCreateBank(true)}
+                  className="text-xs text-primary hover:underline flex items-center gap-1"
+                >
+                  <Plus className="w-3 h-3" />
+                  New
+                </button>
+              </div>
               <ComboboxSelect
                 value={bankAccount}
                 onChange={setBankAccount}
@@ -365,6 +378,12 @@ export function EditTransactionDialog({
         open={showCreateGroup}
         onOpenChange={setShowCreateGroup}
         onCreated={(id) => setGroupId(id)}
+      />
+
+      <CreateBankAccountDialog
+        open={showCreateBank}
+        onOpenChange={setShowCreateBank}
+        onCreated={(display) => setBankAccount(display)}
       />
     </>
   );

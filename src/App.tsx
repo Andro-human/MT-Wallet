@@ -17,6 +17,7 @@ import SyncHistoryPage from "./pages/SyncHistoryPage";
 import SyncRunDetailPage from "./pages/SyncRunDetailPage";
 import BankAccountsPage from "./pages/BankAccountsPage";
 import CategoriesPage from "./pages/CategoriesPage";
+import GroupsPage from "./pages/GroupsPage";
 import MerchantRulesPage from "./pages/MerchantRulesPage";
 import RemindersPage from "./pages/RemindersPage";
 import NotFound from "./pages/NotFound";
@@ -113,7 +114,13 @@ const App = () => (
                 <CategoriesPage />
               </ProtectedRoute>
             } />
-            
+
+            <Route path="/settings/groups" element={
+              <ProtectedRoute>
+                <GroupsPage />
+              </ProtectedRoute>
+            } />
+
             <Route path="*" element={<NotFound />} />
           </Routes>
         </TooltipProvider>

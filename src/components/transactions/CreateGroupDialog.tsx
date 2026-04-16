@@ -1,5 +1,9 @@
-import { useState } from 'react';
-import { useCreateTransactionGroup } from '@/hooks/useTransactionGroups';
+import { useEffect, useState } from 'react';
+import {
+  TransactionGroup,
+  useCreateTransactionGroup,
+  useUpdateTransactionGroup,
+} from '@/hooks/useTransactionGroups';
 import { useToast } from '@/hooks/use-toast';
 import {
   Dialog,
@@ -19,39 +23,79 @@ interface CreateGroupDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onCreated?: (groupId: string) => void;
+  /** When provided, the dialog opens in edit mode for this group. */
+  initialGroup?: TransactionGroup | null;
 }
 
-export function CreateGroupDialog({ open, onOpenChange, onCreated }: CreateGroupDialogProps) {
+export function CreateGroupDialog({
+  open,
+  onOpenChange,
+  onCreated,
+  initialGroup,
+}: CreateGroupDialogProps) {
   const { toast } = useToast();
   const createMutation = useCreateTransactionGroup();
+  const updateMutation = useUpdateTransactionGroup();
+
+  const isEdit = !!initialGroup;
 
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [icon, setIcon] = useState('📁');
   const [color, setColor] = useState('#8B5CF6');
 
-  const handleCreate = async () => {
+  useEffect(() => {
+    if (!open) return;
+    if (initialGroup) {
+      setName(initialGroup.name);
+      setDescription(initialGroup.description ?? '');
+      setIcon(initialGroup.icon);
+      setColor(initialGroup.color);
+    } else {
+      setName('');
+      setDescription('');
+      setIcon('📁');
+      setColor('#8B5CF6');
+    }
+  }, [open, initialGroup]);
+
+  const isPending = createMutation.isPending || updateMutation.isPending;
+
+  const handleSubmit = async () => {
     if (!name.trim()) {
       toast({ title: 'Please enter a group name', variant: 'destructive' });
       return;
     }
 
     try {
-      const newGroup = await createMutation.mutateAsync({
-        name: name.trim(),
-        description: description.trim() || null,
-        icon,
-        color,
-      });
-      toast({ title: 'Group created' });
-      onCreated?.(newGroup.id);
+      if (isEdit && initialGroup) {
+        await updateMutation.mutateAsync({
+          id: initialGroup.id,
+          updates: {
+            name: name.trim(),
+            description: description.trim() || null,
+            icon,
+            color,
+          },
+        });
+        toast({ title: 'Group updated' });
+        onCreated?.(initialGroup.id);
+      } else {
+        const newGroup = await createMutation.mutateAsync({
+          name: name.trim(),
+          description: description.trim() || null,
+          icon,
+          color,
+        });
+        toast({ title: 'Group created' });
+        onCreated?.(newGroup.id);
+      }
       onOpenChange(false);
-      setName('');
-      setDescription('');
-      setIcon('📁');
-      setColor('#8B5CF6');
     } catch {
-      toast({ title: 'Failed to create group', variant: 'destructive' });
+      toast({
+        title: isEdit ? 'Failed to update group' : 'Failed to create group',
+        variant: 'destructive',
+      });
     }
   };
 
@@ -59,7 +103,9 @@ export function CreateGroupDialog({ open, onOpenChange, onCreated }: CreateGroup
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="glass-elevated border-border/50 max-w-sm">
         <DialogHeader>
-          <DialogTitle className="text-lg font-semibold">New Group</DialogTitle>
+          <DialogTitle className="text-lg font-semibold">
+            {isEdit ? 'Edit Group' : 'New Group'}
+          </DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4 py-2">
@@ -118,10 +164,12 @@ export function CreateGroupDialog({ open, onOpenChange, onCreated }: CreateGroup
           </Button>
           <Button
             className="flex-1 rounded-xl"
-            onClick={handleCreate}
-            disabled={createMutation.isPending}
+            onClick={handleSubmit}
+            disabled={isPending}
           >
-            {createMutation.isPending ? 'Creating...' : 'Create'}
+            {isPending
+              ? (isEdit ? 'Saving...' : 'Creating...')
+              : (isEdit ? 'Save' : 'Create')}
           </Button>
         </div>
       </DialogContent>
