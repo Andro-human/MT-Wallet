@@ -7,7 +7,11 @@ import { useTransactionGroups } from '@/hooks/useTransactionGroups';
 import { useBankAccounts, parseBankAccount } from '@/hooks/useBankAccounts';
 import { useUpdateTransaction } from '@/hooks/useTransactions';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/integrations/supabase/client';
+import { useQuery } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
+import { canonicalMerchantCasing } from '@/lib/merchantCanonical';
 import {
   Dialog,
   DialogContent,
@@ -50,6 +54,24 @@ export function EditTransactionDialog({
   const { data: groups = [] } = useTransactionGroups();
   const { data: bankAccounts = [] } = useBankAccounts();
   const updateMutation = useUpdateTransaction();
+  const { user } = useAuth();
+
+  // Raw merchants (with duplicates) for canonical-casing resolution on save.
+  const { data: existingMerchants = [] } = useQuery({
+    queryKey: ['merchants-raw', user?.id],
+    queryFn: async () => {
+      if (!user) return [] as string[];
+      const { data } = await supabase
+        .from('transactions')
+        .select('merchant')
+        .eq('user_id', user.id)
+        .not('merchant', 'is', null);
+      return (data ?? [])
+        .map((t) => t.merchant)
+        .filter((m): m is string => !!m);
+    },
+    enabled: !!user && open,
+  });
 
   const [merchant, setMerchant] = useState(transaction.merchant || '');
   const [amount, setAmount] = useState(transaction.amount.toString());
@@ -116,10 +138,13 @@ export function EditTransactionDialog({
     const { bankName, accountLast4 } = parseBankAccount(bankAccount);
 
     try {
+      const canonicalMerchant = merchant.trim()
+        ? canonicalMerchantCasing(merchant, existingMerchants)
+        : null;
       await updateMutation.mutateAsync({
         id: transaction.id,
         updates: {
-          merchant: merchant.trim() || null,
+          merchant: canonicalMerchant,
           amount: parsedAmount,
           direction,
           transacted_at: transactedAt.toISOString(),

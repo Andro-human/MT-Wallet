@@ -38,6 +38,7 @@ export interface Transaction {
   transacted_at: string;
   merchant: string | null;
   merchant_normalized: string | null;
+  merchant_lower: string | null;
   payment_method: string | null;
   account_last4: string | null;
   bank_name: string | null;

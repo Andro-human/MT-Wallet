@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { format } from 'date-fns';
 import { Search, Check, X, RefreshCw } from 'lucide-react';
 import { useTransactions } from '@/hooks/useTransactions';
-import { useRefundTransactions, useCreateRefundLink, useDeleteRefundLink } from '@/hooks/useRefundLinks';
+import { useRefundTransactions, useCreateRefundLink, useDeleteRefundLink, useAllLinkedRefundIds } from '@/hooks/useRefundLinks';
 import { useAllLinkedTransactionIds } from '@/hooks/useDuplicateLinks';
 import { useToast } from '@/hooks/use-toast';
 import { formatINR } from '@/lib/formatCurrency';
@@ -37,6 +37,7 @@ export function LinkRefundDialog({
   const { data: allTransactions = [] } = useTransactions({ direction: 'credit' });
   const { data: linkedRefunds = [] } = useRefundTransactions(transactionId);
   const { data: duplicateLinkedIds = new Set<string>() } = useAllLinkedTransactionIds();
+  const { data: allLinkedRefundIds = new Set<string>() } = useAllLinkedRefundIds();
   const createLink = useCreateRefundLink();
   const deleteLink = useDeleteRefundLink();
 
@@ -56,6 +57,8 @@ export function LinkRefundDialog({
     return allTransactions
       .filter(t => t.id !== transactionId)
       .filter(t => !duplicateLinkedIds.has(t.id))
+      // Exclude refunds already linked to a different original (one refund → one original)
+      .filter(t => !allLinkedRefundIds.has(t.id) || linkedRefundIds.has(t.id))
       .filter(t => {
         if (!search) return true;
         const searchLower = search.toLowerCase().trim();
@@ -68,7 +71,7 @@ export function LinkRefundDialog({
           t.merchant?.toLowerCase().includes(searchLower)
         );
       });
-  }, [allTransactions, transactionId, search, duplicateLinkedIds]);
+  }, [allTransactions, transactionId, search, duplicateLinkedIds, allLinkedRefundIds, linkedRefundIds]);
 
   const handleLink = async (refundId: string) => {
     try {
@@ -78,7 +81,13 @@ export function LinkRefundDialog({
       });
       toast({ title: 'Refund linked' });
     } catch (error) {
-      toast({ title: 'Failed to link refund', variant: 'destructive' });
+      // Postgres unique_violation = 23505
+      const code = (error as { code?: string } | null)?.code;
+      if (code === '23505') {
+        toast({ title: 'Already linked as a refund elsewhere', variant: 'destructive' });
+      } else {
+        toast({ title: 'Failed to link refund', variant: 'destructive' });
+      }
     }
   };
 

@@ -10,6 +10,7 @@ import { useProfile } from '@/hooks/useProfile';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
+import { canonicalMerchantCasing, normalizeMerchant } from '@/lib/merchantCanonical';
 import {
   Dialog,
   DialogContent,
@@ -82,17 +83,31 @@ export function AddTransactionDialog({ open, onOpenChange }: AddTransactionDialo
         .eq('user_id', user.id)
         .not('merchant', 'is', null);
       if (error) return [];
-      // Count frequency of each merchant
-      const freq: Record<string, number> = {};
+      // Case-fold + count frequency so "Swiggy" and "swiggy" collapse into
+      // one autocomplete entry. Display the most-common casing for each key.
+      const byKey = new Map<string, Map<string, number>>();
       for (const t of data) {
-        if (t.merchant) {
-          freq[t.merchant] = (freq[t.merchant] || 0) + 1;
-        }
+        if (!t.merchant) continue;
+        const key = normalizeMerchant(t.merchant);
+        const casings = byKey.get(key) ?? new Map<string, number>();
+        casings.set(t.merchant, (casings.get(t.merchant) ?? 0) + 1);
+        byKey.set(key, casings);
       }
-      // Sort by frequency (most used first)
-      return Object.entries(freq)
-        .sort((a, b) => b[1] - a[1])
-        .map(([name]) => name);
+      const ranked: { display: string; total: number }[] = [];
+      for (const casings of byKey.values()) {
+        let total = 0;
+        let best = '';
+        let bestCount = -1;
+        for (const [casing, count] of casings) {
+          total += count;
+          if (count > bestCount) {
+            best = casing;
+            bestCount = count;
+          }
+        }
+        ranked.push({ display: best, total });
+      }
+      return ranked.sort((a, b) => b.total - a.total).map((r) => r.display);
     },
     enabled: !!user,
   });
@@ -157,11 +172,12 @@ export function AddTransactionDialog({ open, onOpenChange }: AddTransactionDialo
 
     setIsSubmitting(true);
     try {
+      const canonicalMerchant = canonicalMerchantCasing(merchant, existingMerchants);
       const { error } = await supabase
         .from('transactions')
         .insert({
           user_id: user.id,
-          merchant: merchant.trim(),
+          merchant: canonicalMerchant,
           amount: parsedAmount,
           direction,
           transacted_at: transactedAt.toISOString(),

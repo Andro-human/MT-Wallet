@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 import { TransactionWithCategory, Transaction, BankAccountAlias } from '@/types/database';
+import { escapePostgRESTValue } from '@/lib/escapePostgREST';
 
 export function useTransactions(filters?: {
   startDate?: Date;
@@ -58,11 +59,12 @@ export function useTransactions(filters?: {
       }
       if (filters?.search) {
         const searchTerm = filters.search.trim();
+        const escaped = escapePostgRESTValue(searchTerm);
         const numericSearch = parseFloat(searchTerm.replace(/,/g, ''));
         if (!isNaN(numericSearch) && /^[\d,.\s]+$/.test(searchTerm)) {
-          query = query.or(`amount.eq.${numericSearch},merchant.ilike.%${searchTerm}%`);
+          query = query.or(`amount.eq.${numericSearch},merchant.ilike.%${escaped}%`);
         } else {
-          query = query.ilike('merchant', `%${searchTerm}%`);
+          query = query.ilike('merchant', `%${escaped}%`);
         }
       }
       if (filters?.groupId) {
@@ -79,8 +81,8 @@ export function useTransactions(filters?: {
 
         // Target account itself
         const targetParts: string[] = [];
-        if (bankName) targetParts.push(`bank_name.eq.${bankName}`);
-        if (accountLast4) targetParts.push(`account_last4.eq.${accountLast4}`);
+        if (bankName) targetParts.push(`bank_name.eq.${escapePostgRESTValue(bankName)}`);
+        if (accountLast4) targetParts.push(`account_last4.eq.${escapePostgRESTValue(accountLast4)}`);
         if (targetParts.length > 0) {
           conditions.push(`and(${targetParts.join(',')})`);
         }
@@ -89,12 +91,12 @@ export function useTransactions(filters?: {
         for (const alias of aliases) {
           const parts: string[] = [];
           if (alias.source_bank_name) {
-            parts.push(`bank_name.eq.${alias.source_bank_name}`);
+            parts.push(`bank_name.eq.${escapePostgRESTValue(alias.source_bank_name)}`);
           } else {
             parts.push(`bank_name.is.null`);
           }
           if (alias.source_account_last4) {
-            parts.push(`account_last4.eq.${alias.source_account_last4}`);
+            parts.push(`account_last4.eq.${escapePostgRESTValue(alias.source_account_last4)}`);
           } else {
             parts.push(`account_last4.is.null`);
           }

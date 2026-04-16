@@ -10,6 +10,36 @@ export interface RefundLink {
   created_at: string;
 }
 
+/**
+ * All refund_transaction_ids the user has already linked somewhere.
+ * Used to filter candidates in LinkRefundDialog so the same refund
+ * can't be linked to a second original.
+ */
+export function useAllLinkedRefundIds() {
+  const { user } = useAuth();
+
+  return useQuery({
+    queryKey: ['all-refund-links', user?.id],
+    queryFn: async () => {
+      if (!user) return new Set<string>();
+
+      const { data, error } = await supabase
+        .from('refund_links')
+        .select('refund_transaction_id')
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+
+      const linkedIds = new Set<string>();
+      for (const row of data || []) {
+        linkedIds.add(row.refund_transaction_id);
+      }
+      return linkedIds;
+    },
+    enabled: !!user,
+  });
+}
+
 export function useRefundLinks(transactionId: string) {
   const { user } = useAuth();
 
@@ -151,6 +181,7 @@ export function useCreateRefundLink() {
       queryClient.invalidateQueries({ queryKey: ['refund-links', variables.originalTransactionId] });
       queryClient.invalidateQueries({ queryKey: ['refund-transactions', variables.originalTransactionId] });
       queryClient.invalidateQueries({ queryKey: ['refund-totals'] });
+      queryClient.invalidateQueries({ queryKey: ['all-refund-links'] });
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
       queryClient.invalidateQueries({ queryKey: ['transaction', variables.originalTransactionId] });
       queryClient.invalidateQueries({ queryKey: ['transaction', variables.refundTransactionId] });
@@ -177,16 +208,37 @@ export function useDeleteRefundLink() {
 
       if (error) throw error;
 
-      // Restore is_income on the refund transaction (it's no longer linked)
-      await supabase
-        .from('transactions')
-        .update({ is_income: true } as any)
-        .eq('id', refundTransactionId);
+      // Only restore is_income if:
+      //   1. The refund direction is 'credit' (debit-direction refunds never had is_income=true)
+      //   2. No remaining refund_links point at this refund txn
+      const [{ data: refundTxn }, { data: remainingLinks }] = await Promise.all([
+        supabase
+          .from('transactions')
+          .select('direction')
+          .eq('id', refundTransactionId)
+          .single(),
+        supabase
+          .from('refund_links')
+          .select('id')
+          .eq('refund_transaction_id', refundTransactionId)
+          .limit(1),
+      ]);
+
+      const shouldRestore =
+        refundTxn?.direction === 'credit' && (remainingLinks?.length ?? 0) === 0;
+
+      if (shouldRestore) {
+        await supabase
+          .from('transactions')
+          .update({ is_income: true } as any)
+          .eq('id', refundTransactionId);
+      }
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['refund-links', variables.originalTransactionId] });
       queryClient.invalidateQueries({ queryKey: ['refund-transactions', variables.originalTransactionId] });
       queryClient.invalidateQueries({ queryKey: ['refund-totals'] });
+      queryClient.invalidateQueries({ queryKey: ['all-refund-links'] });
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
       queryClient.invalidateQueries({ queryKey: ['transaction', variables.originalTransactionId] });
       queryClient.invalidateQueries({ queryKey: ['transaction', variables.refundTransactionId] });
