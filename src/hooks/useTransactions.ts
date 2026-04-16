@@ -62,9 +62,13 @@ export function useTransactions(filters?: {
         const escaped = escapePostgRESTValue(searchTerm);
         const numericSearch = parseFloat(searchTerm.replace(/,/g, ''));
         if (!isNaN(numericSearch) && /^[\d,.\s]+$/.test(searchTerm)) {
-          query = query.or(`amount.eq.${numericSearch},merchant.ilike.%${escaped}%`);
+          query = query.or(
+            `amount.eq.${numericSearch},merchant.ilike.%${escaped}%,notes.ilike.%${escaped}%`,
+          );
         } else {
-          query = query.ilike('merchant', `%${escaped}%`);
+          query = query.or(
+            `merchant.ilike.%${escaped}%,notes.ilike.%${escaped}%`,
+          );
         }
       }
       if (filters?.groupId) {

@@ -7,6 +7,7 @@ import { AppLayout } from '@/components/layout/AppLayout';
 import { SpendingDonut } from '@/components/dashboard/SpendingDonut';
 import { StatCard } from '@/components/dashboard/StatCard';
 import { TransactionCard } from '@/components/transactions/TransactionCard';
+import { useBankDisplayMap, lookupBankDisplay } from '@/hooks/useBankDisplayMap';
 import { useDashboardStats } from '@/hooks/useDashboardStats';
 import { useRefundTotals } from '@/hooks/useRefundLinks';
 import { formatINR, formatINRCompact } from '@/lib/formatCurrency';
@@ -15,6 +16,7 @@ import { useAuth } from '@/hooks/useAuth';
 
 export default function HomePage() {
   const { user } = useAuth();
+  const bankDisplayMap = useBankDisplayMap();
   const {
     thisMonthSpent,
     monthChange,
@@ -181,9 +183,10 @@ export default function HomePage() {
               recentTxns.map((txn, i) => {
                 const refundTotal = isRefundReady ? refundTotals[txn.id] : undefined;
                 const net = refundTotal ? Number(txn.amount) - refundTotal : undefined;
+                const bankDisplay = lookupBankDisplay(bankDisplayMap, txn.bank_name, txn.account_last4);
                 return (
                   <Link key={txn.id} to={`/transactions/${txn.id}`}>
-                    <TransactionCard transaction={txn} index={i} netAmount={net} />
+                    <TransactionCard transaction={txn} index={i} netAmount={net} bankDisplay={bankDisplay} />
                   </Link>
                 );
               })

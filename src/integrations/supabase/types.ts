@@ -179,6 +179,9 @@ export type Database = {
           enable_review_mode: boolean
           full_name: string | null
           id: string
+          last_reviewed_created_at: string | null
+          last_reviewed_transacted_at: string | null
+          last_reviewed_transaction_id: string | null
           monthly_budget: number | null
           updated_at: string
           user_id: string
@@ -188,6 +191,9 @@ export type Database = {
           created_at?: string
           full_name?: string | null
           id?: string
+          last_reviewed_created_at?: string | null
+          last_reviewed_transacted_at?: string | null
+          last_reviewed_transaction_id?: string | null
           monthly_budget?: number | null
           updated_at?: string
           user_id: string
@@ -197,6 +203,9 @@ export type Database = {
           created_at?: string
           full_name?: string | null
           id?: string
+          last_reviewed_created_at?: string | null
+          last_reviewed_transacted_at?: string | null
+          last_reviewed_transaction_id?: string | null
           monthly_budget?: number | null
           updated_at?: string
           user_id?: string

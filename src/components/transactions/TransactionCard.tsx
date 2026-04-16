@@ -14,9 +14,11 @@ interface TransactionCardProps {
   netAmount?: number;
   /** Callback when user swipes to approve. If provided, enables swipe gesture. */
   onSwipeApprove?: (id: string) => void;
+  /** Nickname or "Bank ••1234" to render under the amount. Hidden when empty. */
+  bankDisplay?: string;
 }
 
-export function TransactionCard({ transaction, onClick, index = 0, netAmount, onSwipeApprove }: TransactionCardProps) {
+export function TransactionCard({ transaction, onClick, index = 0, netAmount, onSwipeApprove, bankDisplay }: TransactionCardProps) {
   const isCredit = transaction.direction === 'credit';
   const category = transaction.categories;
   const needsReview = (transaction as any).needs_review;
@@ -101,6 +103,11 @@ export function TransactionCard({ transaction, onClick, index = 0, netAmount, on
           {hasRefund && !isNotCounted && (
             <p className="text-[10px] text-muted-foreground line-through font-mono">
               ₹{formatINR(transaction.amount).replace('₹', '')}
+            </p>
+          )}
+          {bankDisplay && (
+            <p className="text-[10px] text-muted-foreground/70 font-mono mt-0.5 max-w-[120px] truncate">
+              {bankDisplay}
             </p>
           )}
         </div>

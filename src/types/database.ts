@@ -61,6 +61,9 @@ export interface Profile {
   api_key: string | null;
   monthly_budget: number;
   enable_review_mode: boolean;
+  last_reviewed_transaction_id: string | null;
+  last_reviewed_transacted_at: string | null;
+  last_reviewed_created_at: string | null;
   created_at: string;
   updated_at: string;
 }

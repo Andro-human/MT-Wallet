@@ -8,11 +8,13 @@ import { AppLayout } from '@/components/layout/AppLayout';
 import { useTransactions } from '@/hooks/useTransactions';
 import { useCategories } from '@/hooks/useCategories';
 import { useTransactionGroups } from '@/hooks/useTransactionGroups';
+import { useBankAccounts } from '@/hooks/useBankAccounts';
 import { useRefundTotals } from '@/hooks/useRefundLinks';
 import { formatINR, formatINRCompact } from '@/lib/formatCurrency';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { monthsTouched } from '@/lib/monthsTouched';
 
 type TimeRange = '1-month' | '3-months' | '6-months' | 'custom';
 type ChartMode = 'total' | 'by-group';
@@ -168,6 +170,7 @@ export default function InsightsPage() {
 
   const { data: categories = [] } = useCategories();
   const { data: groups = [] } = useTransactionGroups();
+  const { data: bankAccounts = [] } = useBankAccounts();
 
   const now = new Date();
   const dateRange = useMemo(() => {
@@ -320,6 +323,55 @@ export default function InsightsPage() {
       .sort((a, b) => b.amount - a.amount);
   }, [transactions, groups, netAmount]);
 
+  // Raw (bank_name, account_last4) -> resolved account (nickname-aware, alias-aware).
+  // Built from the alias chain baked into useBankAccounts().
+  const rawToResolved = useMemo(() => {
+    const m = new Map<
+      string,
+      { bankName: string; accountLast4: string; display: string }
+    >();
+    for (const acc of bankAccounts) {
+      for (const raw of acc.rawAccounts) {
+        m.set(`${raw.bankName}|${raw.accountLast4}`, {
+          bankName: acc.bankName,
+          accountLast4: acc.accountLast4,
+          display: acc.display,
+        });
+      }
+    }
+    return m;
+  }, [bankAccounts]);
+
+  // Bank account breakdown. Aliased raw accounts roll up to their resolved target.
+  const bankBreakdown = useMemo(() => {
+    const byKey = new Map<
+      string,
+      { bankName: string; accountLast4: string; display: string; amount: number }
+    >();
+
+    for (const t of transactions) {
+      if (!t.is_expense) continue;
+      const rawKey = `${t.bank_name ?? ''}|${t.account_last4 ?? ''}`;
+      const resolved = rawToResolved.get(rawKey) ?? {
+        bankName: t.bank_name ?? '',
+        accountLast4: t.account_last4 ?? '',
+        display:
+          t.bank_name && t.account_last4
+            ? `${t.bank_name} ••${t.account_last4}`
+            : t.bank_name || (t.account_last4 ? `••${t.account_last4}` : 'Unknown'),
+      };
+      const resolvedKey = `${resolved.bankName}|${resolved.accountLast4}`;
+      const existing = byKey.get(resolvedKey);
+      if (existing) {
+        existing.amount += netAmount(t);
+      } else {
+        byKey.set(resolvedKey, { ...resolved, amount: netAmount(t) });
+      }
+    }
+
+    return Array.from(byKey.values()).sort((a, b) => b.amount - a.amount);
+  }, [transactions, rawToResolved, netAmount]);
+
   // Top merchants. Grouping key prefers the SMS parser's semantic key
   // (merchant_normalized: "Ola Cabs" -> "ola"), then the case-folded
   // merchant_lower (collapses "Swiggy" / "swiggy"), and finally raw merchant.
@@ -361,6 +413,18 @@ export default function InsightsPage() {
     .filter(t => t.is_income)
     .reduce((sum, t) => sum + Number(t.amount), 0);
   const totalGroupSpent = groupBreakdown.reduce((sum, g) => sum + g.amount, 0);
+  const totalBankSpent = bankBreakdown.reduce((sum, b) => sum + b.amount, 0);
+
+  // Per-month averages for the current date range.
+  const monthsStat = useMemo(() => {
+    const start = dateRange.startDate || startOfMonth(subMonths(now, 5));
+    const end = dateRange.endDate || endOfMonth(now);
+    return monthsTouched(start, end);
+  }, [dateRange, now]);
+  const avgSpentPerMonth = monthsStat.count > 0 ? totalSpent / monthsStat.count : 0;
+  const avgIncomePerMonth = monthsStat.count > 0 ? totalIncome / monthsStat.count : 0;
+  const avgLabel = (value: number) =>
+    `~${formatINRCompact(value)}/mo${monthsStat.partial ? ' (partial)' : ''}`;
 
   const toggleGroup = (groupId: string) => {
     setExcludedGroups(prev => {
@@ -554,12 +618,22 @@ export default function InsightsPage() {
             <p className="text-2xl font-bold font-heading text-foreground currency-display">
               {isLoading ? '...' : formatINRCompact(totalSpent)}
             </p>
+            {!isLoading && totalSpent > 0 && (
+              <p className="text-2xs font-mono text-muted-foreground mt-1">
+                {avgLabel(avgSpentPerMonth)}
+              </p>
+            )}
           </div>
           <div className="neo-card p-5 border-l-2 border-l-foreground">
             <p className="text-2xs font-mono text-muted-foreground uppercase tracking-wider mb-1">Total Income</p>
             <p className="text-2xl font-bold font-heading text-foreground currency-display">
               {isLoading ? '...' : formatINRCompact(totalIncome)}
             </p>
+            {!isLoading && totalIncome > 0 && (
+              <p className="text-2xs font-mono text-muted-foreground mt-1">
+                {avgLabel(avgIncomePerMonth)}
+              </p>
+            )}
           </div>
         </motion.div>
 
@@ -801,6 +875,59 @@ export default function InsightsPage() {
                         </span>
                         <span className="font-mono text-foreground font-medium">
                           {formatINRCompact(grp.amount)}
+                        </span>
+                      </div>
+                      <div className="h-1.5 bg-muted/20 w-full overflow-hidden rounded-full mb-2">
+                        <motion.div
+                          initial={{ width: 0 }}
+                          animate={{ width: `${percentage}%` }}
+                          transition={{ delay: 0.2, duration: 0.5 }}
+                          className="h-full bg-foreground group-hover:bg-primary transition-colors rounded-full"
+                        />
+                      </div>
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+          </motion.div>
+        )}
+
+        {/* Bank Account Breakdown */}
+        {!isLoading && bankBreakdown.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.23 }}
+            className="neo-card p-6 mb-6"
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-heading font-bold text-foreground">By Bank Account</h3>
+              <span className="text-xs font-mono text-muted-foreground uppercase tracking-wider">Spend By Source</span>
+            </div>
+
+            <div className="space-y-9">
+              {bankBreakdown.map((b) => {
+                const percentage = totalBankSpent > 0 ? (b.amount / totalBankSpent) * 100 : 0;
+                const params = new URLSearchParams();
+                if (b.bankName) params.set('bank', b.bankName);
+                if (b.accountLast4) params.set('account', b.accountLast4);
+                const dateSuffix = dateFilterParams.startsWith('&')
+                  ? dateFilterParams.slice(1)
+                  : dateFilterParams;
+                const qs = [params.toString(), dateSuffix].filter(Boolean).join('&');
+                return (
+                  <Link
+                    key={`${b.bankName}|${b.accountLast4}`}
+                    to={`/transactions${qs ? `?${qs}` : ''}`}
+                  >
+                    <div className="group cursor-pointer">
+                      <div className="flex items-center justify-between text-sm mb-2.5">
+                        <span className="font-bold text-foreground group-hover:text-primary transition-colors uppercase tracking-wide truncate max-w-[60%]">
+                          {b.display || 'Unknown'}
+                        </span>
+                        <span className="font-mono text-foreground font-medium">
+                          {formatINRCompact(b.amount)}
                         </span>
                       </div>
                       <div className="h-1.5 bg-muted/20 w-full overflow-hidden rounded-full mb-2">

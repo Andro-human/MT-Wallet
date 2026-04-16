@@ -5,6 +5,7 @@ import { Search, SlidersHorizontal, X, ChevronDown, ChevronLeft, ChevronRight, A
 import { format, startOfMonth, endOfMonth, subMonths, setMonth, setYear, getYear, getMonth } from 'date-fns';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { TransactionCard } from '@/components/transactions/TransactionCard';
+import { useBankDisplayMap, lookupBankDisplay } from '@/hooks/useBankDisplayMap';
 import { ActivitySummary } from '@/components/transactions/ActivitySummary';
 import { AddTransactionDialog } from '@/components/transactions/AddTransactionDialog';
 import { DuplicateSuggestionsCard } from '@/components/transactions/DuplicateSuggestionsCard';
@@ -26,6 +27,16 @@ import { useToast } from '@/hooks/use-toast';
 import { useQueryClient } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
 import { useProfile } from '@/hooks/useProfile';
+import { useReviewBookmark, useSetReviewBookmark } from '@/hooks/useReviewBookmark';
+import { countNewSince } from '@/lib/countNewSince';
+import { ReviewResumeBanner } from '@/components/transactions/ReviewResumeBanner';
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+} from '@/components/ui/context-menu';
+import { BookmarkPlus } from 'lucide-react';
 
 type DateFilter = 'this-month' | 'last-month' | 'last-3-months' | 'custom' | 'all';
 type DirectionFilter = 'all' | 'credit' | 'debit';
@@ -138,6 +149,10 @@ export default function TransactionsPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
+  const bankDisplayMap = useBankDisplayMap();
+  const reviewBookmark = useReviewBookmark();
+  const setReviewBookmark = useSetReviewBookmark();
+  const firstNewerRef = useRef<HTMLDivElement | null>(null);
 
   // All filter state lives in URL search params — survives navigation
   const [search, setSearch] = useParamState('search', '');
@@ -268,6 +283,53 @@ export default function TransactionsPage() {
   // Review Mode (Inbox)
   const { data: profile } = useProfile();
   const reviewEnabled = profile?.enable_review_mode ?? false;
+
+  // Banner: count txns newer than the bookmark within the CURRENT filtered view.
+  const newSinceBookmark = useMemo(() => {
+    if (!reviewBookmark) return 0;
+    return countNewSince(sortedTransactions, reviewBookmark);
+  }, [sortedTransactions, reviewBookmark]);
+
+  // First txn in the sorted list that is newer than the bookmark — target for scroll.
+  const firstNewerId = useMemo(() => {
+    if (!reviewBookmark) return null;
+    // sortedTransactions is DESC by transacted_at; the "first newer" in reading order
+    // is the LAST element (oldest among the newer) for resuming downward review.
+    const newer = sortedTransactions.filter((t) => {
+      const txAt = new Date(t.transacted_at).getTime();
+      const crAt = new Date(t.created_at).getTime();
+      return (
+        txAt > reviewBookmark.transactedAt.getTime() ||
+        crAt > reviewBookmark.createdAt.getTime()
+      );
+    });
+    return newer.length > 0 ? newer[newer.length - 1].id : null;
+  }, [sortedTransactions, reviewBookmark]);
+
+  const handleResumeReview = useCallback(() => {
+    firstNewerRef.current?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+  }, []);
+
+  const handleBookmarkTxn = useCallback(
+    (txn: { id: string; transacted_at: string; created_at: string }) => {
+      setReviewBookmark.mutate(
+        {
+          transactionId: txn.id,
+          transactedAt: txn.transacted_at,
+          createdAt: txn.created_at,
+        },
+        {
+          onSuccess: () => {
+            toast({ title: 'Marked as last reviewed' });
+          },
+          onError: () => {
+            toast({ title: 'Failed to mark', variant: 'destructive' });
+          },
+        }
+      );
+    },
+    [setReviewBookmark, toast]
+  );
   const [reviewMode, setReviewMode] = useParamState('inbox', 'false');
   const isInboxMode = reviewMode === 'true' && reviewEnabled;
 
@@ -569,7 +631,7 @@ export default function TransactionsPage() {
           <Input
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
-            placeholder="Search merchants or amount..."
+            placeholder="Search merchant, notes, or amount..."
             className="pl-11 h-12 bg-card/60 border-border/50 rounded-xl text-sm placeholder:text-muted-foreground/60 focus:bg-card focus:border-primary/30"
           />
           {searchInput && (
@@ -747,6 +809,38 @@ export default function TransactionsPage() {
                 />
               </div>
 
+              {/* Row 3: Bank Account */}
+              <SearchableSelect
+                value={
+                  bankNameParam || accountLast4Param
+                    ? `${bankNameParam}|${accountLast4Param}`
+                    : 'all'
+                }
+                onValueChange={(v) => {
+                  const next = new URLSearchParams(searchParams);
+                  if (v === 'all') {
+                    next.delete('bank');
+                    next.delete('account');
+                  } else {
+                    const [bn, last4] = v.split('|');
+                    if (bn) next.set('bank', bn);
+                    else next.delete('bank');
+                    if (last4) next.set('account', last4);
+                    else next.delete('account');
+                  }
+                  setSearchParams(next, { replace: true });
+                }}
+                options={[
+                  { value: 'all', label: 'All Banks' },
+                  ...bankAccountsList.map((acc) => ({
+                    value: `${acc.bankName}|${acc.accountLast4}`,
+                    label: acc.display,
+                  })),
+                ]}
+                placeholder="Bank Account"
+                triggerClassName="bg-card/60 text-xs h-10"
+              />
+
               {/* Custom Date Range Picker */}
               <AnimatePresence>
                 {dateFilter === 'custom' && showCustomPicker && (
@@ -806,6 +900,15 @@ export default function TransactionsPage() {
           )}
         </AnimatePresence>
 
+        {/* Resume review banner (bookmark) */}
+        {!isSelectMode && !isInboxMode && reviewBookmark && newSinceBookmark > 0 && (
+          <ReviewResumeBanner
+            newCount={newSinceBookmark}
+            bookmarkDate={reviewBookmark.transactedAt}
+            onResume={handleResumeReview}
+          />
+        )}
+
         {/* Transaction List */}
         <div className="space-y-5">
           {isLoading ? (
@@ -829,6 +932,7 @@ export default function TransactionsPage() {
                   {txns.map((txn, i) => {
                     const refundTotal = isRefundReady ? refundTotals[txn.id] : undefined;
                     const net = refundTotal ? Number(txn.amount) - refundTotal : undefined;
+                    const bankDisplay = lookupBankDisplay(bankDisplayMap, txn.bank_name, txn.account_last4);
                     const isSelected = selectedIds.has(txn.id);
 
                     if (isSelectMode) {
@@ -851,21 +955,53 @@ export default function TransactionsPage() {
                             )}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <TransactionCard transaction={txn} index={i} netAmount={net} />
+                            <TransactionCard transaction={txn} index={i} netAmount={net} bankDisplay={bankDisplay} />
                           </div>
                         </div>
                       );
                     }
 
-                    return (
-                      <Link key={txn.id} to={`/transactions/${txn.id}`} className="block">
+                    // Long-press is DISABLED whenever swipe is armed for this card.
+                    const swipeArmed = reviewEnabled && !!(txn as any).needs_review;
+                    const isFirstNewer = txn.id === firstNewerId;
+
+                    const cardLink = (
+                      <Link to={`/transactions/${txn.id}`} className="block">
                         <TransactionCard
                           transaction={txn}
                           index={i}
                           netAmount={net}
+                          bankDisplay={bankDisplay}
                           onSwipeApprove={reviewEnabled ? handleSwipeApprove : undefined}
                         />
                       </Link>
+                    );
+
+                    const cardWithRef = isFirstNewer ? (
+                      <div ref={firstNewerRef}>{cardLink}</div>
+                    ) : (
+                      cardLink
+                    );
+
+                    if (swipeArmed) {
+                      return <div key={txn.id}>{cardWithRef}</div>;
+                    }
+
+                    return (
+                      <ContextMenu key={txn.id}>
+                        <ContextMenuTrigger asChild>
+                          {cardWithRef}
+                        </ContextMenuTrigger>
+                        <ContextMenuContent className="glass-elevated border-border/50">
+                          <ContextMenuItem
+                            onSelect={() => handleBookmarkTxn(txn)}
+                            className="gap-2"
+                          >
+                            <BookmarkPlus className="w-4 h-4" />
+                            Mark as last reviewed up to here
+                          </ContextMenuItem>
+                        </ContextMenuContent>
+                      </ContextMenu>
                     );
                   })}
                 </div>
