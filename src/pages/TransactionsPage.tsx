@@ -290,25 +290,29 @@ export default function TransactionsPage() {
     return countNewSince(sortedTransactions, reviewBookmark);
   }, [sortedTransactions, reviewBookmark]);
 
-  // First txn in the sorted list that is newer than the bookmark — target for scroll.
+  // First txn to land on when the user taps "Catch up":
+  // sortedTransactions is DESC by transacted_at, so the OLDEST-among-newer is
+  // the last element in the newer-filtered slice — that's where "new" begins
+  // visually (scrolling upward from there shows newer activity).
   const firstNewerId = useMemo(() => {
     if (!reviewBookmark) return null;
-    // sortedTransactions is DESC by transacted_at; the "first newer" in reading order
-    // is the LAST element (oldest among the newer) for resuming downward review.
-    const newer = sortedTransactions.filter((t) => {
-      const txAt = new Date(t.transacted_at).getTime();
-      const crAt = new Date(t.created_at).getTime();
-      return (
-        txAt > reviewBookmark.transactedAt.getTime() ||
-        crAt > reviewBookmark.createdAt.getTime()
-      );
-    });
-    return newer.length > 0 ? newer[newer.length - 1].id : null;
+    const cutoff = reviewBookmark.transactedAt.getTime();
+    let lastNewerId: string | null = null;
+    for (const t of sortedTransactions) {
+      if (new Date(t.transacted_at).getTime() > cutoff) {
+        lastNewerId = t.id;
+      }
+    }
+    return lastNewerId;
   }, [sortedTransactions, reviewBookmark]);
 
+  const [highlightTxnId, setHighlightTxnId] = useState<string | null>(null);
   const handleResumeReview = useCallback(() => {
-    firstNewerRef.current?.scrollIntoView({ block: 'start', behavior: 'smooth' });
-  }, []);
+    if (!firstNewerRef.current || !firstNewerId) return;
+    firstNewerRef.current.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    setHighlightTxnId(firstNewerId);
+    window.setTimeout(() => setHighlightTxnId(null), 2500);
+  }, [firstNewerId]);
 
   const handleBookmarkTxn = useCallback(
     (txn: { id: string; transacted_at: string; created_at: string }) => {
@@ -977,8 +981,19 @@ export default function TransactionsPage() {
                       </Link>
                     );
 
+                    const isHighlighted = txn.id === highlightTxnId;
                     const cardWithRef = isFirstNewer ? (
-                      <div ref={firstNewerRef}>{cardLink}</div>
+                      <div
+                        ref={firstNewerRef}
+                        style={{ scrollMarginTop: '88px', scrollMarginBottom: '88px' }}
+                        className={cn(
+                          'rounded-xl transition-all duration-500',
+                          isHighlighted &&
+                            'ring-2 ring-primary ring-offset-2 ring-offset-background bg-primary/5'
+                        )}
+                      >
+                        {cardLink}
+                      </div>
                     ) : (
                       cardLink
                     );

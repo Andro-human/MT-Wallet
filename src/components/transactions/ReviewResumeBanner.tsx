@@ -48,10 +48,10 @@ export function ReviewResumeBanner({
           </div>
           <div className="min-w-0">
             <p className="text-sm font-semibold text-foreground">
-              Resume review — {newCount} new
+              Catch up — {newCount} new
             </p>
             <p className="text-xs text-muted-foreground truncate">
-              Last reviewed {format(bookmarkDate, 'MMM d')}
+              Since {format(bookmarkDate, 'MMM d, yyyy')}
             </p>
           </div>
         </button>
