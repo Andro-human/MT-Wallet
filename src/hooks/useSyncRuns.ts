@@ -12,6 +12,7 @@ export interface SyncRunMessage {
 export interface SyncRunDetail {
   sms_id: number;
   status: 'inserted' | 'skipped' | 'error';
+  ai_model?: string;
   reason?: string;
   transaction?: {
     amount: number;

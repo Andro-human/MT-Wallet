@@ -107,6 +107,12 @@ function MessageCard({ message, detail }: { message?: SyncRunMessage; detail?: S
             </p>
           )}
 
+          {detail?.ai_model && (
+            <p className="text-xs text-muted-foreground mt-1">
+              AI: <span className="font-mono">{detail.ai_model}</span>
+            </p>
+          )}
+
           {/* Message preview (collapsed) */}
           {!expanded && message?.body && (
             <p className="text-sm text-muted-foreground/70 mt-1 line-clamp-1">
@@ -233,6 +239,9 @@ export default function SyncRunDetailPage() {
   const messages = run.messages || [];
   const details = run.details || [];
   const detailMap = new Map(details.map(d => [d.sms_id, d]));
+  const aiModelsUsed = Array.from(
+    new Set(details.map((d) => d.ai_model).filter((m): m is string => !!m))
+  );
 
   const mergedItems = messages.map(msg => ({
     message: msg,
@@ -368,6 +377,14 @@ export default function SyncRunDetailPage() {
                   <span className="text-sm text-muted-foreground">Source</span>
                   <span className="text-[15px] font-medium text-foreground">{run.source}</span>
                 </div>
+                {aiModelsUsed.length > 0 && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground">AI Model</span>
+                    <span className="text-[15px] font-medium text-foreground text-right">
+                      {aiModelsUsed.join(', ')}
+                    </span>
+                  </div>
+                )}
                 {run.rowid_range && (
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-muted-foreground">ROWID Range</span>
