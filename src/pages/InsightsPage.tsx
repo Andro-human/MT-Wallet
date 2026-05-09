@@ -10,6 +10,7 @@ import { useCategories } from '@/hooks/useCategories';
 import { useTransactionGroups } from '@/hooks/useTransactionGroups';
 import { useBankAccounts } from '@/hooks/useBankAccounts';
 import { useRefundTotals } from '@/hooks/useRefundLinks';
+import { useDuplicateExcludeIds } from '@/hooks/useDuplicateLinks';
 import { formatINR, formatINRCompact } from '@/lib/formatCurrency';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
@@ -193,14 +194,9 @@ export default function InsightsPage() {
 
   const { data: allTransactions = [], isLoading: txnsLoading } = useTransactions(dateRange);
 
-  // Batch-fetch refund totals for all debit transactions
-  const debitTxnIds = useMemo(() =>
-    allTransactions.filter(t => t.direction === 'debit').map(t => t.id),
-    [allTransactions]
-  );
-  const { data: refundTotals = {}, isLoading: refundTotalsLoading } = useRefundTotals(debitTxnIds);
-  const isRefundReady = !refundTotalsLoading || debitTxnIds.length === 0;
-  const isLoading = txnsLoading || !isRefundReady;
+  const { data: refundTotals = {}, isLoading: refundTotalsLoading } = useRefundTotals();
+  const { data: duplicateExcludeIds = new Set<string>() } = useDuplicateExcludeIds();
+  const isLoading = txnsLoading || refundTotalsLoading;
 
   // Helper: get refund-adjusted amount for a transaction
   const netAmount = useCallback((t: { id: string; amount: number | string }) => {
@@ -208,7 +204,7 @@ export default function InsightsPage() {
     return Math.max(Number(t.amount) - refund, 0);
   }, [refundTotals]);
 
-  // Apply advanced filters (group exclusion)
+  // Apply advanced filters (group exclusion + linked-duplicate exclusion)
   const transactions = useMemo(() => {
     let filtered = allTransactions;
 
@@ -216,8 +212,12 @@ export default function InsightsPage() {
       filtered = filtered.filter(t => !t.group_id || !excludedGroups.has(t.group_id));
     }
 
+    if (duplicateExcludeIds.size > 0) {
+      filtered = filtered.filter(t => !duplicateExcludeIds.has(t.id));
+    }
+
     return filtered;
-  }, [allTransactions, excludedGroups]);
+  }, [allTransactions, excludedGroups, duplicateExcludeIds]);
 
   const hasAdvancedFilters = excludedGroups.size > 0;
 
@@ -272,7 +272,7 @@ export default function InsightsPage() {
     });
 
     return Object.values(months);
-  }, [transactions, dateRange, chartMode, activeGroups]);
+  }, [transactions, dateRange, chartMode, activeGroups, netAmount]);
 
   // Category breakdown
   const categoryBreakdown = useMemo(() => {

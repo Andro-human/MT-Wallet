@@ -44,6 +44,37 @@ export function useDuplicateLinks(transactionId: string) {
 }
 
 /**
+ * Fetch the set of transaction IDs that should be EXCLUDED from spend
+ * aggregations because they are the "duplicate" side of a confirmed pair
+ * (the primary side is kept). Use this in dashboards/insights to avoid
+ * double-counting linked duplicates.
+ */
+export function useDuplicateExcludeIds() {
+  const { user } = useAuth();
+
+  return useQuery({
+    queryKey: ['duplicate-exclude-ids', user?.id],
+    queryFn: async () => {
+      if (!user) return new Set<string>();
+
+      const { data, error } = await supabase
+        .from('duplicate_links' as any)
+        .select('duplicate_transaction_id')
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+
+      const excludeIds = new Set<string>();
+      for (const row of (data || []) as any[]) {
+        excludeIds.add(row.duplicate_transaction_id);
+      }
+      return excludeIds;
+    },
+    enabled: !!user,
+  });
+}
+
+/**
  * Fetch all transaction IDs that are already part of ANY duplicate link.
  * Used by the list view to filter out already-linked pairs from suggestions.
  */

@@ -1,4 +1,3 @@
-import { useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { TrendingDown, TrendingUp, ChevronRight, ArrowUpRight, ArrowDownRight, Activity } from 'lucide-react';
@@ -30,13 +29,8 @@ export default function HomePage() {
   const monthName = format(new Date(), 'MMMM');
   const year = format(new Date(), 'yyyy');
 
-  // Batch-fetch refund totals for recent debit transactions
-  const debitTxnIds = useMemo(() =>
-    recentTxns.filter(t => t.direction === 'debit').map(t => t.id),
-    [recentTxns]
-  );
-  const { data: refundTotals = {}, isLoading: refundTotalsLoading } = useRefundTotals(debitTxnIds);
-  const isRefundReady = !refundTotalsLoading || debitTxnIds.length === 0;
+  const { data: refundTotals = {}, isLoading: refundTotalsLoading } = useRefundTotals();
+  const isRefundReady = !refundTotalsLoading;
 
   return (
     <AppLayout>

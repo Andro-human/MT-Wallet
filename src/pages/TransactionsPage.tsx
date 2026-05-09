@@ -16,6 +16,7 @@ import { useTransactionGroups } from '@/hooks/useTransactionGroups';
 import { useBankAccounts } from '@/hooks/useBankAccounts';
 import { useRefundTotals } from '@/hooks/useRefundLinks';
 import { usePotentialDuplicatesList } from '@/hooks/usePotentialDuplicates';
+import { useDuplicateExcludeIds } from '@/hooks/useDuplicateLinks';
 import { formatINR } from '@/lib/formatCurrency';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -269,13 +270,8 @@ export default function TransactionsPage() {
     return transactions; // already sorted by date from query
   }, [transactions, sortMode]);
 
-  // Batch-fetch refund totals for all debit transactions on screen
-  const debitTxnIds = useMemo(() =>
-    sortedTransactions.filter(t => t.direction === 'debit').map(t => t.id),
-    [sortedTransactions]
-  );
-  const { data: refundTotals = {}, isLoading: refundTotalsLoading } = useRefundTotals(debitTxnIds);
-  const isRefundReady = !refundTotalsLoading || debitTxnIds.length === 0;
+  const { data: refundTotals = {}, isLoading: refundTotalsLoading } = useRefundTotals();
+  const isRefundReady = !refundTotalsLoading;
 
   // Detect potential duplicate pairs across loaded transactions
   const { pairs: duplicatePairs, dismiss: dismissDuplicatePair } = usePotentialDuplicatesList(sortedTransactions);
@@ -1067,25 +1063,32 @@ function FilteredViewSummary({
   categories: any[];
   refundTotals?: Record<string, number>;
 }) {
+  const { data: duplicateExcludeIds = new Set<string>() } = useDuplicateExcludeIds();
+
   const stats = useMemo(() => {
     const netAmount = (t: any) => {
       const refund = refundTotals[t.id] || 0;
       return Math.max(Number(t.amount) - refund, 0);
     };
 
-    const totalSpent = transactions
-      .filter(t => t.is_expense)
+    // Drop the "duplicate" side of confirmed pairs so totals don't double-count.
+    const deduped = duplicateExcludeIds.size > 0
+      ? transactions.filter((t: any) => !duplicateExcludeIds.has(t.id))
+      : transactions;
+
+    const totalSpent = deduped
+      .filter((t: any) => t.is_expense)
       .reduce((sum: number, t: any) => sum + netAmount(t), 0);
 
-    const totalIncome = transactions
+    const totalIncome = deduped
       .filter((t: any) => t.is_income)
       .reduce((sum: number, t: any) => sum + Number(t.amount), 0);
 
-    const txnCount = transactions.length;
+    const txnCount = deduped.length;
 
     // Category breakdown for the donut
     const catBreakdown: Record<string, number> = {};
-    transactions
+    deduped
       .filter((t: any) => t.is_expense)
       .forEach((t: any) => {
         const catId = t.category_id || 'uncategorized';
@@ -1105,7 +1108,7 @@ function FilteredViewSummary({
       .sort((a, b) => b.value - a.value);
 
     return { totalSpent, totalIncome, txnCount, donutData };
-  }, [transactions, categories, refundTotals]);
+  }, [transactions, categories, refundTotals, duplicateExcludeIds]);
 
   return (
     <motion.div

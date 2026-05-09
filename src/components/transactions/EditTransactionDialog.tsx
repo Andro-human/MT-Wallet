@@ -144,18 +144,26 @@ export function EditTransactionDialog({
       const canonicalMerchant = merchant.trim()
         ? canonicalMerchantCasing(merchant, existingMerchants)
         : null;
+
+      const directionChanged = direction !== transaction.direction;
+      const updates: Record<string, unknown> = {
+        merchant: canonicalMerchant,
+        amount: parsedAmount,
+        direction,
+        transacted_at: transactedAt.toISOString(),
+        bank_name: bankName || null,
+        account_last4: accountLast4 || null,
+        category_id: categoryId === 'none' ? null : categoryId,
+        group_id: groupId === 'none' ? null : groupId,
+      };
+      if (directionChanged) {
+        updates.is_expense = direction === 'debit';
+        updates.is_income = direction === 'credit';
+      }
+
       await updateMutation.mutateAsync({
         id: transaction.id,
-        updates: {
-          merchant: canonicalMerchant,
-          amount: parsedAmount,
-          direction,
-          transacted_at: transactedAt.toISOString(),
-          bank_name: bankName || null,
-          account_last4: accountLast4 || null,
-          category_id: categoryId === 'none' ? null : categoryId,
-          group_id: groupId === 'none' ? null : groupId,
-        } as any,
+        updates: updates as any,
       });
       toast({ title: 'Transaction updated' });
       onOpenChange(false);

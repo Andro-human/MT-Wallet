@@ -93,51 +93,38 @@ export function useRefundTransactions(transactionId: string) {
 }
 
 /**
- * Batch fetch refund totals for a list of transaction IDs.
+ * Fetch ALL refund totals for the current user in a single query.
  * Returns a map of originalTransactionId → total refunded amount.
+ *
+ * Uses a PostgREST FK embed on refund_links → transactions so we don't
+ * have to send a list of original-transaction IDs in the URL (that pattern
+ * blew past the gateway's URL-length cap on wide date ranges). The result
+ * is cached once per user and shared across every dashboard/insights view.
  */
-export function useRefundTotals(transactionIds: string[]) {
+export function useRefundTotals() {
   const { user } = useAuth();
 
   return useQuery({
-    queryKey: ['refund-totals', transactionIds.sort().join(',')],
+    queryKey: ['refund-totals', user?.id],
     queryFn: async () => {
-      if (!user || transactionIds.length === 0) return {};
+      if (!user) return {} as Record<string, number>;
 
-      // Get all refund links for these transactions
-      const { data: links, error: linksError } = await supabase
+      const { data, error } = await supabase
         .from('refund_links')
-        .select('original_transaction_id, refund_transaction_id')
-        .in('original_transaction_id', transactionIds);
+        .select('original_transaction_id, refund_transaction:refund_transaction_id(amount)')
+        .eq('user_id', user.id);
 
-      if (linksError) throw linksError;
-      if (!links || links.length === 0) return {};
+      if (error) throw error;
 
-      // Get refund transaction amounts
-      const refundIds = links.map(l => l.refund_transaction_id);
-      const { data: refundTxns, error: txError } = await supabase
-        .from('transactions')
-        .select('id, amount')
-        .in('id', refundIds);
-
-      if (txError) throw txError;
-
-      // Build amount lookup
-      const amountMap: Record<string, number> = {};
-      for (const t of refundTxns || []) {
-        amountMap[t.id] = Number(t.amount);
-      }
-
-      // Sum refunds per original transaction
       const totals: Record<string, number> = {};
-      for (const link of links) {
-        const amt = amountMap[link.refund_transaction_id] || 0;
-        totals[link.original_transaction_id] = (totals[link.original_transaction_id] || 0) + amt;
+      for (const row of (data ?? []) as any[]) {
+        const amt = Number(row.refund_transaction?.amount ?? 0);
+        if (!amt) continue;
+        totals[row.original_transaction_id] = (totals[row.original_transaction_id] || 0) + amt;
       }
-
       return totals;
     },
-    enabled: !!user && transactionIds.length > 0,
+    enabled: !!user,
     staleTime: 30_000,
   });
 }
