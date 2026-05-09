@@ -1,8 +1,8 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link, useSearchParams, useNavigate } from 'react-router-dom';
-import { Search, SlidersHorizontal, X, ChevronDown, ChevronLeft, ChevronRight, ArrowLeft, Plus, Calendar as CalendarIcon, Trash2, Building2, Inbox, CheckCheck } from 'lucide-react';
-import { format, startOfMonth, endOfMonth, subMonths, setMonth, setYear, getYear, getMonth } from 'date-fns';
+import { Search, SlidersHorizontal, X, ChevronDown, ChevronRight, ArrowLeft, Plus, Calendar as CalendarIcon, Trash2, Building2, Inbox, CheckCheck } from 'lucide-react';
+import { format, startOfMonth, endOfMonth, subMonths } from 'date-fns';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { TransactionCard } from '@/components/transactions/TransactionCard';
 import { useBankDisplayMap, lookupBankDisplay } from '@/hooks/useBankDisplayMap';
@@ -17,6 +17,7 @@ import { useBankAccounts } from '@/hooks/useBankAccounts';
 import { useRefundTotals } from '@/hooks/useRefundLinks';
 import { usePotentialDuplicatesList } from '@/hooks/usePotentialDuplicates';
 import { useDuplicateExcludeIds } from '@/hooks/useDuplicateLinks';
+import { MonthYearPicker } from '@/components/ui/MonthYearPicker';
 import { formatINR } from '@/lib/formatCurrency';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -61,87 +62,6 @@ function useParamState(key: string, defaultValue: string) {
   }, [key, defaultValue, setSearchParams]);
 
   return [value, setValue] as const;
-}
-
-// ─── Month/Year Picker (reused from InsightsPage) ────────────────────────────
-function MonthYearPicker({
-  value,
-  onChange,
-  label,
-  maxDate,
-}: {
-  value: Date;
-  onChange: (d: Date) => void;
-  label: string;
-  maxDate?: Date;
-}) {
-  const year = getYear(value);
-  const month = getMonth(value);
-  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-
-  const changeYear = (delta: number) => {
-    const newDate = setYear(value, year + delta);
-    if (maxDate && newDate > maxDate) return;
-    onChange(newDate);
-  };
-
-  const selectMonth = (m: number) => {
-    let newDate = setMonth(value, m);
-    if (maxDate && newDate > maxDate) {
-      newDate = maxDate;
-    }
-    onChange(newDate);
-  };
-
-  const isMonthDisabled = (m: number) => {
-    if (!maxDate) return false;
-    const candidate = setMonth(setYear(new Date(), year), m);
-    return candidate > maxDate;
-  };
-
-  return (
-    <div className="space-y-3">
-      <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">{label}</p>
-      <div className="flex items-center justify-between">
-        <button
-          onClick={() => changeYear(-1)}
-          className="w-8 h-8 rounded-lg bg-muted/50 flex items-center justify-center hover:bg-muted transition-colors"
-        >
-          <ChevronLeft className="w-4 h-4" />
-        </button>
-        <span className="text-sm font-bold text-foreground">{year}</span>
-        <button
-          onClick={() => changeYear(1)}
-          className={cn(
-            "w-8 h-8 rounded-lg bg-muted/50 flex items-center justify-center transition-colors",
-            maxDate && year >= getYear(maxDate) ? "opacity-30 cursor-not-allowed" : "hover:bg-muted"
-          )}
-          disabled={maxDate ? year >= getYear(maxDate) : false}
-        >
-          <ChevronRight className="w-4 h-4" />
-        </button>
-      </div>
-      <div className="grid grid-cols-4 gap-1.5">
-        {months.map((m, i) => (
-          <button
-            key={m}
-            onClick={() => selectMonth(i)}
-            disabled={isMonthDisabled(i)}
-            className={cn(
-              'py-2 rounded-lg text-xs font-medium transition-all duration-200',
-              month === i
-                ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/25'
-                : isMonthDisabled(i)
-                  ? 'text-muted-foreground/30 cursor-not-allowed'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
-            )}
-          >
-            {m}
-          </button>
-        ))}
-      </div>
-    </div>
-  );
 }
 
 export default function TransactionsPage() {

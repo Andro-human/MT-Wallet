@@ -105,8 +105,8 @@ export function LinkRefundDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="glass-elevated border-border/50 max-w-md max-h-[85vh] overflow-hidden flex flex-col">
-        <DialogHeader>
+      <DialogContent className="glass-elevated border-border/50 w-[calc(100vw-1rem)] max-w-md h-[90vh] sm:h-[80vh] overflow-hidden flex flex-col gap-3 sm:gap-4 p-4 sm:p-6">
+        <DialogHeader className="flex-shrink-0">
           <DialogTitle className="text-lg font-semibold flex items-center gap-2">
             <RefreshCw className="w-5 h-5 text-primary" />
             Link Refunds
@@ -114,7 +114,7 @@ export function LinkRefundDialog({
         </DialogHeader>
 
         {/* Summary */}
-        <div className="p-4 rounded-xl bg-muted/30 space-y-2">
+        <div className="p-4 rounded-xl bg-muted/30 space-y-2 flex-shrink-0">
           <div className="flex justify-between text-sm">
             <span className="text-muted-foreground">Original Amount</span>
             <span className="font-medium">₹{formatINR(transactionAmount).replace('₹', '')}</span>
@@ -136,7 +136,7 @@ export function LinkRefundDialog({
 
         {/* Linked refunds */}
         {linkedRefunds.length > 0 && (
-          <div className="space-y-2">
+          <div className="space-y-2 flex-shrink-0">
             <p className="text-sm text-muted-foreground">Linked Refunds</p>
             <ScrollArea className="max-h-[120px]">
               <div className="space-y-1.5 pr-2">
@@ -170,7 +170,7 @@ export function LinkRefundDialog({
         )}
 
         {/* Search - search by amount */}
-        <div className="relative">
+        <div className="relative flex-shrink-0">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
             placeholder="Search by amount (e.g., 100) or merchant..."
@@ -180,8 +180,8 @@ export function LinkRefundDialog({
           />
         </div>
 
-        {/* Available transactions */}
-        <ScrollArea className="flex-1 min-h-[200px]">
+        {/* Available transactions — both axes scroll natively */}
+        <div className="flex-1 min-h-0 overflow-auto">
           <div className="space-y-1.5 pr-2">
             {filteredTransactions.length === 0 ? (
               <p className="text-sm text-muted-foreground text-center py-8">
@@ -221,11 +221,11 @@ export function LinkRefundDialog({
               })
             )}
           </div>
-        </ScrollArea>
+        </div>
 
         <Button
           variant="outline"
-          className="w-full rounded-xl"
+          className="w-full rounded-xl flex-shrink-0"
           onClick={() => onOpenChange(false)}
         >
           Done

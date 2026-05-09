@@ -43,7 +43,9 @@ export function useTransactions(filters?: {
           categories (*)
         `)
         .eq('user_id', user.id)
-        .order('transacted_at', { ascending: false });
+        .order('transacted_at', { ascending: false })
+        // Tiebreaker so pagination is stable when multiple rows share transacted_at.
+        .order('id', { ascending: false });
 
       if (filters?.startDate) {
         query = query.gte('transacted_at', filters.startDate.toISOString());
@@ -112,14 +114,26 @@ export function useTransactions(filters?: {
         }
       }
 
+      // Caller-bounded result: honor the limit in one shot, no pagination needed.
       if (filters?.limit) {
-        query = query.limit(filters.limit);
+        const { data, error } = await query.limit(filters.limit);
+        if (error) throw error;
+        return data as TransactionWithCategory[];
       }
 
-      const { data, error } = await query;
-      
-      if (error) throw error;
-      return data as TransactionWithCategory[];
+      // Otherwise paginate around Supabase's default 1000-row cap. Each .range()
+      // call produces a new request reusing the built filter chain. Stop when a
+      // page comes back short.
+      const PAGE_SIZE = 1000;
+      const all: TransactionWithCategory[] = [];
+      for (let from = 0; ; from += PAGE_SIZE) {
+        const { data, error } = await query.range(from, from + PAGE_SIZE - 1);
+        if (error) throw error;
+        if (!data || data.length === 0) break;
+        all.push(...(data as TransactionWithCategory[]));
+        if (data.length < PAGE_SIZE) break;
+      }
+      return all;
     },
     enabled: !!user,
   });
