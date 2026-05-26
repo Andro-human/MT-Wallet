@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { format } from 'date-fns';
 import { CalendarIcon, Plus, Clock, Wallet, Banknote } from 'lucide-react';
 import { useCategories } from '@/hooks/useCategories';
@@ -40,13 +40,31 @@ import { SearchableSelect } from '@/components/ui/SearchableSelect';
 import { CreateCategoryDialog } from './CreateCategoryDialog';
 import { CreateGroupDialog } from './CreateGroupDialog';
 import { CreateBankAccountDialog } from './CreateBankAccountDialog';
+import { AlertTriangle, Loader2 } from 'lucide-react';
+import { useMarkAsTransaction } from '@/hooks/useReclassify';
+
+/**
+ * Optional SMS context. When present the dialog:
+ *  - shows the SMS body in a callout
+ *  - asks the backend to AI-extract fields to prefill the form
+ *  - on save, hits the backend reclassify endpoint instead of doing a direct
+ *    Supabase insert (so the sync_run's per-message detail is also patched)
+ */
+export interface SmsContext {
+  runId: string;
+  smsId: number;
+  sender: string;
+  body: string;
+  timestamp: string | null;
+}
 
 interface AddTransactionDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  smsContext?: SmsContext;
 }
 
-export function AddTransactionDialog({ open, onOpenChange }: AddTransactionDialogProps) {
+export function AddTransactionDialog({ open, onOpenChange, smsContext }: AddTransactionDialogProps) {
   const { toast } = useToast();
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -121,6 +139,60 @@ export function AddTransactionDialog({ open, onOpenChange }: AddTransactionDialo
     return existingMerchants.filter(m => m.toLowerCase().includes(q)).slice(0, 8);
   }, [merchantSearch, existingMerchants]);
 
+  // ── SMS context: fetch AI preview, prefill form ────────────────────────────
+  const reclassify = useMarkAsTransaction(smsContext?.runId);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewWarning, setPreviewWarning] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!open || !smsContext) {
+      setPreviewWarning(null);
+      return;
+    }
+    // Seed timestamp from the SMS immediately so the date/time inputs show
+    // something sensible even before the AI call returns.
+    if (smsContext.timestamp) {
+      const d = new Date(smsContext.timestamp);
+      setTransactedAt(d);
+      setTimeValue(format(d, 'HH:mm'));
+    }
+    setPreviewLoading(true);
+    setPreviewWarning(null);
+    reclassify
+      .mutateAsync({ smsId: smsContext.smsId })
+      .then((res) => {
+        if (res.committed) return;
+        const previewRes = res as Extract<typeof res, { committed: false }>;
+        const p = previewRes.preview;
+
+        if (p.amount != null) setAmount(String(p.amount));
+        if (p.direction) setDirection(p.direction);
+        if (p.merchant) setMerchant(p.merchant);
+        if (p.bank_name || p.account_last4) {
+          const bank = p.bank_name ?? '';
+          const last4 = p.account_last4 ?? '';
+          setBankAccount(last4 ? `${bank} ••${last4}`.trim() : bank);
+        }
+        if (p.category_slug) {
+          const match = categories.find((c) => c.slug === p.category_slug);
+          if (match) setCategoryId(match.id);
+        }
+
+        const missing: string[] = [];
+        if (p.amount == null) missing.push('amount');
+        if (p.direction == null) missing.push('direction');
+        if (missing.length) {
+          setPreviewWarning(
+            `Couldn't extract ${missing.join(' or ')} from this SMS — fill in manually if it really is a transaction.`,
+          );
+        }
+        if (previewRes.extract_error) setPreviewWarning(previewRes.extract_error);
+      })
+      .catch((err) => setPreviewWarning(err?.message ?? 'Failed to load preview'))
+      .finally(() => setPreviewLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, smsContext?.smsId]);
+
   const resetForm = () => {
     setMerchant('');
     setMerchantSearch('');
@@ -176,34 +248,64 @@ export function AddTransactionDialog({ open, onOpenChange }: AddTransactionDialo
     setIsSubmitting(true);
     try {
       const canonicalMerchant = canonicalMerchantCasing(merchant, existingMerchants);
-      const { error } = await supabase
-        .from('transactions')
-        .insert({
-          user_id: user.id,
-          merchant: canonicalMerchant,
-          amount: parsedAmount,
-          direction,
-          transacted_at: transactedAt.toISOString(),
-          bank_name: bankName || null,
-          account_last4: accountLast4 || null,
-          category_id: categoryId === 'none' ? null : categoryId,
-          group_id: groupId === 'none' ? null : groupId,
-          is_expense: direction === 'debit' ? isExpense : false,
-          is_income: direction === 'credit' ? isIncome : false,
-          notes: notes.trim() || null,
-          needs_review: profile?.enable_review_mode ? true : false,
-        } as any);
+      const resolvedCategorySlug =
+        categoryId !== 'none'
+          ? categories.find((c) => c.id === categoryId)?.slug ?? null
+          : null;
 
-      if (error) throw error;
+      if (smsContext) {
+        // SMS-backed save: go through the backend so the sync_run details get
+        // patched and the badge flips from "skipped" to "inserted".
+        await reclassify.mutateAsync({
+          smsId: smsContext.smsId,
+          fields: {
+            amount: parsedAmount,
+            direction,
+            merchant: canonicalMerchant,
+            account_last4: accountLast4 || null,
+            bank_name: bankName || null,
+            category_slug: resolvedCategorySlug,
+            transacted_at: transactedAt.toISOString(),
+            notes: notes.trim() || null,
+            group_id: groupId === 'none' ? null : groupId,
+            is_expense: direction === 'debit' ? isExpense : false,
+            is_income: direction === 'credit' ? isIncome : false,
+          },
+        });
+      } else {
+        const { error } = await supabase
+          .from('transactions')
+          .insert({
+            user_id: user.id,
+            merchant: canonicalMerchant,
+            amount: parsedAmount,
+            direction,
+            transacted_at: transactedAt.toISOString(),
+            bank_name: bankName || null,
+            account_last4: accountLast4 || null,
+            category_id: categoryId === 'none' ? null : categoryId,
+            group_id: groupId === 'none' ? null : groupId,
+            is_expense: direction === 'debit' ? isExpense : false,
+            is_income: direction === 'credit' ? isIncome : false,
+            notes: notes.trim() || null,
+            needs_review: profile?.enable_review_mode ? true : false,
+          } as any);
+
+        if (error) throw error;
+      }
 
       toast({ title: 'Transaction added' });
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
       queryClient.invalidateQueries({ queryKey: ['bank-accounts'] });
       resetForm();
       onOpenChange(false);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error adding transaction:', err);
-      toast({ title: 'Failed to add transaction', variant: 'destructive' });
+      toast({
+        title: 'Failed to add transaction',
+        description: err?.message,
+        variant: 'destructive',
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -219,10 +321,36 @@ export function AddTransactionDialog({ open, onOpenChange }: AddTransactionDialo
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="glass-elevated border-border/50 max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="text-lg font-semibold">Add Transaction</DialogTitle>
+            <DialogTitle className="text-lg font-semibold">
+              {smsContext ? 'Add transaction from SMS' : 'Add Transaction'}
+            </DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4 py-2">
+            {/* SMS context: show the message body + AI preview status */}
+            {smsContext && (
+              <div className="space-y-2">
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                  From {smsContext.sender}
+                </p>
+                <p className="text-xs font-mono text-muted-foreground bg-muted/30 rounded-lg p-3 whitespace-pre-wrap break-all max-h-28 overflow-y-auto">
+                  {smsContext.body}
+                </p>
+                {previewLoading && (
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                    Extracting fields…
+                  </div>
+                )}
+                {previewWarning && (
+                  <div className="flex items-start gap-2 p-2.5 rounded-lg bg-yellow-400/10 border border-yellow-400/30 text-xs text-yellow-200">
+                    <AlertTriangle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+                    <span>{previewWarning}</span>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Merchant with autocomplete */}
             <div className="space-y-2 relative">
               <Label htmlFor="merchant" className="text-sm text-muted-foreground">Merchant *</Label>
@@ -497,7 +625,7 @@ export function AddTransactionDialog({ open, onOpenChange }: AddTransactionDialo
             <Button
               className="flex-1 rounded-xl"
               onClick={handleSave}
-              disabled={isSubmitting}
+              disabled={isSubmitting || previewLoading}
             >
               {isSubmitting ? 'Adding...' : 'Add Transaction'}
             </Button>

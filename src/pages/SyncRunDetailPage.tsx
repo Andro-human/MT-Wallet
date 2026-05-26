@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   ArrowLeft, CheckCircle2, AlertCircle, XCircle, Inbox,
   Clock, MessageSquare, ArrowDownCircle, SkipForward,
-  AlertTriangle, ChevronDown, ChevronUp
+  AlertTriangle, ChevronDown, ChevronUp, Plus, Trash2, Loader2
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { AppLayout } from '@/components/layout/AppLayout';
@@ -12,6 +12,19 @@ import { useSyncRun, type SyncRunMessage, type SyncRunDetail } from '@/hooks/use
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { formatINR } from '@/lib/formatCurrency';
+import { AddTransactionDialog } from '@/components/transactions/AddTransactionDialog';
+import { useMarkAsNotTransaction } from '@/hooks/useReclassify';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { useToast } from '@/components/ui/use-toast';
 
 const statusConfig: Record<string, { color: string; bg: string; label: string }> = {
   success: { color: 'text-green-400', bg: 'bg-green-400/10', label: 'Success' },
@@ -28,10 +41,46 @@ const detailStatusConfig: Record<string, { icon: typeof CheckCircle2; color: str
 
 type TabType = 'overview' | 'messages';
 
-function MessageCard({ message, detail }: { message?: SyncRunMessage; detail?: SyncRunDetail }) {
+function MessageCard({
+  message,
+  detail,
+  runId,
+}: {
+  message?: SyncRunMessage;
+  detail?: SyncRunDetail;
+  runId: string | undefined;
+}) {
   const [expanded, setExpanded] = useState(false);
+  const [reclassifyOpen, setReclassifyOpen] = useState(false);
+  const [confirmRemoveOpen, setConfirmRemoveOpen] = useState(false);
+  const { toast } = useToast();
+  const markNotTxn = useMarkAsNotTransaction(runId);
+
   const detailConfig = detail ? detailStatusConfig[detail.status] : null;
   const DetailIcon = detailConfig?.icon || MessageSquare;
+
+  // Reclassify is only meaningful when we have both a runId and the message body
+  // (we need the body for AI extract on the backend, which reads it from the run).
+  const canReclassifyAsTransaction =
+    !!runId && !!message?.id && detail?.status !== 'inserted';
+  const canRemoveTransaction =
+    !!runId && !!message?.id && detail?.status === 'inserted';
+
+  const handleRemove = async () => {
+    if (!message) return;
+    try {
+      await markNotTxn.mutateAsync(message.id);
+      toast({ title: 'Marked as not a transaction', description: 'Transaction removed.' });
+    } catch (err: any) {
+      toast({
+        title: 'Failed',
+        description: err?.message ?? 'Unknown error',
+        variant: 'destructive',
+      });
+    } finally {
+      setConfirmRemoveOpen(false);
+    }
+  };
 
   return (
     <div className="glass-card overflow-hidden">
@@ -193,10 +242,74 @@ function MessageCard({ message, detail }: { message?: SyncRunMessage; detail?: S
                   </div>
                 </div>
               )}
+
+              {/* Reclassify actions — one button per row, flipped by current status. */}
+              {(canReclassifyAsTransaction || canRemoveTransaction) && (
+                <div className="pt-1">
+                  {canReclassifyAsTransaction && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setReclassifyOpen(true); }}
+                      className="w-full flex items-center justify-center gap-2 text-sm font-medium py-2.5 px-3 rounded-lg bg-primary/10 text-primary hover:bg-primary/15 transition-colors"
+                    >
+                      <Plus className="w-4 h-4" />
+                      Add as transaction
+                    </button>
+                  )}
+                  {canRemoveTransaction && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setConfirmRemoveOpen(true); }}
+                      disabled={markNotTxn.isPending}
+                      className="w-full flex items-center justify-center gap-2 text-sm font-medium py-2.5 px-3 rounded-lg bg-red-400/10 text-red-400 hover:bg-red-400/15 transition-colors disabled:opacity-50"
+                    >
+                      {markNotTxn.isPending ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Trash2 className="w-4 h-4" />
+                      )}
+                      Not a transaction
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
           </motion.div>
         )}
       </AnimatePresence>
+
+      {message && runId && (
+        <AddTransactionDialog
+          open={reclassifyOpen}
+          onOpenChange={setReclassifyOpen}
+          smsContext={{
+            runId,
+            smsId: message.id,
+            sender: message.sender,
+            body: message.body,
+            timestamp: message.timestamp,
+          }}
+        />
+      )}
+
+      <AlertDialog open={confirmRemoveOpen} onOpenChange={setConfirmRemoveOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Mark as not a transaction?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This deletes the transaction created from this SMS.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={markNotTxn.isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); handleRemove(); }}
+              disabled={markNotTxn.isPending}
+              className="bg-red-500 hover:bg-red-600"
+            >
+              Remove
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
@@ -469,6 +582,7 @@ export default function SyncRunDetailPage() {
                       <MessageCard
                         message={item.message}
                         detail={item.detail}
+                        runId={run.id}
                       />
                     </motion.div>
                   ))}
@@ -479,7 +593,7 @@ export default function SyncRunDetailPage() {
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: (filteredItems.length + i) * 0.02 }}
                     >
-                      <MessageCard detail={detail} />
+                      <MessageCard detail={detail} runId={run.id} />
                     </motion.div>
                   ))}
                 </>
