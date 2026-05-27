@@ -22,6 +22,8 @@ export interface SyncRunDetail {
   };
 }
 
+export type SyncRunUsage = Record<string, { input: number; output: number }>;
+
 export interface SyncRun {
   id: string;
   user_id: string;
@@ -38,6 +40,7 @@ export interface SyncRun {
   error_message: string | null;
   source: string;
   rowid_range: { from: number; to: number } | null;
+  usage: SyncRunUsage | null;
   created_at: string;
 }
 

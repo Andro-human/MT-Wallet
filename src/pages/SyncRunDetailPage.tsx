@@ -498,6 +498,30 @@ export default function SyncRunDetailPage() {
                     </span>
                   </div>
                 )}
+                {run.usage && Object.keys(run.usage).length > 0 && (() => {
+                  const entries = Object.entries(run.usage);
+                  const totalIn = entries.reduce((s, [, v]) => s + (v?.input ?? 0), 0);
+                  const totalOut = entries.reduce((s, [, v]) => s + (v?.output ?? 0), 0);
+                  return (
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-muted-foreground">Tokens</span>
+                        <span className="text-[15px] font-medium text-foreground">
+                          {(totalIn + totalOut).toLocaleString()}
+                          <span className="text-muted-foreground"> ({totalIn.toLocaleString()} in / {totalOut.toLocaleString()} out)</span>
+                        </span>
+                      </div>
+                      {entries.map(([model, v]) => (
+                        <div key={model} className="flex items-center justify-between pl-3">
+                          <span className="text-xs text-muted-foreground font-mono">{model}</span>
+                          <span className="text-xs text-muted-foreground font-mono">
+                            {(v?.input ?? 0).toLocaleString()} / {(v?.output ?? 0).toLocaleString()}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })()}
                 {run.rowid_range && (
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-muted-foreground">ROWID Range</span>
