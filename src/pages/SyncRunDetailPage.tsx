@@ -39,6 +39,17 @@ const detailStatusConfig: Record<string, { icon: typeof CheckCircle2; color: str
   error: { icon: XCircle, color: 'text-red-400', label: 'Error' },
 };
 
+const sourceLabels: Record<string, string> = {
+  email: 'Email (Gmail)',
+  ios_shortcut: 'SMS Sync',
+  manual: 'Manual',
+  axio: 'Axio',
+};
+
+function formatSource(source: string): string {
+  return sourceLabels[source] ?? source;
+}
+
 type TabType = 'overview' | 'messages';
 
 function MessageCard({
@@ -162,6 +173,14 @@ function MessageCard({
             </p>
           )}
 
+          {/* Email subject (when present — this is what the classifier saw) */}
+          {message?.subject && (
+            <p className="text-sm text-foreground/90 mt-1 line-clamp-1">
+              <span className="text-muted-foreground">Subject: </span>
+              {message.subject}
+            </p>
+          )}
+
           {/* Message preview (collapsed) */}
           {!expanded && message?.body && (
             <p className="text-sm text-muted-foreground/70 mt-1 line-clamp-1">
@@ -182,11 +201,23 @@ function MessageCard({
             className="overflow-hidden"
           >
             <div className="px-4 pb-4 space-y-3 border-t border-border/30 pt-3">
+              {/* Email subject (what the classifier saw on Pass 1 for emails) */}
+              {message?.subject && (
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1.5">
+                    Subject
+                  </p>
+                  <p className="text-sm text-foreground/80 bg-muted/20 rounded-lg p-3 font-mono leading-relaxed whitespace-pre-wrap break-words">
+                    {message.subject}
+                  </p>
+                </div>
+              )}
+
               {/* Full message body */}
               {message?.body && (
                 <div>
                   <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1.5">
-                    Raw SMS
+                    {message.subject ? 'Body' : 'Raw SMS'}
                   </p>
                   <p className="text-sm text-foreground/80 bg-muted/20 rounded-lg p-3 font-mono leading-relaxed whitespace-pre-wrap break-all">
                     {message.body}
@@ -488,7 +519,7 @@ export default function SyncRunDetailPage() {
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-muted-foreground">Source</span>
-                  <span className="text-[15px] font-medium text-foreground">{run.source}</span>
+                  <span className="text-[15px] font-medium text-foreground">{formatSource(run.source)}</span>
                 </div>
                 {aiModelsUsed.length > 0 && (
                   <div className="flex items-center justify-between">
