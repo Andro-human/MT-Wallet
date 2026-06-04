@@ -7,6 +7,8 @@ export interface SyncRunMessage {
   sender: string;
   body: string;
   timestamp: string | null;
+  /** Email subject. Present for email-source messages, absent for SMS. */
+  subject?: string;
 }
 
 export interface SyncRunDetail {
