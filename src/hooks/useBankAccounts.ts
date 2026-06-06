@@ -364,15 +364,16 @@ export function useBankAccounts() {
         const resolved = resolve(rawBankName, rawLast4);
         const resolvedKey = makeKey(resolved.bankName, resolved.accountLast4);
 
+        const txnCount = Number(row.txn_count ?? 0);
         const existing = groupMap.get(resolvedKey);
         if (existing) {
-          existing.count += row.txn_count;
+          existing.count += txnCount;
           existing.rawAccounts.add(rawKey);
         } else {
           groupMap.set(resolvedKey, {
             bankName: resolved.bankName,
             accountLast4: resolved.accountLast4,
-            count: row.txn_count,
+            count: txnCount,
             rawAccounts: new Set([rawKey]),
             savedAccountId: null,
           });
