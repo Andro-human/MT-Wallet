@@ -6,7 +6,8 @@ import { format } from 'date-fns';
 import { useTransaction, useUpdateTransaction } from '@/hooks/useTransactions';
 import { useTransactionGroups } from '@/hooks/useTransactionGroups';
 import { useCategories } from '@/hooks/useCategories';
-import { useRefundTransactions } from '@/hooks/useRefundLinks';
+import { useRefundLinksForOriginal } from '@/hooks/useRefundLinks';
+import { netAmount as computeNetAmount } from '@/lib/transactionMath';
 import { useDuplicateTransactions, useCreateDuplicateLink } from '@/hooks/useDuplicateLinks';
 import { CreateReminderFromTransactionDialog } from '@/components/reminders/CreateReminderFromTransactionDialog';
 import { usePotentialDuplicates } from '@/hooks/usePotentialDuplicates';
@@ -40,7 +41,7 @@ export default function TransactionDetailPage() {
   const { data: transaction, isLoading } = useTransaction(id!);
   const { data: groups = [] } = useTransactionGroups();
   const { data: categories = [] } = useCategories();
-  const { data: linkedRefunds = [] } = useRefundTransactions(id!);
+  const { data: linkedRefunds = [] } = useRefundLinksForOriginal(id!);
   const { data: linkedDuplicates = [] } = useDuplicateTransactions(id!);
   const potentialDuplicates = usePotentialDuplicates(transaction);
   const createDuplicateLink = useCreateDuplicateLink();
@@ -65,13 +66,14 @@ export default function TransactionDetailPage() {
     merchantName: string;
   } | null>(null);
 
-  // Calculate net amount after refunds
-  const totalRefunded = useMemo(() => 
-    linkedRefunds.reduce((sum, r) => sum + Number(r.amount), 0),
-    [linkedRefunds]
+  const totalRefunded = useMemo(
+    () => linkedRefunds.reduce((sum, r) => sum + r.linked_amount, 0),
+    [linkedRefunds],
   );
-  
-  const netAmount = transaction ? Number(transaction.amount) - totalRefunded : 0;
+
+  const netAmount = transaction
+    ? computeNetAmount(transaction as any, { [transaction.id]: totalRefunded })
+    : 0;
 
   // Get combined bank account display (technical format for value matching)
   const bankAccountTechnical = useMemo(() => {

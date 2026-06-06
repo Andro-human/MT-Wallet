@@ -10,8 +10,12 @@ import { useTransactions } from '@/hooks/useTransactions';
 import { useCategories } from '@/hooks/useCategories';
 import { useTransactionGroups } from '@/hooks/useTransactionGroups';
 import { useBankAccounts } from '@/hooks/useBankAccounts';
-import { useRefundTotals } from '@/hooks/useRefundLinks';
-import { useDuplicateExcludeIds } from '@/hooks/useDuplicateLinks';
+import { useFinanceContext } from '@/hooks/useFinanceData';
+import {
+  netAmount as computeNetAmount,
+  creditNet,
+  filterOutDuplicates,
+} from '@/lib/transactionMath';
 import { formatINR, formatINRCompact } from '@/lib/formatCurrency';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
@@ -111,17 +115,15 @@ export default function InsightsPage() {
 
   const { data: allTransactions = [], isLoading: txnsLoading } = useTransactions(dateRange);
 
-  const { data: refundTotals = {}, isLoading: refundTotalsLoading } = useRefundTotals();
-  const { data: duplicateExcludeIds = new Set<string>() } = useDuplicateExcludeIds();
-  const isLoading = txnsLoading || refundTotalsLoading;
+  const { refundTotals, refundAllocations, duplicateExcludeIds, isReady: contextReady } = useFinanceContext();
+  const isLoading = txnsLoading || !contextReady;
 
-  // Helper: get refund-adjusted amount for a transaction
-  const netAmount = useCallback((t: { id: string; amount: number | string }) => {
-    const refund = refundTotals[t.id] || 0;
-    return Math.max(Number(t.amount) - refund, 0);
-  }, [refundTotals]);
+  const netAmount = useCallback(
+    (t: { id: string; amount: number | string; is_expense?: boolean | null; is_income?: boolean | null; category_id?: string | null }) =>
+      computeNetAmount(t as any, refundTotals),
+    [refundTotals],
+  );
 
-  // Apply advanced filters (group exclusion + linked-duplicate exclusion)
   const transactions = useMemo(() => {
     let filtered = allTransactions;
 
@@ -129,9 +131,7 @@ export default function InsightsPage() {
       filtered = filtered.filter(t => !t.group_id || !excludedGroups.has(t.group_id));
     }
 
-    if (duplicateExcludeIds.size > 0) {
-      filtered = filtered.filter(t => !duplicateExcludeIds.has(t.id));
-    }
+    filtered = filterOutDuplicates(filtered, duplicateExcludeIds);
 
     return filtered;
   }, [allTransactions, excludedGroups, duplicateExcludeIds]);
@@ -184,12 +184,12 @@ export default function InsightsPage() {
         }
       }
       if (t.is_income) {
-        months[key].income += Number(t.amount);
+        months[key].income += creditNet(t as any, refundAllocations);
       }
     });
 
     return Object.values(months);
-  }, [transactions, dateRange, chartMode, activeGroups, netAmount]);
+  }, [transactions, dateRange, chartMode, activeGroups, netAmount, refundAllocations]);
 
   // Category breakdown
   const categoryBreakdown = useMemo(() => {
@@ -328,7 +328,7 @@ export default function InsightsPage() {
   const totalSpent = categoryBreakdown.reduce((sum, c) => sum + c.amount, 0);
   const totalIncome = transactions
     .filter(t => t.is_income)
-    .reduce((sum, t) => sum + Number(t.amount), 0);
+    .reduce((sum, t) => sum + creditNet(t as any, refundAllocations), 0);
   const totalGroupSpent = groupBreakdown.reduce((sum, g) => sum + g.amount, 0);
   const totalBankSpent = bankBreakdown.reduce((sum, b) => sum + b.amount, 0);
 

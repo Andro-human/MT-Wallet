@@ -6,7 +6,8 @@ import { BudgetCircle } from './BudgetCircle';
 import { TransactionWithCategory } from '@/types/database';
 import { formatINR } from '@/lib/formatCurrency';
 import { useProfile, useUpdateBudget } from '@/hooks/useProfile';
-import { useDuplicateExcludeIds } from '@/hooks/useDuplicateLinks';
+import { useFinanceContext } from '@/hooks/useFinanceData';
+import { sumSpent, sumIncome } from '@/lib/transactionMath';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 
@@ -20,29 +21,15 @@ interface ActivitySummaryProps {
 export function ActivitySummary({ transactions, dateRange, isLoading, refundTotals = {} }: ActivitySummaryProps) {
   const { data: profile } = useProfile();
   const updateBudget = useUpdateBudget();
-  const { data: duplicateExcludeIds = new Set<string>() } = useDuplicateExcludeIds();
+  const { duplicateExcludeIds, refundAllocations } = useFinanceContext();
   const [editingBudget, setEditingBudget] = useState(false);
   const [budgetInput, setBudgetInput] = useState('');
 
   const stats = useMemo(() => {
-    // Drop the "duplicate" side of confirmed pairs so totals don't double-count.
-    const deduped = duplicateExcludeIds.size > 0
-      ? transactions.filter(t => !duplicateExcludeIds.has(t.id))
-      : transactions;
-
-    const expenses = deduped
-      .filter(t => t.is_expense)
-      .reduce((sum, t) => {
-        const refund = refundTotals[t.id] || 0;
-        return sum + Math.max(Number(t.amount) - refund, 0);
-      }, 0);
-
-    const income = deduped
-      .filter(t => t.is_income)
-      .reduce((sum, t) => sum + Number(t.amount), 0);
-
+    const expenses = sumSpent(transactions, refundTotals, duplicateExcludeIds);
+    const income = sumIncome(transactions, duplicateExcludeIds, refundAllocations);
     return { expenses, income, net: income - expenses };
-  }, [transactions, refundTotals, duplicateExcludeIds]);
+  }, [transactions, refundTotals, duplicateExcludeIds, refundAllocations]);
 
   const budget = profile?.monthly_budget ?? 0;
 

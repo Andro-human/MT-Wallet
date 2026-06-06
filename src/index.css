@@ -132,6 +132,17 @@
   .neo-card {
     @apply bg-card border border-border rounded-md shadow-none hover:border-primary/50 transition-colors duration-300;
   }
+
+  /* Hide native number-input spin buttons (still allows wheel/keys). */
+  .no-spinner::-webkit-outer-spin-button,
+  .no-spinner::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  .no-spinner {
+    -moz-appearance: textfield;
+    appearance: textfield;
+  }
 }
 
 /* Native date/time inputs: ensure visibility in dark themes */

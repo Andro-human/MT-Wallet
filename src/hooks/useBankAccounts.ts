@@ -37,27 +37,20 @@ function makeDisplay(bankName: string, accountLast4: string) {
   return '';
 }
 
-/** PostgREST defaults to max 1000 rows per request — page until we have all rows. */
-const TX_BANK_PAGE_SIZE = 1000;
+interface BankSummaryRow {
+  bank_name: string | null;
+  account_last4: string | null;
+  txn_count: number;
+}
 
-async function fetchAllUserTransactionBankFields(userId: string) {
-  const rows: { bank_name: string | null; account_last4: string | null }[] = [];
-  let from = 0;
-  for (;;) {
-    const { data, error } = await supabase
-      .from('transactions')
-      .select('bank_name, account_last4')
-      .eq('user_id', userId)
-      .order('id', { ascending: true })
-      .range(from, from + TX_BANK_PAGE_SIZE - 1);
+async function fetchBankSummaryRows(userId: string): Promise<BankSummaryRow[]> {
+  const { data, error } = await (supabase as any)
+    .from('user_bank_accounts_summary')
+    .select('bank_name, account_last4, txn_count')
+    .eq('user_id', userId);
 
-    if (error) throw error;
-    if (!data?.length) break;
-    rows.push(...data);
-    if (data.length < TX_BANK_PAGE_SIZE) break;
-    from += TX_BANK_PAGE_SIZE;
-  }
-  return rows;
+  if (error) throw error;
+  return (data ?? []) as BankSummaryRow[];
 }
 
 // ─── Aliases ────────────────────────────────────────────────────────────────
@@ -292,9 +285,8 @@ export function useBankAccounts() {
     queryFn: async () => {
       if (!user) return [];
 
-      // Fetch transactions (paginated — avoids 1000-row cap), aliases, nicknames, saved presets
-      const [txRows, aliasResult, nicknameResult, savedResult] = await Promise.all([
-        fetchAllUserTransactionBankFields(user.id),
+      const [bankRows, aliasResult, nicknameResult, savedResult] = await Promise.all([
+        fetchBankSummaryRows(user.id),
         supabase
           .from('bank_account_aliases')
           .select('*')
@@ -362,11 +354,11 @@ export function useBankAccounts() {
         }
       >();
 
-      for (const t of txRows) {
-        if (!t.bank_name && !t.account_last4) continue;
+      for (const row of bankRows) {
+        if (!row.bank_name && !row.account_last4) continue;
 
-        const rawBankName = t.bank_name || '';
-        const rawLast4 = t.account_last4 || '';
+        const rawBankName = row.bank_name || '';
+        const rawLast4 = row.account_last4 || '';
         const rawKey = makeKey(rawBankName, rawLast4);
 
         const resolved = resolve(rawBankName, rawLast4);
@@ -374,13 +366,13 @@ export function useBankAccounts() {
 
         const existing = groupMap.get(resolvedKey);
         if (existing) {
-          existing.count++;
+          existing.count += row.txn_count;
           existing.rawAccounts.add(rawKey);
         } else {
           groupMap.set(resolvedKey, {
             bankName: resolved.bankName,
             accountLast4: resolved.accountLast4,
-            count: 1,
+            count: row.txn_count,
             rawAccounts: new Set([rawKey]),
             savedAccountId: null,
           });
