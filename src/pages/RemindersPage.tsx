@@ -277,15 +277,14 @@ export default function RemindersPage() {
 
   return (
     <AppLayout>
-      <div className="max-w-2xl mx-auto px-4 sm:px-6 pb-24 pt-6">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h1 className="text-2xl font-bold">Reminders</h1>
-            <p className="text-sm text-muted-foreground mt-1">Track subscriptions, EMIs & dues</p>
-          </div>
+      {/* Sticky page header — matches Bank Accounts / Categories pattern */}
+      <div className="sticky top-0 z-10 backdrop-blur-xl bg-background/80 border-b border-border/30 safe-area-top">
+        <div className="flex items-center gap-3 px-5 py-3">
+          <h1 className="text-lg font-semibold text-foreground flex-1">Reminders</h1>
         </div>
+      </div>
 
+      <div className="px-5 pb-24 py-6">
         {/* Filter Tabs */}
         <div className="flex gap-2 mb-6 overflow-x-auto">
           {(['pending', 'completed'] as const).map(f => (

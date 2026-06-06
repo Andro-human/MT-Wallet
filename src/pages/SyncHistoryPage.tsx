@@ -1,3 +1,4 @@
+import { Fragment } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ArrowLeft, CheckCircle2, AlertCircle, XCircle, Inbox, Clock, MessageSquare, ArrowDownCircle, SkipForward, AlertTriangle } from 'lucide-react';
@@ -104,52 +105,92 @@ export default function SyncHistoryPage() {
 
   const allRuns = data?.pages.flatMap(p => p.runs) || [];
 
-  const totalInserted = allRuns.reduce((sum, r) => sum + r.inserted, 0);
-  const totalRuns = data?.pages?.[0]?.totalCount ?? allRuns.length;
-  const successRuns = data?.pages?.[0]?.successCount ?? allRuns.filter(r => r.status === 'success').length;
+  // Per-day averages over the loaded window, broken down by metric (messages
+  // encountered, inserted, not-inserted) and by channel (total, email, SMS).
+  // As the user scrolls back and loads older pages, the window expands and
+  // the averages stabilise.
+  const dailyStats = (() => {
+    if (allRuns.length === 0) return null;
+    const earliestMs = Math.min(...allRuns.map(r => new Date(r.started_at).getTime()));
+    const days = Math.max(1, Math.ceil((Date.now() - earliestMs) / (24 * 60 * 60 * 1000)));
+
+    const aggregate = (rows: SyncRun[]) => {
+      const encountered = rows.reduce((s, r) => s + r.total_messages, 0);
+      const inserted = rows.reduce((s, r) => s + r.inserted, 0);
+      return {
+        encountered: encountered / days,
+        inserted: inserted / days,
+        notInserted: (encountered - inserted) / days,
+      };
+    };
+
+    const emailRuns = allRuns.filter(r => r.source === 'email');
+    const smsRuns = allRuns.filter(r => r.source === 'ios_shortcut');
+
+    return {
+      days,
+      total: aggregate([...emailRuns, ...smsRuns]),
+      email: aggregate(emailRuns),
+      sms: aggregate(smsRuns),
+    };
+  })();
+
+  const formatAvg = (n: number) => (n >= 10 ? n.toFixed(0) : n.toFixed(1));
 
   return (
     <AppLayout>
-      <div className="px-5 pt-8 pb-4 safe-area-top">
-        {/* Header */}
-        <motion.div
-          initial={{ opacity: 0, y: -12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-          className="flex items-center gap-3 mb-6"
-        >
+      {/* Sticky page header — matches Bank Accounts / Categories pattern */}
+      <div className="sticky top-0 z-10 backdrop-blur-xl bg-background/80 border-b border-border/30 safe-area-top">
+        <div className="flex items-center gap-3 px-5 py-3">
           <button
             onClick={() => navigate(-1)}
-            className="w-10 h-10 rounded-xl bg-card/60 flex items-center justify-center active:scale-95 transition-transform"
+            className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-muted/50 transition-colors -ml-1"
           >
-            <ArrowLeft className="w-5 h-5" />
+            <ArrowLeft className="w-5 h-5 text-foreground" />
           </button>
-          <div>
-            <h1 className="text-2xl font-bold">Sync History</h1>
-            <p className="text-sm text-muted-foreground">SMS ingestion runs</p>
-          </div>
-        </motion.div>
+          <h1 className="text-lg font-semibold text-foreground flex-1">Sync History</h1>
+        </div>
+      </div>
 
-        {/* Summary stats */}
-        {!isLoading && allRuns.length > 0 && (
+      <div className="px-5 py-6 pb-4">
+        {/* Per-day averages — compact 3×3 grid */}
+        {!isLoading && dailyStats && (
           <motion.div
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.05, duration: 0.4 }}
-            className="grid grid-cols-3 gap-3 mb-6"
+            className="mb-6"
           >
-            <div className="glass-card p-4 text-center">
-              <p className="text-xl font-bold text-foreground">{totalRuns}</p>
-              <p className="text-sm text-muted-foreground">Total Runs</p>
+            <div className="glass-card p-3">
+              <div className="grid grid-cols-[1fr_auto_auto_auto] gap-x-4 gap-y-1.5 text-sm items-center">
+                <div />
+                <div className="text-right text-[10px] text-muted-foreground uppercase tracking-wider">Total</div>
+                <div className="text-right text-[10px] text-muted-foreground uppercase tracking-wider">Email</div>
+                <div className="text-right text-[10px] text-muted-foreground uppercase tracking-wider">SMS</div>
+
+                {([
+                  { key: 'encountered', label: 'Encountered', color: 'text-foreground' },
+                  { key: 'inserted', label: 'Inserted', color: 'text-green-400' },
+                  { key: 'notInserted', label: 'Not inserted', color: 'text-muted-foreground' },
+                ] as const).map(({ key, label, color }) => (
+                  <Fragment key={key}>
+                    <div className="text-muted-foreground">{label}</div>
+                    <div className={cn("text-right font-semibold tabular-nums", color)}>
+                      {formatAvg(dailyStats.total[key])}
+                    </div>
+                    <div className="text-right font-mono text-xs text-foreground/80 tabular-nums">
+                      {formatAvg(dailyStats.email[key])}
+                    </div>
+                    <div className="text-right font-mono text-xs text-foreground/80 tabular-nums">
+                      {formatAvg(dailyStats.sms[key])}
+                    </div>
+                  </Fragment>
+                ))}
+              </div>
             </div>
-            <div className="glass-card p-4 text-center">
-              <p className="text-xl font-bold text-green-400">{successRuns}</p>
-              <p className="text-sm text-muted-foreground">Successful</p>
-            </div>
-            <div className="glass-card p-4 text-center">
-              <p className="text-xl font-bold text-foreground">{totalInserted}</p>
-              <p className="text-sm text-muted-foreground">Transactions</p>
-            </div>
+            <p className="text-[11px] text-muted-foreground/60 text-center mt-1.5">
+              avg / day over last {dailyStats.days} day{dailyStats.days === 1 ? '' : 's'}
+            </p>
           </motion.div>
         )}
 
