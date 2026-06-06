@@ -96,6 +96,8 @@ export function AddTransactionDialog({ open, onOpenChange, smsContext }: AddTran
   // Fetch existing merchants for autocomplete, sorted by frequency (most used first)
   const { data: existingMerchants = [] } = useQuery({
     queryKey: ['merchants-autocomplete', user?.id],
+    enabled: !!user && open,
+    staleTime: 5 * 60 * 1000,
     queryFn: async () => {
       if (!user) return [];
       const { data, error } = await supabase

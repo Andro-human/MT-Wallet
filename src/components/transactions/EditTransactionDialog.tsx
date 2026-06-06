@@ -73,6 +73,7 @@ export function EditTransactionDialog({
         .filter((m): m is string => !!m);
     },
     enabled: !!user && open,
+    staleTime: 5 * 60 * 1000,
   });
 
   const [merchant, setMerchant] = useState(transaction.merchant || '');
