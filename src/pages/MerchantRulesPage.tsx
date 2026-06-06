@@ -52,35 +52,35 @@ export default function MerchantRulesPage() {
 
   return (
     <AppLayout>
-      <div className="px-5 pt-6 md:pt-12 pb-24 safe-area-top min-h-screen">
-        {/* Header */}
-        <div className="sticky top-0 z-10 backdrop-blur-xl bg-background/80 border-b border-border/50 pb-4 mb-6 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-             <button 
-              onClick={() => navigate(-1)}
-              className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-muted/50 transition-colors -ml-2"
-            >
-              <ArrowLeft className="w-5 h-5 text-foreground" />
-            </button>
-            <div>
-              <h1 className="text-2xl font-heading font-bold text-foreground leading-none">Automation Rules</h1>
-              <p className="text-xs font-mono text-muted-foreground mt-1 uppercase tracking-widest">
-                {mappings.length} ACTIVE {mappings.length === 1 ? 'RULE' : 'RULES'}
-              </p>
-            </div>
-          </div>
-          <Button 
+      {/* Sticky page header — matches Bank Accounts / Categories pattern */}
+      <div className="sticky top-0 z-10 backdrop-blur-xl bg-background/80 border-b border-border/30 safe-area-top">
+        <div className="flex items-center gap-3 px-5 py-3">
+          <button
+            onClick={() => navigate(-1)}
+            className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-muted/50 transition-colors -ml-1"
+          >
+            <ArrowLeft className="w-5 h-5 text-foreground" />
+          </button>
+          <h1 className="text-lg font-semibold text-foreground flex-1">Automation Rules</h1>
+          <Button
             onClick={() => {
               setEditingRule(null);
               setShowAddDialog(true);
             }}
-            size="sm" 
-            className="rounded-full shadow-lg shadow-primary/20"
+            size="sm"
+            className="rounded-xl gap-1.5"
           >
-            <Plus className="w-4 h-4 mr-1.5" />
+            <Plus className="w-4 h-4" />
             Add Rule
           </Button>
         </div>
+      </div>
+
+      <div className="px-5 py-6 pb-24 min-h-screen">
+        {/* Subtitle — count of active rules */}
+        <p className="text-base text-muted-foreground mb-4">
+          {mappings.length} active rule{mappings.length === 1 ? '' : 's'}
+        </p>
 
         {/* Info Card */}
         <motion.div

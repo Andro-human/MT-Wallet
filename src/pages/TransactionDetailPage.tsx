@@ -17,6 +17,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { EditTransactionDialog } from '@/components/transactions/EditTransactionDialog';
+import { CreateGroupDialog } from '@/components/transactions/CreateGroupDialog';
 import { DeleteTransactionDialog } from '@/components/transactions/DeleteTransactionDialog';
 import { LinkRefundDialog } from '@/components/transactions/LinkRefundDialog';
 import { LinkDuplicateDialog } from '@/components/transactions/LinkDuplicateDialog';
@@ -51,6 +52,7 @@ export default function TransactionDetailPage() {
   const [editingNotes, setEditingNotes] = useState(false);
   const [notes, setNotes] = useState('');
   const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [showCreateGroup, setShowCreateGroup] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [linkRefundOpen, setLinkRefundOpen] = useState(false);
   const [linkDuplicateOpen, setLinkDuplicateOpen] = useState(false);
@@ -622,6 +624,8 @@ export default function TransactionDetailPage() {
                   options={groupOptions}
                   emptyLabel="No group"
                   className="text-sm text-muted-foreground"
+                  onCreateNew={() => setShowCreateGroup(true)}
+                  createNewLabel="Create new group"
                 />
               </div>
             </div>
@@ -771,6 +775,13 @@ export default function TransactionDetailPage() {
         transaction={transaction}
         open={editDialogOpen}
         onOpenChange={setEditDialogOpen}
+      />
+
+      {/* Create-new-group flow, triggered from the inline Group picker */}
+      <CreateGroupDialog
+        open={showCreateGroup}
+        onOpenChange={setShowCreateGroup}
+        onCreated={(id) => handleUpdateField('group_id', id)}
       />
 
       {/* Delete Dialog */}

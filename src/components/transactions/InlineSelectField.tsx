@@ -16,6 +16,10 @@ interface InlineSelectFieldProps {
   placeholder?: string;
   className?: string;
   emptyLabel?: string;
+  /** When set, renders a "+ <label>" button at the bottom of the dropdown that
+   * invokes onCreateNew() (the caller is expected to open its own creation flow). */
+  onCreateNew?: () => void;
+  createNewLabel?: string;
 }
 
 export function InlineSelectField({
@@ -29,6 +33,8 @@ export function InlineSelectField({
   placeholder = 'Select...',
   className,
   emptyLabel = 'None',
+  onCreateNew,
+  createNewLabel = 'Create new',
 }: InlineSelectFieldProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -287,6 +293,19 @@ export function InlineSelectField({
                   <Plus className="h-4 w-4" />
                 </button>
               </div>
+            </div>
+          )}
+
+          {onCreateNew && (
+            <div className="border-t border-border/50 p-1">
+              <button
+                type="button"
+                onClick={() => { setIsOpen(false); onCreateNew(); }}
+                className="w-full flex items-center gap-2 px-3 py-2 text-sm rounded-lg text-primary hover:bg-primary/10 transition-colors text-left"
+              >
+                <Plus className="w-4 h-4" />
+                <span>{createNewLabel}</span>
+              </button>
             </div>
           )}
         </div>,

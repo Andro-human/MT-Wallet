@@ -1,7 +1,18 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link, useSearchParams, useNavigate } from 'react-router-dom';
-import { Search, SlidersHorizontal, X, ChevronDown, ChevronRight, ArrowLeft, Plus, Calendar as CalendarIcon, Trash2, Building2, Inbox, CheckCheck } from 'lucide-react';
+import { Search, SlidersHorizontal, X, ChevronDown, ChevronRight, ArrowLeft, Plus, Calendar as CalendarIcon, Trash2, Building2, Inbox, CheckCheck, RotateCcw } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import { format, startOfMonth, endOfMonth, subMonths } from 'date-fns';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { TransactionCard } from '@/components/transactions/TransactionCard';
@@ -294,6 +305,37 @@ export default function TransactionsPage() {
       toast({ title: 'All Approved', description: `${unreviewedIds.length} transactions approved.` });
     } catch {
       toast({ title: 'Error', description: 'Failed to approve.', variant: 'destructive' });
+    }
+  };
+
+  // Re-flag every visible (currently-filtered, loaded) transaction as
+  // needs_review = true. Mirrors handleApproveAll's pattern so it respects
+  // ALL active filters (date, category, group, merchant, bank, direction),
+  // not just the date range.
+  const handleReopenForReview = async () => {
+    if (!user) return;
+    try {
+      const idsToFlag = sortedTransactions
+        .filter(t => !(t as any).needs_review)
+        .map(t => t.id);
+      if (idsToFlag.length === 0) {
+        toast({ title: 'Nothing to mark', description: 'All visible transactions are already flagged.' });
+        return;
+      }
+
+      const { error } = await supabase
+        .from('transactions')
+        .update({ needs_review: true } as any)
+        .in('id', idsToFlag);
+
+      if (error) throw error;
+      queryClient.invalidateQueries({ queryKey: ['transactions'] });
+      toast({
+        title: 'Marked for review',
+        description: `${idsToFlag.length} transaction${idsToFlag.length === 1 ? '' : 's'} flagged.`,
+      });
+    } catch {
+      toast({ title: 'Error', description: 'Failed to mark for review.', variant: 'destructive' });
     }
   };
 
@@ -617,6 +659,40 @@ export default function TransactionsPage() {
               <CheckCheck className="w-3.5 h-3.5" />
               Approve All
             </Button>
+          )}
+
+          {/* Mark-for-review (bulk flip needs_review back to true for the
+              currently filtered date range — useful for monthly re-audit). */}
+          {reviewEnabled && !isInboxMode && !isSelectMode && (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-1.5 rounded-xl border-orange-500/40 text-orange-400 hover:bg-orange-500/10 flex-shrink-0"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  Review All
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Mark all visible transactions for review?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    <strong>{sortedTransactions.filter(t => !(t as any).needs_review).length}</strong>{' '}
+                    currently-approved transaction(s) in your filtered view will be flagged
+                    for review again. The transaction data itself isn't changed — only the
+                    review flag flips. Already-flagged ones are unaffected.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleReopenForReview}>
+                    Mark for review
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           )}
 
           {!isSelectMode && (
