@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
-import { createClient } from '@supabase/supabase-js';
+import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 
-// Untyped Supabase client for push_subscriptions (not in generated types yet)
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-const supabaseRaw = createClient(supabaseUrl, supabaseKey);
+// Untyped handle on the shared client for push_subscriptions (not in
+// generated types yet). Reusing the singleton avoids "Multiple
+// GoTrueClient instances" warnings — a second createClient() in this
+// file was the culprit.
+const supabaseRaw = supabase as any;
 
 // VAPID public key generated for this app
 const VAPID_PUBLIC_KEY = 'BG46OyHptYAJwN-PewTCMCHG7MqU9tp-05mC-oBYHYlb0KmHdycNZW8mxRQK4DimoDf0qv8HliuxgnJgMTGRe4o';

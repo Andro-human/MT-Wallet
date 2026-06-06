@@ -1,7 +1,7 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link, useSearchParams, useNavigate } from 'react-router-dom';
-import { Search, SlidersHorizontal, X, ChevronDown, ChevronRight, ArrowLeft, Plus, Calendar as CalendarIcon, Trash2, Building2, Inbox, CheckCheck, RotateCcw } from 'lucide-react';
+import { Search, SlidersHorizontal, X, ChevronDown, ChevronRight, ChevronLeft, ArrowLeft, Plus, Calendar as CalendarIcon, Trash2, Building2, Inbox, CheckCheck, RotateCcw } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -13,7 +13,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { format, startOfMonth, endOfMonth, subMonths } from 'date-fns';
+import { format, startOfMonth, endOfMonth, subMonths, addMonths, isSameMonth } from 'date-fns';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { TransactionCard } from '@/components/transactions/TransactionCard';
 import { useBankDisplayMap, lookupBankDisplay } from '@/hooks/useBankDisplayMap';
@@ -25,9 +25,15 @@ import { useTransactions } from '@/hooks/useTransactions';
 import { useCategories } from '@/hooks/useCategories';
 import { useTransactionGroups } from '@/hooks/useTransactionGroups';
 import { useBankAccounts } from '@/hooks/useBankAccounts';
-import { useRefundTotals } from '@/hooks/useRefundLinks';
+import { useFinanceContext } from '@/hooks/useFinanceData';
 import { usePotentialDuplicatesList } from '@/hooks/usePotentialDuplicates';
-import { useDuplicateExcludeIds } from '@/hooks/useDuplicateLinks';
+import {
+  netAmount as computeNetAmount,
+  creditNet,
+  sumSpent,
+  sumIncome,
+  categoryChartData,
+} from '@/lib/transactionMath';
 import { MonthYearPicker } from '@/components/ui/MonthYearPicker';
 import { formatINR } from '@/lib/formatCurrency';
 import { Input } from '@/components/ui/input';
@@ -183,6 +189,32 @@ export default function TransactionsPage() {
     }
   }, [dateFilter, customStart, customEnd]);
 
+  // Single-month view detection — drives the ◀ ▶ month strip.
+  const viewingMonth = useMemo(() => {
+    const s = dateRange.startDate;
+    const e = dateRange.endDate;
+    if (!s || !e) return null;
+    return isSameMonth(s, e) ? startOfMonth(s) : null;
+  }, [dateRange]);
+
+  const goToMonth = useCallback((month: Date) => {
+    const mStart = startOfMonth(month);
+    const mEnd = endOfMonth(month);
+    const now = new Date();
+    setCustomStart(mStart);
+    setCustomEnd(mEnd);
+    if (isSameMonth(mStart, now)) {
+      setDateFilter('this-month');
+    } else if (isSameMonth(mStart, subMonths(now, 1))) {
+      setDateFilter('last-month');
+    } else {
+      setDateFilter('custom');
+    }
+    setShowCustomPicker(false);
+  }, [setCustomStart, setCustomEnd, setDateFilter]);
+
+  const canGoNextMonth = viewingMonth ? !isSameMonth(viewingMonth, new Date()) : false;
+
   const { data: transactions = [], isLoading, refetch } = useTransactions({
     ...dateRange,
     categoryId: categoryFilter !== 'all' ? categoryFilter : undefined,
@@ -201,8 +233,8 @@ export default function TransactionsPage() {
     return transactions; // already sorted by date from query
   }, [transactions, sortMode]);
 
-  const { data: refundTotals = {}, isLoading: refundTotalsLoading } = useRefundTotals();
-  const isRefundReady = !refundTotalsLoading;
+  const { refundTotals, refundAllocations, isReady: financeReady } = useFinanceContext();
+  const isRefundReady = financeReady;
 
   // Detect potential duplicate pairs across loaded transactions
   const { pairs: duplicatePairs, dismiss: dismissDuplicatePair } = usePotentialDuplicatesList(sortedTransactions);
@@ -582,6 +614,37 @@ export default function TransactionsPage() {
           />
         )}
 
+        {/* Month navigator — visible only when viewing a single month */}
+        {viewingMonth && !isSelectMode && (
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.05, duration: 0.3 }}
+            className="flex items-center justify-center gap-1 mb-3"
+          >
+            <button
+              type="button"
+              onClick={() => goToMonth(subMonths(viewingMonth, 1))}
+              className="w-11 h-11 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/40 active:bg-muted/60 active:scale-95 transition-all touch-manipulation"
+              aria-label="Previous month"
+            >
+              <ChevronLeft className="w-5 h-5" />
+            </button>
+            <span className="text-sm font-medium text-foreground min-w-[130px] text-center select-none tabular-nums">
+              {format(viewingMonth, 'MMMM yyyy')}
+            </span>
+            <button
+              type="button"
+              onClick={() => goToMonth(addMonths(viewingMonth, 1))}
+              disabled={!canGoNextMonth}
+              className="w-11 h-11 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/40 active:bg-muted/60 active:scale-95 transition-all touch-manipulation disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:active:scale-100"
+              aria-label="Next month"
+            >
+              <ChevronRight className="w-5 h-5" />
+            </button>
+          </motion.div>
+        )}
+
         {/* Search */}
         <motion.div
           initial={{ opacity: 0, y: 8 }}
@@ -926,8 +989,14 @@ export default function TransactionsPage() {
                 )}
                 <div className="flex flex-col gap-3">
                   {txns.map((txn, i) => {
-                    const refundTotal = isRefundReady ? refundTotals[txn.id] : undefined;
-                    const net = refundTotal ? Number(txn.amount) - refundTotal : undefined;
+                    let net: number | undefined;
+                    if (isRefundReady) {
+                      if (txn.direction === 'credit' && refundAllocations[txn.id]) {
+                        net = creditNet(txn as any, refundAllocations);
+                      } else if (refundTotals[txn.id]) {
+                        net = computeNetAmount(txn as any, refundTotals);
+                      }
+                    }
                     const bankDisplay = lookupBankDisplay(bankDisplayMap, txn.bank_name, txn.account_last4);
                     const isSelected = selectedIds.has(txn.id);
 
@@ -1059,52 +1128,22 @@ function FilteredViewSummary({
   categories: any[];
   refundTotals?: Record<string, number>;
 }) {
-  const { data: duplicateExcludeIds = new Set<string>() } = useDuplicateExcludeIds();
+  const { duplicateExcludeIds, refundAllocations } = useFinanceContext();
 
   const stats = useMemo(() => {
-    const netAmount = (t: any) => {
-      const refund = refundTotals[t.id] || 0;
-      return Math.max(Number(t.amount) - refund, 0);
-    };
-
-    // Drop the "duplicate" side of confirmed pairs so totals don't double-count.
-    const deduped = duplicateExcludeIds.size > 0
-      ? transactions.filter((t: any) => !duplicateExcludeIds.has(t.id))
-      : transactions;
-
-    const totalSpent = deduped
-      .filter((t: any) => t.is_expense)
-      .reduce((sum: number, t: any) => sum + netAmount(t), 0);
-
-    const totalIncome = deduped
-      .filter((t: any) => t.is_income)
-      .reduce((sum: number, t: any) => sum + Number(t.amount), 0);
-
-    const txnCount = deduped.length;
-
-    // Category breakdown for the donut
-    const catBreakdown: Record<string, number> = {};
-    deduped
-      .filter((t: any) => t.is_expense)
-      .forEach((t: any) => {
-        const catId = t.category_id || 'uncategorized';
-        catBreakdown[catId] = (catBreakdown[catId] || 0) + netAmount(t);
-      });
-
-    const donutData = Object.entries(catBreakdown)
-      .map(([catId, amount]) => {
-        const cat = categories.find((c: any) => c.id === catId);
-        return {
-          name: cat?.name || 'Uncategorized',
-          value: amount,
-          color: cat?.color || '#6B7280',
-          icon: cat?.icon || '📦',
-        };
-      })
-      .sort((a, b) => b.value - a.value);
+    const totalSpent = sumSpent(transactions, refundTotals, duplicateExcludeIds);
+    const totalIncome = sumIncome(transactions, duplicateExcludeIds, refundAllocations);
+    const txnCount = transactions.filter((t: any) => !duplicateExcludeIds.has(t.id)).length;
+    const donutData = categoryChartData(
+      transactions,
+      refundTotals,
+      duplicateExcludeIds,
+      categories,
+      Infinity as any,
+    );
 
     return { totalSpent, totalIncome, txnCount, donutData };
-  }, [transactions, categories, refundTotals, duplicateExcludeIds]);
+  }, [transactions, categories, refundTotals, duplicateExcludeIds, refundAllocations]);
 
   return (
     <motion.div

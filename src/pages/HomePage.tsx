@@ -8,7 +8,8 @@ import { StatCard } from '@/components/dashboard/StatCard';
 import { TransactionCard } from '@/components/transactions/TransactionCard';
 import { useBankDisplayMap, lookupBankDisplay } from '@/hooks/useBankDisplayMap';
 import { useDashboardStats } from '@/hooks/useDashboardStats';
-import { useRefundTotals } from '@/hooks/useRefundLinks';
+import { useFinanceContext } from '@/hooks/useFinanceData';
+import { netAmount as computeNetAmount, creditNet } from '@/lib/transactionMath';
 import { formatINR, formatINRCompact } from '@/lib/formatCurrency';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/hooks/useAuth';
@@ -29,8 +30,7 @@ export default function HomePage() {
   const monthName = format(new Date(), 'MMMM');
   const year = format(new Date(), 'yyyy');
 
-  const { data: refundTotals = {}, isLoading: refundTotalsLoading } = useRefundTotals();
-  const isRefundReady = !refundTotalsLoading;
+  const { refundTotals, refundAllocations, isReady: contextReady } = useFinanceContext();
 
   return (
     <AppLayout>
@@ -175,8 +175,14 @@ export default function HomePage() {
               </div>
             ) : recentTxns.length > 0 ? (
               recentTxns.map((txn, i) => {
-                const refundTotal = isRefundReady ? refundTotals[txn.id] : undefined;
-                const net = refundTotal ? Number(txn.amount) - refundTotal : undefined;
+                let net: number | undefined;
+                if (contextReady) {
+                  if (txn.direction === 'credit' && refundAllocations[txn.id]) {
+                    net = creditNet(txn as any, refundAllocations);
+                  } else if (refundTotals[txn.id]) {
+                    net = computeNetAmount(txn as any, refundTotals);
+                  }
+                }
                 const bankDisplay = lookupBankDisplay(bankDisplayMap, txn.bank_name, txn.account_last4);
                 return (
                   <Link key={txn.id} to={`/transactions/${txn.id}`}>
