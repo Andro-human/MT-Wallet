@@ -299,6 +299,8 @@ export function AddTransactionDialog({ open, onOpenChange, smsContext }: AddTran
       toast({ title: 'Transaction added' });
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
       queryClient.invalidateQueries({ queryKey: ['bank-accounts'] });
+      queryClient.invalidateQueries({ queryKey: ['merchants-autocomplete'] });
+      queryClient.invalidateQueries({ queryKey: ['merchants-raw'] });
       resetForm();
       onOpenChange(false);
     } catch (err: any) {

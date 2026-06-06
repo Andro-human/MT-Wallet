@@ -50,7 +50,7 @@ export function LinkRefundDialog({
 
   const { data: creditTxns = [] } = useTransactions({ direction: 'credit' });
   const { data: existingLinks = [] } = useRefundLinksForOriginal(transactionId);
-  const { data: allocations = {} } = useRefundAllocations();
+  const { data: allocations = {}, isLoading: allocationsLoading } = useRefundAllocations();
   const { data: duplicateLinkedIds = new Set<string>() } = useAllLinkedTransactionIds();
 
   const createLink = useCreateRefundLink();
@@ -303,7 +303,11 @@ export function LinkRefundDialog({
         {/* Candidates */}
         <div className="flex-1 min-h-0 overflow-auto">
           <div className="space-y-1.5 pr-2">
-            {filteredCandidates.length === 0 ? (
+            {allocationsLoading ? (
+              <p className="text-sm text-muted-foreground text-center py-8">
+                Loading available refunds…
+              </p>
+            ) : filteredCandidates.length === 0 ? (
               <p className="text-sm text-muted-foreground text-center py-8">
                 {outstanding === 0
                   ? 'This transaction is fully refunded.'
