@@ -84,17 +84,22 @@ export interface TransactionWithCategory extends Transaction {
 
 export type ReminderType = 'subscription' | 'emi' | 'lent' | 'borrowed' | 'custom';
 export type RecurrenceInterval = 'weekly' | 'monthly' | 'yearly';
+export type RecurrenceUnit = 'day' | 'week' | 'month' | 'year';
 
 export interface Reminder {
   id: string;
   user_id: string;
   title: string;
+  merchant: string | null;
   amount: number;
   currency: string;
   type: ReminderType;
+  custom_type_label: string | null;
   due_date: string;
   is_recurring: boolean;
   recurrence_interval: RecurrenceInterval | null;
+  recurrence_value: number | null;
+  recurrence_unit: RecurrenceUnit | null;
   is_completed: boolean;
   created_at: string;
   updated_at: string;

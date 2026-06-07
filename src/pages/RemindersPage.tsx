@@ -1,10 +1,10 @@
 import { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSearchParams } from 'react-router-dom';
-import { Bell, Plus, Check, Clock, AlertTriangle, RefreshCw, Trash2, Pencil } from 'lucide-react';
-import { format, isPast, isToday, differenceInDays } from 'date-fns';
+import { Bell, Plus, Check, Clock, AlertTriangle, RefreshCw, Trash2, Pencil, MoreVertical, SkipForward, Ban, CalendarIcon } from 'lucide-react';
+import { format, isPast, isToday, differenceInDays, addDays, addWeeks, addMonths, addYears } from 'date-fns';
 import { AppLayout } from '@/components/layout/AppLayout';
-import { useReminders, useUpdateReminder } from '@/hooks/useReminders';
+import { useReminders, useUpdateReminder, useInsertReminderCompletion } from '@/hooks/useReminders';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/components/ui/use-toast';
 import { Button } from '@/components/ui/button';
@@ -18,11 +18,68 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { useForm } from 'react-hook-form';
-import type { RecurrenceInterval } from '@/types/database';
+import type { RecurrenceInterval, RecurrenceUnit } from '@/types/database';
 
 function formatINR(n: number) {
   return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(n);
+}
+
+function advanceDateBy(date: Date, value: number, unit: RecurrenceUnit): Date {
+  switch (unit) {
+    case 'day':   return addDays(date, value);
+    case 'week':  return addWeeks(date, value);
+    case 'month': return addMonths(date, value);
+    case 'year':  return addYears(date, value);
+  }
+}
+
+// Resolve a reminder's recurrence to (value, unit). Prefers the new columns;
+// falls back to the legacy enum so older rows still advance correctly until
+// the backfilled column is fully verified and old column dropped.
+function resolveRecurrence(r: Reminder): { value: number; unit: RecurrenceUnit } | null {
+  if (r.recurrence_value && r.recurrence_unit) {
+    return { value: r.recurrence_value, unit: r.recurrence_unit };
+  }
+  switch (r.recurrence_interval) {
+    case 'weekly':  return { value: 1, unit: 'week' };
+    case 'monthly': return { value: 1, unit: 'month' };
+    case 'yearly':  return { value: 1, unit: 'year' };
+    default: return null;
+  }
+}
+
+const RECURRENCE_ELIGIBLE: ReadonlyArray<ReminderType> = ['subscription', 'emi', 'custom'];
+
+// Preset cadences. 'custom' is the escape hatch — user picks value + unit explicitly.
+const RECURRENCE_PRESETS: Record<string, { value: number; unit: RecurrenceUnit; label: string }> = {
+  weekly:  { value: 1, unit: 'week',  label: 'Weekly' },
+  monthly: { value: 1, unit: 'month', label: 'Monthly' },
+};
+
+// Resolve the badge label for a reminder's type. For 'custom' with a
+// user-typed label, show that label; otherwise use the enum mapping.
+function displayTypeLabel(r: Pick<Reminder, 'type' | 'custom_type_label'>): string {
+  if (r.type === 'custom' && r.custom_type_label?.trim()) {
+    return r.custom_type_label.trim();
+  }
+  return typeLabels[r.type];
+}
+
+function presetKeyFor(value: number, unit: RecurrenceUnit): string {
+  for (const [key, preset] of Object.entries(RECURRENCE_PRESETS)) {
+    if (preset.value === value && preset.unit === unit) return key;
+  }
+  return 'custom';
 }
 
 const typeLabels: Record<ReminderType, string> = {
@@ -60,31 +117,47 @@ function ReminderFormDialog({
   const { register, handleSubmit, watch, setValue, reset } = useForm({
     defaultValues: {
       title: '',
+      merchant: '',
       amount: '',
       type: 'subscription' as ReminderType,
+      custom_type_label: '',
       due_date: format(new Date(), 'yyyy-MM-dd'),
       is_recurring: true,
-      recurrence_interval: 'monthly' as RecurrenceInterval,
+      recurrence_preset: 'monthly',
+      recurrence_value: 1,
+      recurrence_unit: 'month' as RecurrenceUnit,
     },
   });
 
+  const [datePickerOpen, setDatePickerOpen] = useState(false);
+
   useEffect(() => {
     if (open) {
+      const initialRec = editingReminder ? resolveRecurrence(editingReminder) : null;
+      const initialValue = initialRec?.value ?? 1;
+      const initialUnit = initialRec?.unit ?? 'month';
       reset({
         title: editingReminder?.title || '',
+        merchant: editingReminder?.merchant || '',
         amount: editingReminder ? String(editingReminder.amount) : '',
         type: (editingReminder?.type || 'subscription') as ReminderType,
+        custom_type_label: editingReminder?.custom_type_label || '',
         due_date: editingReminder
           ? format(new Date(editingReminder.due_date), 'yyyy-MM-dd')
           : format(new Date(), 'yyyy-MM-dd'),
         is_recurring: editingReminder?.is_recurring ?? true,
-        recurrence_interval: (editingReminder?.recurrence_interval || 'monthly') as RecurrenceInterval,
+        recurrence_preset: presetKeyFor(initialValue, initialUnit),
+        recurrence_value: initialValue,
+        recurrence_unit: initialUnit,
       });
     }
   }, [open, editingReminder, reset]);
 
-  const isRecurring = watch('is_recurring');
   const typeValue = watch('type');
+  const typeAllowsRecurring = RECURRENCE_ELIGIBLE.includes(typeValue);
+  const isRecurring = watch('is_recurring') && typeAllowsRecurring;
+  const recurrencePreset = watch('recurrence_preset');
+  const isCustomRecurrence = recurrencePreset === 'custom';
 
   const onSubmit = async (data: any) => {
     if (!user) return;
@@ -96,16 +169,45 @@ function ReminderFormDialog({
       const localDate = new Date(data.due_date);
       localDate.setHours(12, 0, 0, 0);
 
+      const allowRecurring = RECURRENCE_ELIGIBLE.includes(data.type);
+      const effectiveRecurring = allowRecurring && data.is_recurring;
+
+      // Derive (value, unit) from preset, or use the explicit fields for 'custom'
+      let recurrenceValue: number | null = null;
+      let recurrenceUnit: RecurrenceUnit | null = null;
+      if (effectiveRecurring) {
+        if (data.recurrence_preset === 'custom') {
+          const v = Number(data.recurrence_value);
+          if (!Number.isFinite(v) || v < 1) throw new Error('Custom recurrence value must be a positive number');
+          recurrenceValue = Math.floor(v);
+          recurrenceUnit = data.recurrence_unit as RecurrenceUnit;
+        } else {
+          const preset = RECURRENCE_PRESETS[data.recurrence_preset];
+          if (!preset) throw new Error('Invalid recurrence preset');
+          recurrenceValue = preset.value;
+          recurrenceUnit = preset.unit;
+        }
+      }
+
+      const trimmedMerchant = (data.merchant || '').trim();
+      const trimmedCustomLabel = (data.custom_type_label || '').trim();
+      const customTypeLabel = data.type === 'custom' && trimmedCustomLabel
+        ? trimmedCustomLabel
+        : null;
+
       if (isEdit) {
         updateReminder.mutate({
           id: editingReminder!.id,
           updates: {
             title: data.title,
+            merchant: trimmedMerchant || null,
             amount: amountNum,
             type: data.type,
+            custom_type_label: customTypeLabel,
             due_date: localDate.toISOString(),
-            is_recurring: data.is_recurring,
-            recurrence_interval: data.is_recurring ? data.recurrence_interval : null,
+            is_recurring: effectiveRecurring,
+            recurrence_value: recurrenceValue,
+            recurrence_unit: recurrenceUnit,
           },
         }, {
           onSuccess: () => {
@@ -119,12 +221,15 @@ function ReminderFormDialog({
           .insert({
             user_id: user.id,
             title: data.title,
+            merchant: trimmedMerchant || null,
             amount: amountNum,
             currency: 'INR',
             type: data.type,
+            custom_type_label: customTypeLabel,
             due_date: localDate.toISOString(),
-            is_recurring: data.is_recurring,
-            recurrence_interval: data.is_recurring ? data.recurrence_interval : null,
+            is_recurring: effectiveRecurring,
+            recurrence_value: recurrenceValue,
+            recurrence_unit: recurrenceUnit,
             is_completed: false,
           } as any);
 
@@ -151,21 +256,54 @@ function ReminderFormDialog({
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 py-4">
           <div className="space-y-2">
             <Label htmlFor="r-title">Title</Label>
-            <Input id="r-title" {...register('title', { required: true })} placeholder="e.g. Netflix" />
+            <Input id="r-title" {...register('title', { required: true })} placeholder="e.g. Ketchup" />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="r-merchant">Merchant</Label>
+            <Input
+              id="r-merchant"
+              {...register('merchant')}
+              placeholder="e.g. Amazon"
+            />
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="r-amount">Amount (₹)</Label>
-              <Input id="r-amount" type="number" step="0.01" {...register('amount', { required: true })} />
+              <Input
+                id="r-amount"
+                type="number"
+                step="0.01"
+                className="no-spinner"
+                {...register('amount', { required: true })}
+              />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="r-due">Due Date</Label>
-              <Input
-                id="r-due"
-                type="date"
-                {...register('due_date', { required: true })}
-                className="w-full text-foreground"
-              />
+              <Label>Due Date</Label>
+              <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start text-left font-normal bg-muted/30 border-border/50 rounded-xl"
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {format(new Date(watch('due_date')), 'MMM d, yyyy')}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0 glass-card border-border/50" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={new Date(watch('due_date'))}
+                    onSelect={(d) => {
+                      if (d) {
+                        setValue('due_date', format(d, 'yyyy-MM-dd'));
+                        setDatePickerOpen(false);
+                      }
+                    }}
+                    initialFocus
+                    className="p-3 pointer-events-auto"
+                  />
+                </PopoverContent>
+              </Popover>
             </div>
           </div>
           <div className="space-y-2">
@@ -180,24 +318,61 @@ function ReminderFormDialog({
                 <SelectItem value="custom">Custom</SelectItem>
               </SelectContent>
             </Select>
+            {typeValue === 'custom' && (
+              <Input
+                placeholder="Name this type (e.g. Membership, Donation)"
+                {...register('custom_type_label')}
+              />
+            )}
           </div>
-          <div className="flex items-center gap-2">
-            <input type="checkbox" id="r-recurring" className="rounded" {...register('is_recurring')} />
-            <Label htmlFor="r-recurring" className="font-normal cursor-pointer flex items-center gap-1.5">
-              <RefreshCw className="w-3.5 h-3.5 text-muted-foreground" /> Recurring
-            </Label>
-          </div>
+          {typeAllowsRecurring && (
+            <div className="flex items-center gap-2">
+              <input type="checkbox" id="r-recurring" className="rounded" {...register('is_recurring')} />
+              <Label htmlFor="r-recurring" className="font-normal cursor-pointer flex items-center gap-1.5">
+                <RefreshCw className="w-3.5 h-3.5 text-muted-foreground" /> Recurring
+              </Label>
+            </div>
+          )}
           {isRecurring && (
             <div className="space-y-2 animate-in fade-in">
               <Label>Interval</Label>
-              <Select value={watch('recurrence_interval')} onValueChange={(v: RecurrenceInterval) => setValue('recurrence_interval', v)}>
+              <Select
+                value={recurrencePreset}
+                onValueChange={(v: string) => setValue('recurrence_preset', v)}
+              >
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="weekly">Weekly</SelectItem>
-                  <SelectItem value="monthly">Monthly</SelectItem>
-                  <SelectItem value="yearly">Yearly</SelectItem>
+                  {Object.entries(RECURRENCE_PRESETS).map(([key, preset]) => (
+                    <SelectItem key={key} value={key}>{preset.label}</SelectItem>
+                  ))}
+                  <SelectItem value="custom">Custom…</SelectItem>
                 </SelectContent>
               </Select>
+
+              {isCustomRecurrence && (
+                <div className="grid grid-cols-[1fr_2fr] gap-2 pt-1">
+                  <Input
+                    type="number"
+                    min={1}
+                    step={1}
+                    className="no-spinner"
+                    {...register('recurrence_value', { valueAsNumber: true, min: 1 })}
+                    placeholder="e.g. 10"
+                  />
+                  <Select
+                    value={watch('recurrence_unit')}
+                    onValueChange={(v: RecurrenceUnit) => setValue('recurrence_unit', v)}
+                  >
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="day">Days</SelectItem>
+                      <SelectItem value="week">Weeks</SelectItem>
+                      <SelectItem value="month">Months</SelectItem>
+                      <SelectItem value="year">Years</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
             </div>
           )}
           <div className="flex flex-col-reverse sm:flex-row gap-2 pt-4">
@@ -214,9 +389,15 @@ function ReminderFormDialog({
   );
 }
 
+interface CompletedGroup {
+  kind: 'done' | 'cancelled';
+  reminders: Reminder[];
+}
+
 export default function RemindersPage() {
   const { data: reminders = [], isLoading } = useReminders();
   const updateReminder = useUpdateReminder();
+  const insertCompletion = useInsertReminderCompletion();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { user } = useAuth();
@@ -244,10 +425,79 @@ export default function RemindersPage() {
       .map(type => ({ type, reminders: groups[type] }));
   }, [filtered]);
 
-  const handleMarkComplete = async (reminder: Reminder) => {
+  const completedGroups = useMemo<CompletedGroup[]>(() => {
+    if (filter !== 'completed') return [];
+    const done = filtered.filter(r => !r.is_recurring);
+    const cancelled = filtered.filter(r => r.is_recurring);
+    return [
+      ...(done.length ? [{ kind: 'done' as const, reminders: done }] : []),
+      ...(cancelled.length ? [{ kind: 'cancelled' as const, reminders: cancelled }] : []),
+    ];
+  }, [filtered, filter]);
+
+  const handleMarkPaid = async (reminder: Reminder) => {
+    const rec = reminder.is_recurring ? resolveRecurrence(reminder) : null;
+    if (rec) {
+      const next = advanceDateBy(new Date(reminder.due_date), rec.value, rec.unit);
+      next.setHours(12, 0, 0, 0);
+      // History row is the source of truth for "what was paid". Only
+      // advance the reminder once the completion is durably recorded —
+      // otherwise a failed insert would silently leave the reminder
+      // looking paid with no backing history.
+      try {
+        await insertCompletion.mutateAsync({
+          reminderId: reminder.id,
+          cycleDate: reminder.due_date,
+          paidAmount: reminder.amount,
+        });
+      } catch {
+        // Hook already surfaced the error via toast; abort the advance.
+        return;
+      }
+      updateReminder.mutate({
+        id: reminder.id,
+        updates: { due_date: next.toISOString() },
+      }, {
+        onSuccess: () => toast({ title: 'Marked paid' }),
+      });
+    } else {
+      updateReminder.mutate({
+        id: reminder.id,
+        updates: { is_completed: true },
+      }, {
+        onSuccess: () => toast({ title: 'Marked complete' }),
+      });
+    }
+  };
+
+  const handleSkipCycle = async (reminder: Reminder) => {
+    const rec = reminder.is_recurring ? resolveRecurrence(reminder) : null;
+    if (!rec) return;
+    const next = advanceDateBy(new Date(reminder.due_date), rec.value, rec.unit);
+    next.setHours(12, 0, 0, 0);
+    updateReminder.mutate({
+      id: reminder.id,
+      updates: { due_date: next.toISOString() },
+    }, {
+      onSuccess: () => toast({ title: 'Skipped to next cycle' }),
+    });
+  };
+
+  const handleCancel = async (reminder: Reminder) => {
     updateReminder.mutate({
       id: reminder.id,
       updates: { is_completed: true },
+    }, {
+      onSuccess: () => toast({ title: 'Reminder cancelled' }),
+    });
+  };
+
+  const handleReactivate = async (reminder: Reminder) => {
+    updateReminder.mutate({
+      id: reminder.id,
+      updates: { is_completed: false },
+    }, {
+      onSuccess: () => toast({ title: 'Reminder reactivated' }),
     });
   };
 
@@ -301,10 +551,10 @@ export default function RemindersPage() {
           ))}
         </div>
 
-        {/* List grouped by type */}
+        {/* List */}
         {isLoading ? (
           <div className="flex items-center justify-center py-20 text-muted-foreground">Loading...</div>
-        ) : groupedByType.length === 0 ? (
+        ) : (filter === 'completed' ? completedGroups.length : groupedByType.length) === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
             <Bell className="w-12 h-12 mb-4 opacity-30" />
             <p className="text-lg font-medium">No {filter} reminders</p>
@@ -312,12 +562,25 @@ export default function RemindersPage() {
           </div>
         ) : (
           <div className="space-y-6">
-            {groupedByType.map(({ type, reminders: typeReminders }) => (
-              <div key={type}>
+            {(filter === 'completed'
+              ? completedGroups.map(g => ({
+                  key: g.kind,
+                  label: g.kind === 'done' ? 'Done' : 'Cancelled',
+                  icon: g.kind === 'done' ? '✅' : '🚫',
+                  reminders: g.reminders,
+                }))
+              : groupedByType.map(g => ({
+                  key: g.type,
+                  label: typeLabels[g.type],
+                  icon: typeIcons[g.type],
+                  reminders: g.reminders,
+                }))
+            ).map(({ key, label, icon, reminders: typeReminders }) => (
+              <div key={key}>
                 <div className="flex items-center gap-2 mb-3 px-1">
-                  <span className="text-base">{typeIcons[type]}</span>
+                  <span className="text-base">{icon}</span>
                   <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                    {typeLabels[type]}
+                    {label}
                   </h2>
                   <span className="text-xs text-muted-foreground/60">({typeReminders.length})</span>
                 </div>
@@ -347,13 +610,21 @@ export default function RemindersPage() {
                             <div className="flex-1 min-w-0 cursor-pointer" onClick={() => handleEdit(r)}>
                               <div className="flex items-center gap-2 mb-1 flex-wrap">
                                 <span className={cn('text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0', typeColors[r.type])}>
-                                  {typeLabels[r.type]}
+                                  {displayTypeLabel(r)}
                                 </span>
-                                {r.is_recurring && (
-                                  <span className="text-xs text-muted-foreground flex items-center gap-0.5 flex-shrink-0">
-                                    <RefreshCw className="w-3 h-3" /> {r.recurrence_interval}
-                                  </span>
-                                )}
+                                {r.is_recurring && (() => {
+                                  const rec = resolveRecurrence(r);
+                                  if (!rec) return null;
+                                  const presetKey = presetKeyFor(rec.value, rec.unit);
+                                  const label = presetKey === 'custom'
+                                    ? `Every ${rec.value} ${rec.unit}${rec.value > 1 ? 's' : ''}`
+                                    : RECURRENCE_PRESETS[presetKey].label;
+                                  return (
+                                    <span className="text-xs text-muted-foreground flex items-center gap-0.5 flex-shrink-0">
+                                      <RefreshCw className="w-3 h-3" /> {label}
+                                    </span>
+                                  );
+                                })()}
                               </div>
                               <h3 className="font-semibold text-base truncate">{r.title}</h3>
                               <p className="text-lg font-bold text-foreground">{formatINR(r.amount)}</p>
@@ -376,27 +647,55 @@ export default function RemindersPage() {
                                   variant="ghost"
                                   size="icon"
                                   className="h-8 w-8 text-green-400 hover:text-green-300 hover:bg-green-500/10"
-                                  onClick={() => handleMarkComplete(r)}
+                                  onClick={() => handleMarkPaid(r)}
+                                  title={r.is_recurring ? 'Mark paid (advance cycle)' : 'Mark complete'}
                                 >
                                   <Check className="w-4 h-4" />
                                 </Button>
                               )}
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8 text-muted-foreground hover:text-primary hover:bg-primary/10"
-                                onClick={() => handleEdit(r)}
-                              >
-                                <Pencil className="w-4 h-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8 text-muted-foreground hover:text-red-400 hover:bg-red-500/10"
-                                onClick={() => handleDelete(r.id)}
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </Button>
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                                  >
+                                    <MoreVertical className="w-4 h-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  <DropdownMenuItem onClick={() => handleEdit(r)}>
+                                    <Pencil className="w-4 h-4 mr-2" />
+                                    Edit
+                                  </DropdownMenuItem>
+                                  {!r.is_completed && r.is_recurring && (
+                                    <DropdownMenuItem onClick={() => handleSkipCycle(r)}>
+                                      <SkipForward className="w-4 h-4 mr-2" />
+                                      Skip cycle
+                                    </DropdownMenuItem>
+                                  )}
+                                  {!r.is_completed && r.is_recurring && (
+                                    <DropdownMenuItem onClick={() => handleCancel(r)}>
+                                      <Ban className="w-4 h-4 mr-2" />
+                                      Cancel reminder
+                                    </DropdownMenuItem>
+                                  )}
+                                  {r.is_completed && r.is_recurring && (
+                                    <DropdownMenuItem onClick={() => handleReactivate(r)}>
+                                      <RefreshCw className="w-4 h-4 mr-2" />
+                                      Reactivate
+                                    </DropdownMenuItem>
+                                  )}
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem
+                                    onClick={() => handleDelete(r.id)}
+                                    className="text-red-400 focus:text-red-400"
+                                  >
+                                    <Trash2 className="w-4 h-4 mr-2" />
+                                    Delete
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
                             </div>
                           </div>
                         </motion.div>

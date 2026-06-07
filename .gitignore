@@ -20,6 +20,9 @@ dist-ssr
 # Lock files (using npm)
 bun.lockb
 
+# Supabase CLI local state — regenerated on every `supabase` command
+supabase/.temp/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

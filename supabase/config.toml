@@ -1,7 +1,10 @@
 
 [functions.send-reminder-push]
 enabled = true
-verify_jwt = true
+# Cron-only function — no user context to validate. JWT verification
+# at the gateway is off; the function does no work beyond fetching
+# reminders due today and pushing to the corresponding subscriptions.
+verify_jwt = false
 import_map = "./functions/send-reminder-push/deno.json"
 # Uncomment to specify a custom file path to the entrypoint.
 # Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
