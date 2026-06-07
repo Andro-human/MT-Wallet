@@ -53,7 +53,9 @@ export function DeleteTransactionDialog({
 
       toast({ title: 'Transaction deleted' });
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
-      navigate('/transactions');
+      // Go back through history so the previous page's filters/search
+      // params are restored; `navigate('/transactions')` drops them.
+      navigate(-1);
     } catch (err) {
       console.error('Error deleting transaction:', err);
       toast({ title: 'Failed to delete transaction', variant: 'destructive' });
