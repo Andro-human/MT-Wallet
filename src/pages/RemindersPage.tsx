@@ -440,11 +440,20 @@ export default function RemindersPage() {
     if (rec) {
       const next = advanceDateBy(new Date(reminder.due_date), rec.value, rec.unit);
       next.setHours(12, 0, 0, 0);
-      insertCompletion.mutate({
-        reminderId: reminder.id,
-        cycleDate: reminder.due_date,
-        paidAmount: reminder.amount,
-      });
+      // History row is the source of truth for "what was paid". Only
+      // advance the reminder once the completion is durably recorded —
+      // otherwise a failed insert would silently leave the reminder
+      // looking paid with no backing history.
+      try {
+        await insertCompletion.mutateAsync({
+          reminderId: reminder.id,
+          cycleDate: reminder.due_date,
+          paidAmount: reminder.amount,
+        });
+      } catch {
+        // Hook already surfaced the error via toast; abort the advance.
+        return;
+      }
       updateReminder.mutate({
         id: reminder.id,
         updates: { due_date: next.toISOString() },
