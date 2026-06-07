@@ -393,11 +393,10 @@ export default function TransactionsPage() {
     setSelectedIds(new Set());
   };
 
+  const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
+
   const handleDeleteSelected = async () => {
     if (!user || selectedIds.size === 0) return;
-
-    const confirmed = window.confirm(`Delete ${selectedIds.size} transaction${selectedIds.size > 1 ? 's' : ''}? This cannot be undone.`);
-    if (!confirmed) return;
 
     setIsDeleting(true);
     try {
@@ -483,16 +482,39 @@ export default function TransactionsPage() {
                 >
                   {selectedIds.size === sortedTransactions.length ? 'Deselect All' : 'Select All'}
                 </Button>
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  onClick={handleDeleteSelected}
-                  disabled={selectedIds.size === 0 || isDeleting}
-                  className="gap-1.5"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                  {isDeleting ? 'Deleting...' : 'Delete'}
-                </Button>
+                <AlertDialog open={showBulkDeleteConfirm} onOpenChange={setShowBulkDeleteConfirm}>
+                  <AlertDialogTrigger asChild>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      disabled={selectedIds.size === 0 || isDeleting}
+                      className="gap-1.5"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      {isDeleting ? 'Deleting...' : 'Delete'}
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent className="glass-elevated border-border/50">
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>
+                        Delete {selectedIds.size} transaction{selectedIds.size > 1 ? 's' : ''}?
+                      </AlertDialogTitle>
+                      <AlertDialogDescription>
+                        This action cannot be undone.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel className="rounded-xl">Cancel</AlertDialogCancel>
+                      <AlertDialogAction
+                        onClick={handleDeleteSelected}
+                        disabled={isDeleting}
+                        className="rounded-xl bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                      >
+                        {isDeleting ? 'Deleting...' : 'Delete'}
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
               </div>
             </motion.div>
           )}
