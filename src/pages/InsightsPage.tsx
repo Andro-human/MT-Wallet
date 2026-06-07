@@ -289,10 +289,6 @@ export default function InsightsPage() {
     return Array.from(byKey.values()).sort((a, b) => b.amount - a.amount);
   }, [transactions, rawToResolved, netAmount]);
 
-  // Top merchants. Grouping key prefers the SMS parser's semantic key
-  // (merchant_normalized: "Ola Cabs" -> "ola"), then the case-folded
-  // merchant_lower (collapses "Swiggy" / "swiggy"), and finally raw merchant.
-  // Display picks the most-common raw merchant casing within each group.
   const topMerchants = useMemo(() => {
     const groups = new Map<
       string,
@@ -301,7 +297,7 @@ export default function InsightsPage() {
 
     for (const t of transactions) {
       if (!t.is_expense || !t.merchant) continue;
-      const key = t.merchant_normalized || t.merchant_lower || t.merchant!;
+      const key = t.merchant;
       const g = groups.get(key) ?? { total: 0, casings: new Map<string, number>() };
       g.total += netAmount(t);
       g.casings.set(t.merchant, (g.casings.get(t.merchant) ?? 0) + 1);

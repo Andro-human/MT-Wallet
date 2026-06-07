@@ -114,7 +114,6 @@ export function BulkEditSuggestion({
       else if (field === 'group_id') updates.group_id = newValue;
       else if (field === 'merchant') {
         updates.merchant = newValue;
-        updates.merchant_normalized = newValue;
       }
       else if (field === 'is_expense') updates.is_expense = newValue;
       else if (field === 'is_income') updates.is_income = newValue;
