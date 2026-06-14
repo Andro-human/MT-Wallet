@@ -114,7 +114,7 @@ export function usePotentialDuplicatesList(transactions: TransactionWithCategory
         const timeDiff = Math.abs(
           new Date(a.transacted_at).getTime() - new Date(b.transacted_at).getTime()
         );
-        if (timeDiff > 10 * 60 * 1000) continue;
+        if (timeDiff > 30 * 60 * 1000) continue;
 
         const [sortedA, sortedB] = makePairKey(a.id, b.id);
         const pairKey = `${sortedA}|${sortedB}`;
