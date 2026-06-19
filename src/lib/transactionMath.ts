@@ -22,6 +22,29 @@ export function isCountable(
   return !duplicateExcludeIds.has(txn.id);
 }
 
+export type TransactionBucket = 'duplicate' | 'non-counted' | 'refunded' | 'real';
+
+// Precedence matters: a confirmed duplicate also has is_expense=false, so 'duplicate'
+// must be checked before 'non-counted' or the duplicate filter appears broken.
+export function classifyTransaction(
+  txn: AnyTxn & { direction?: string | null },
+  opts: {
+    duplicateExcludeIds: DuplicateExcludeSet;
+    refundTotals: RefundTotalsMap;
+    refundAllocations: RefundAllocationsMap;
+  },
+): TransactionBucket {
+  if (opts.duplicateExcludeIds.has(txn.id)) return 'duplicate';
+  const isDebit = txn.direction !== 'credit';
+  const counted = isDebit ? txn.is_expense : txn.is_income;
+  if (!counted) return 'non-counted';
+  const net = isDebit
+    ? netAmount(txn, opts.refundTotals)
+    : creditNet(txn, opts.refundAllocations);
+  if (net <= 0) return 'refunded';
+  return 'real';
+}
+
 export function sumSpent(
   txns: AnyTxn[],
   refundTotals: RefundTotalsMap,
