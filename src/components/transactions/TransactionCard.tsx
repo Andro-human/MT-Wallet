@@ -16,9 +16,14 @@ interface TransactionCardProps {
   onSwipeApprove?: (id: string) => void;
   /** Nickname or "Bank ••1234" to render under the amount. Hidden when empty. */
   bankDisplay?: string;
+  /** Tap-the-icon-to-select. If provided, the category icon becomes a select
+   *  toggle (and the tap is kept from opening/navigating the row). */
+  onIconSelect?: () => void;
+  /** Whether this row is currently selected (drives the icon's checked state). */
+  isSelected?: boolean;
 }
 
-export function TransactionCard({ transaction, onClick, index = 0, netAmount, onSwipeApprove, bankDisplay }: TransactionCardProps) {
+export function TransactionCard({ transaction, onClick, index = 0, netAmount, onSwipeApprove, bankDisplay, onIconSelect, isSelected }: TransactionCardProps) {
   const isCredit = transaction.direction === 'credit';
   const category = transaction.categories;
   const needsReview = (transaction as any).needs_review;
@@ -47,20 +52,26 @@ export function TransactionCard({ transaction, onClick, index = 0, netAmount, on
 
   const cardContent = (
     <>
-      {/* Category icon - Square */}
+      {/* Category icon - Square. Doubles as a select toggle when onIconSelect is set. */}
       <div
+        onClick={onIconSelect ? (e) => { e.preventDefault(); e.stopPropagation(); onIconSelect(); } : undefined}
+        role={onIconSelect ? 'button' : undefined}
+        aria-pressed={onIconSelect ? !!isSelected : undefined}
         className={cn(
-          "w-10 h-10 flex items-center justify-center rounded-none border bg-background text-lg flex-shrink-0",
-          isNotCounted && "grayscale"
+          "w-10 h-10 flex items-center justify-center rounded-none border text-lg flex-shrink-0 transition-all",
+          !isSelected && "bg-background",
+          isNotCounted && "grayscale",
+          onIconSelect && "cursor-pointer hover:ring-2 hover:ring-primary/40 active:scale-90",
+          isSelected && "bg-primary border-primary text-primary-foreground ring-2 ring-primary"
         )}
-        style={category ? {
+        style={isSelected ? undefined : category ? {
           borderColor: category.color ? `${category.color}40` : 'var(--border)',
           color: category.color || 'var(--foreground)',
         } : {
           borderColor: 'var(--border)',
         }}
       >
-        {category?.icon || '📦'}
+        {isSelected ? <Check className="w-5 h-5" /> : (category?.icon || '📦')}
       </div>
 
       {needsReview && (

@@ -82,6 +82,14 @@ export interface TransactionWithCategory extends Transaction {
   categories: Category | null;
 }
 
+export interface CombinedTransaction {
+  id: string;
+  user_id: string;
+  combine_id: string;
+  transaction_id: string;
+  created_at: string;
+}
+
 export type ReminderType = 'subscription' | 'emi' | 'lent' | 'borrowed' | 'custom';
 export type RecurrenceInterval = 'weekly' | 'monthly' | 'yearly';
 export type RecurrenceUnit = 'day' | 'week' | 'month' | 'year';

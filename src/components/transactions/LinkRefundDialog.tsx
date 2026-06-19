@@ -10,7 +10,7 @@ import {
   useDeleteRefundLink,
   type RefundLinkRow,
 } from '@/hooks/useRefundLinks';
-import { useAllLinkedTransactionIds } from '@/hooks/useDuplicateLinks';
+import { useDuplicateExcludeIds } from '@/hooks/useDuplicateLinks';
 import { useToast } from '@/hooks/use-toast';
 import { formatINR } from '@/lib/formatCurrency';
 import { cn } from '@/lib/utils';
@@ -51,7 +51,9 @@ export function LinkRefundDialog({
   const { data: creditTxns = [] } = useTransactions({ direction: 'credit' });
   const { data: existingLinks = [] } = useRefundLinksForOriginal(transactionId);
   const { data: allocations = {}, isLoading: allocationsLoading } = useRefundAllocations();
-  const { data: duplicateLinkedIds = new Set<string>() } = useAllLinkedTransactionIds();
+  // Only exclude the "duplicate" side of a pair (the merged-away copy). The
+  // primary/kept transaction is still a valid refund candidate.
+  const { data: duplicateLinkedIds = new Set<string>() } = useDuplicateExcludeIds();
 
   const createLink = useCreateRefundLink();
   const updateLink = useUpdateRefundLink();

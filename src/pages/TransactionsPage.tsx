@@ -1,7 +1,7 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link, useSearchParams, useNavigate } from 'react-router-dom';
-import { Search, SlidersHorizontal, X, ChevronDown, ChevronRight, ChevronLeft, ArrowLeft, Plus, Calendar as CalendarIcon, Trash2, Building2, Inbox, CheckCheck, RotateCcw } from 'lucide-react';
+import { Search, SlidersHorizontal, X, ChevronDown, ChevronRight, ChevronLeft, ArrowLeft, Plus, Calendar as CalendarIcon, Trash2, Building2, Inbox, CheckCheck, RotateCcw, Layers, Eye, EyeOff } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -27,12 +27,16 @@ import { useTransactionGroups } from '@/hooks/useTransactionGroups';
 import { useBankAccounts } from '@/hooks/useBankAccounts';
 import { useFinanceContext } from '@/hooks/useFinanceData';
 import { usePotentialDuplicatesList } from '@/hooks/usePotentialDuplicates';
+import { useCombineMaps, useCreateCombine, useUncombine } from '@/hooks/useCombinedTransactions';
+import { CombinedTransactionCard } from '@/components/transactions/CombinedTransactionCard';
+import { TransactionWithCategory } from '@/types/database';
 import {
   netAmount as computeNetAmount,
   creditNet,
   sumSpent,
   sumIncome,
   categoryChartData,
+  classifyTransaction,
 } from '@/lib/transactionMath';
 import { MonthYearPicker } from '@/components/ui/MonthYearPicker';
 import { formatINR } from '@/lib/formatCurrency';
@@ -50,16 +54,25 @@ import { useReviewBookmark, useSetReviewBookmark } from '@/hooks/useReviewBookma
 import { countNewSince } from '@/lib/countNewSince';
 import { ReviewResumeBanner } from '@/components/transactions/ReviewResumeBanner';
 import {
-  ContextMenu,
-  ContextMenuContent,
-  ContextMenuItem,
-  ContextMenuTrigger,
-} from '@/components/ui/context-menu';
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+  DropdownMenuCheckboxItem,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+} from '@/components/ui/dropdown-menu';
 import { BookmarkPlus } from 'lucide-react';
 
 type DateFilter = 'this-month' | 'last-month' | 'last-3-months' | 'custom' | 'all';
 type DirectionFilter = 'all' | 'credit' | 'debit';
 type SortMode = 'recent' | 'amount';
+
+// A row in the activity list is either a standalone transaction or a collapsed
+// "combined" cluster (split-tender: one purchase paid across instruments).
+type DisplayUnit =
+  | { kind: 'single'; txn: TransactionWithCategory }
+  | { kind: 'combined'; combineId: string; members: TransactionWithCategory[] };
 
 // Helper to update search params without losing existing ones
 function useParamState(key: string, defaultValue: string) {
@@ -233,11 +246,36 @@ export default function TransactionsPage() {
     return transactions; // already sorted by date from query
   }, [transactions, sortMode]);
 
-  const { refundTotals, refundAllocations, isReady: financeReady } = useFinanceContext();
+  const { refundTotals, refundAllocations, duplicateExcludeIds, isReady: financeReady } = useFinanceContext();
   const isRefundReady = financeReady;
+
+  // '1' = hidden (default). Presentation only; Insights/Home already exclude these.
+  const [hideDuplicates, setHideDuplicates] = useParamState('hideDup', '1');
+  const [hideRefunded, setHideRefunded] = useParamState('hideRef', '1');
+  const [hideNonCounted, setHideNonCounted] = useParamState('hideNc', '1');
+
+  // One setSearchParams call — separate setters each read the same stale URL, so
+  // only the last would persist.
+  const setAllNoise = useCallback((show: boolean) => {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      for (const key of ['hideDup', 'hideRef', 'hideNc']) {
+        if (show) next.set(key, '0');
+        else next.delete(key);
+      }
+      return next;
+    }, { replace: true });
+  }, [setSearchParams]);
 
   // Detect potential duplicate pairs across loaded transactions
   const { pairs: duplicatePairs, dismiss: dismissDuplicatePair } = usePotentialDuplicatesList(sortedTransactions);
+
+  // Combined (split-tender) transactions — display-only grouping overlay.
+  const { data: combineMaps } = useCombineMaps();
+  const combineByTxnId = combineMaps?.combineByTxnId ?? {};
+  const membersByCombineId = combineMaps?.membersByCombineId ?? {};
+  const createCombine = useCreateCombine();
+  const uncombine = useUncombine();
 
   // Review Mode (Inbox)
   const { data: profile } = useProfile();
@@ -296,23 +334,92 @@ export default function TransactionsPage() {
   const [reviewMode, setReviewMode] = useParamState('inbox', 'false');
   const isInboxMode = reviewMode === 'true' && reviewEnabled;
 
-  const groupedTransactions = useMemo(() => {
+  const groupedUnits = useMemo(() => {
     // When inbox mode, filter to only unreviewed
-    const txns = isInboxMode 
+    const txns = isInboxMode
       ? sortedTransactions.filter(t => (t as any).needs_review)
       : sortedTransactions;
 
-    if ((sortMode as SortMode) === 'amount') {
-      return { _all: txns };
+    // In select mode, never collapse — legs must stay individually selectable.
+    const collapse = !isSelectMode;
+    const txnById = new Map(txns.map(t => [t.id, t]));
+    const handled = new Set<string>();
+    const units: DisplayUnit[] = [];
+
+    for (const txn of txns) {
+      if (handled.has(txn.id)) continue;
+      const combineId = collapse ? combineByTxnId[txn.id] : undefined;
+      if (combineId) {
+        const memberIds = (membersByCombineId[combineId] ?? []).map(m => m.transaction_id);
+        const present = memberIds
+          .map(id => txnById.get(id))
+          .filter((t): t is TransactionWithCategory => !!t);
+        // Only collapse when 2+ members are actually in the current view.
+        if (present.length >= 2) {
+          present.forEach(m => handled.add(m.id));
+          units.push({ kind: 'combined', combineId, members: present });
+          continue;
+        }
+      }
+      handled.add(txn.id);
+      units.push({ kind: 'single', txn });
     }
-    const grouped: Record<string, typeof txns> = {};
-    txns.forEach(txn => {
-      const date = format(new Date(txn.transacted_at), 'yyyy-MM-dd');
-      if (!grouped[date]) grouped[date] = [];
-      grouped[date].push(txn);
+
+    // Inbox reviews all kinds; gate on financeReady so refund/duplicate state is known.
+    const applyNoise = !isInboxMode && financeReady;
+    const visibleUnits = !applyNoise ? units : units.filter((u) => {
+      if (u.kind === 'combined') {
+        // Combined parent shows when net > 0; net 0 falls under the refund filter.
+        const net = u.members.reduce((s, m) => {
+          const isDebit = m.direction !== 'credit';
+          return s + (isDebit
+            ? computeNetAmount(m as any, refundTotals)
+            : creditNet(m as any, refundAllocations));
+        }, 0);
+        return net > 0 ? true : hideRefunded !== '1';
+      }
+      const bucket = classifyTransaction(u.txn as any, {
+        duplicateExcludeIds,
+        refundTotals,
+        refundAllocations,
+      });
+      if (bucket === 'real') return true;
+      if (bucket === 'duplicate') return hideDuplicates !== '1';
+      if (bucket === 'non-counted') return hideNonCounted !== '1';
+      return hideRefunded !== '1'; // 'refunded'
     });
+
+    const mostRecent = (ms: TransactionWithCategory[]) =>
+      ms.reduce((a, b) => (new Date(b.transacted_at) > new Date(a.transacted_at) ? b : a));
+    const unitDate = (u: DisplayUnit) =>
+      u.kind === 'single' ? u.txn.transacted_at : mostRecent(u.members).transacted_at;
+
+    if ((sortMode as SortMode) === 'amount') {
+      const value = (u: DisplayUnit) =>
+        u.kind === 'single'
+          ? Number(u.txn.amount)
+          : u.members.reduce((s, m) => s + Number(m.amount), 0);
+      return { _all: [...visibleUnits].sort((a, b) => value(b) - value(a)) };
+    }
+
+    const grouped: Record<string, DisplayUnit[]> = {};
+    for (const u of visibleUnits) {
+      const date = format(new Date(unitDate(u)), 'yyyy-MM-dd');
+      (grouped[date] ??= []).push(u);
+    }
     return grouped;
-  }, [sortedTransactions, sortMode, isInboxMode]);
+  }, [sortedTransactions, sortMode, isInboxMode, isSelectMode, combineByTxnId, membersByCombineId,
+      financeReady, duplicateExcludeIds, refundTotals, refundAllocations,
+      hideDuplicates, hideRefunded, hideNonCounted]);
+
+  // Count of real transactions actually shown (combined units count their legs).
+  const visibleTxnCount = useMemo(() => {
+    let n = 0;
+    for (const units of Object.values(groupedUnits)) {
+      for (const u of units) n += u.kind === 'single' ? 1 : u.members.length;
+    }
+    return n;
+  }, [groupedUnits]);
 
   const clearFilters = () => {
     setSearchInput('');
@@ -425,6 +532,52 @@ export default function TransactionsPage() {
     setSelectedIds(new Set());
   };
 
+  const handleCombineSelected = async () => {
+    if (selectedIds.size < 2) {
+      toast({ title: 'Select at least two transactions to combine' });
+      return;
+    }
+    try {
+      await createCombine.mutateAsync({ transactionIds: Array.from(selectedIds) });
+      toast({ title: `Combined ${selectedIds.size} transactions` });
+      setSelectedIds(new Set());
+      setIsSelectMode(false);
+    } catch (err) {
+      console.error('Error combining transactions:', err);
+      toast({ title: 'Failed to combine', variant: 'destructive' });
+    }
+  };
+
+  const handleMarkSelectedForReview = async () => {
+    if (!user || selectedIds.size === 0) return;
+    try {
+      const ids = Array.from(selectedIds);
+      const { error } = await supabase
+        .from('transactions')
+        .update({ needs_review: true } as any)
+        .in('id', ids)
+        .eq('user_id', user.id);
+      if (error) throw error;
+      queryClient.invalidateQueries({ queryKey: ['transactions'] });
+      toast({ title: `Marked ${ids.length} for review` });
+      setSelectedIds(new Set());
+      setIsSelectMode(false);
+    } catch {
+      toast({ title: 'Failed to mark for review', variant: 'destructive' });
+    }
+  };
+
+  // Single cutoff point, so it requires exactly one selected row.
+  const handleBookmarkSelected = () => {
+    if (selectedIds.size !== 1) return;
+    const id = Array.from(selectedIds)[0];
+    const txn = sortedTransactions.find((t) => t.id === id);
+    if (!txn) return;
+    handleBookmarkTxn({ id: txn.id, transacted_at: txn.transacted_at, created_at: txn.created_at });
+    setSelectedIds(new Set());
+    setIsSelectMode(false);
+  };
+
   const handleSwipeApprove = async (txnId: string) => {
     try {
       const { error } = await supabase
@@ -465,7 +618,7 @@ export default function TransactionsPage() {
               exit={{ opacity: 0, y: -12 }}
               className="flex items-center justify-between mb-4 p-3 glass-card rounded-xl"
             >
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 flex-shrink-0">
                 <button onClick={exitSelectMode} className="text-muted-foreground hover:text-foreground">
                   <X className="w-5 h-5" />
                 </button>
@@ -473,7 +626,7 @@ export default function TransactionsPage() {
                   {selectedIds.size} selected
                 </span>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap justify-end">
                 <Button
                   variant="ghost"
                   size="sm"
@@ -481,6 +634,16 @@ export default function TransactionsPage() {
                   className="text-xs"
                 >
                   {selectedIds.size === sortedTransactions.length ? 'Deselect All' : 'Select All'}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={selectedIds.size < 2 || createCombine.isPending}
+                  onClick={handleCombineSelected}
+                  className="gap-1.5 rounded-xl border-primary/40 text-primary hover:bg-primary/10"
+                >
+                  <Layers className="w-3.5 h-3.5" />
+                  {createCombine.isPending ? 'Combining...' : 'Combine'}
                 </Button>
                 <AlertDialog open={showBulkDeleteConfirm} onOpenChange={setShowBulkDeleteConfirm}>
                   <AlertDialogTrigger asChild>
@@ -515,6 +678,31 @@ export default function TransactionsPage() {
                     </AlertDialogFooter>
                   </AlertDialogContent>
                 </AlertDialog>
+
+                {reviewEnabled && (
+                  <>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={selectedIds.size === 0}
+                      onClick={handleMarkSelectedForReview}
+                      className="gap-1.5 rounded-xl border-orange-500/40 text-orange-400 hover:bg-orange-500/10"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" />
+                      Review
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={selectedIds.size !== 1}
+                      onClick={handleBookmarkSelected}
+                      className="gap-1.5 rounded-xl border-border/50"
+                    >
+                      <BookmarkPlus className="w-3.5 h-3.5" />
+                      Reviewed up to here
+                    </Button>
+                  </>
+                )}
               </div>
             </motion.div>
           )}
@@ -545,7 +733,7 @@ export default function TransactionsPage() {
                   </div>
                 </div>
                 <p className="text-sm text-muted-foreground mt-2">
-                  {transactions.length} transactions
+                  {visibleTxnCount} transactions
                 </p>
               </>
             ) : activeCategory && categoryFilter !== 'all' ? (
@@ -563,7 +751,7 @@ export default function TransactionsPage() {
                   </div>
                 </div>
                 <p className="text-sm text-muted-foreground mt-2">
-                  {transactions.length} transactions
+                  {visibleTxnCount} transactions
                 </p>
               </>
             ) : isBankFiltered ? (
@@ -588,21 +776,21 @@ export default function TransactionsPage() {
                   </div>
                 </div>
                 <p className="text-sm text-muted-foreground mt-2">
-                  {transactions.length} transactions
+                  {visibleTxnCount} transactions
                 </p>
               </>
             ) : merchant ? (
               <>
                 <h1 className="text-2xl font-bold text-foreground">{merchant}</h1>
                 <p className="text-sm text-muted-foreground mt-0.5">
-                  {transactions.length} transactions
+                  {visibleTxnCount} transactions
                 </p>
               </>
             ) : (
               <>
                 <h1 className="text-2xl font-bold text-foreground">Activity</h1>
                 <p className="text-sm text-muted-foreground mt-0.5">
-                  {transactions.length} transactions found
+                  {visibleTxnCount} transactions found
                 </p>
               </>
             )}
@@ -779,6 +967,62 @@ export default function TransactionsPage() {
               </AlertDialogContent>
             </AlertDialog>
           )}
+
+          {!isSelectMode && !isInboxMode && (() => {
+            const hiddenCount =
+              (hideDuplicates === '1' ? 1 : 0) +
+              (hideRefunded === '1' ? 1 : 0) +
+              (hideNonCounted === '1' ? 1 : 0);
+            return (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className={cn(
+                      'gap-2 rounded-xl border-border/50 flex-shrink-0',
+                      hiddenCount === 0 && 'bg-primary/10 border-primary/30 text-primary'
+                    )}
+                  >
+                    {hiddenCount > 0 ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    {hiddenCount > 0 ? `Hidden (${hiddenCount})` : 'Showing all'}
+                    <ChevronDown className="w-3.5 h-3.5" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="glass-elevated border-border/50 w-52">
+                  <DropdownMenuItem onSelect={(e) => { e.preventDefault(); setAllNoise(true); }}>
+                    Show everything
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={(e) => { e.preventDefault(); setAllNoise(false); }}>
+                    Hide extras
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuLabel>Show in this list</DropdownMenuLabel>
+                  <DropdownMenuCheckboxItem
+                    checked={hideDuplicates !== '1'}
+                    onSelect={(e) => e.preventDefault()}
+                    onCheckedChange={(c) => setHideDuplicates(c ? '0' : '1')}
+                  >
+                    Duplicates
+                  </DropdownMenuCheckboxItem>
+                  <DropdownMenuCheckboxItem
+                    checked={hideRefunded !== '1'}
+                    onSelect={(e) => e.preventDefault()}
+                    onCheckedChange={(c) => setHideRefunded(c ? '0' : '1')}
+                  >
+                    Fully refunded
+                  </DropdownMenuCheckboxItem>
+                  <DropdownMenuCheckboxItem
+                    checked={hideNonCounted !== '1'}
+                    onSelect={(e) => e.preventDefault()}
+                    onCheckedChange={(c) => setHideNonCounted(c ? '0' : '1')}
+                  >
+                    Not counted
+                  </DropdownMenuCheckboxItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            );
+          })()}
 
           {!isSelectMode && (
             <Button
@@ -996,8 +1240,8 @@ export default function TransactionsPage() {
             Array.from({ length: 5 }).map((_, i) => (
               <Skeleton key={i} className="h-[72px] rounded-2xl" />
             ))
-          ) : Object.keys(groupedTransactions).length > 0 ? (
-            Object.entries(groupedTransactions).map(([date, txns], groupIndex) => (
+          ) : Object.keys(groupedUnits).length > 0 ? (
+            Object.entries(groupedUnits).map(([date, units], groupIndex) => (
               <motion.div
                 key={date}
                 initial={{ opacity: 0, y: 12 }}
@@ -1010,7 +1254,27 @@ export default function TransactionsPage() {
                   </p>
                 )}
                 <div className="flex flex-col gap-3">
-                  {txns.map((txn, i) => {
+                  {units.map((unit, i) => {
+                    if (unit.kind === 'combined') {
+                      return (
+                        <CombinedTransactionCard
+                          key={unit.combineId}
+                          members={unit.members}
+                          index={i}
+                          onUngroup={() => {
+                            uncombine.mutate(
+                              { combineId: unit.combineId },
+                              {
+                                onSuccess: () => toast({ title: 'Ungrouped' }),
+                                onError: () =>
+                                  toast({ title: 'Failed to ungroup', variant: 'destructive' }),
+                              }
+                            );
+                          }}
+                        />
+                      );
+                    }
+                    const txn = unit.txn;
                     let net: number | undefined;
                     if (isRefundReady) {
                       if (txn.direction === 'credit' && refundAllocations[txn.id]) {
@@ -1023,33 +1287,25 @@ export default function TransactionsPage() {
                     const isSelected = selectedIds.has(txn.id);
 
                     if (isSelectMode) {
+                      // Icon onClick stops propagation so it doesn't double-toggle via the row handler.
                       return (
                         <div
                           key={txn.id}
                           onClick={() => toggleSelectId(txn.id)}
-                          className="flex items-center gap-3 cursor-pointer"
+                          className="cursor-pointer"
                         >
-                          <div className={cn(
-                            "w-6 h-6 rounded-md border-2 flex items-center justify-center flex-shrink-0 transition-colors",
-                            isSelected
-                              ? "bg-primary border-primary"
-                              : "border-muted-foreground/30"
-                          )}>
-                            {isSelected && (
-                              <svg className="w-4 h-4 text-primary-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                              </svg>
-                            )}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <TransactionCard transaction={txn} index={i} netAmount={net} bankDisplay={bankDisplay} />
-                          </div>
+                          <TransactionCard
+                            transaction={txn}
+                            index={i}
+                            netAmount={net}
+                            bankDisplay={bankDisplay}
+                            onIconSelect={() => toggleSelectId(txn.id)}
+                            isSelected={isSelected}
+                          />
                         </div>
                       );
                     }
 
-                    // Long-press is DISABLED whenever swipe is armed for this card.
-                    const swipeArmed = reviewEnabled && !!(txn as any).needs_review;
                     const isFirstNewer = txn.id === firstNewerId;
 
                     const cardLink = (
@@ -1060,6 +1316,8 @@ export default function TransactionsPage() {
                           netAmount={net}
                           bankDisplay={bankDisplay}
                           onSwipeApprove={reviewEnabled ? handleSwipeApprove : undefined}
+                          onIconSelect={() => { setIsSelectMode(true); toggleSelectId(txn.id); }}
+                          isSelected={isSelected}
                         />
                       </Link>
                     );
@@ -1081,26 +1339,7 @@ export default function TransactionsPage() {
                       cardLink
                     );
 
-                    if (swipeArmed) {
-                      return <div key={txn.id}>{cardWithRef}</div>;
-                    }
-
-                    return (
-                      <ContextMenu key={txn.id}>
-                        <ContextMenuTrigger asChild>
-                          {cardWithRef}
-                        </ContextMenuTrigger>
-                        <ContextMenuContent className="glass-elevated border-border/50">
-                          <ContextMenuItem
-                            onSelect={() => handleBookmarkTxn(txn)}
-                            className="gap-2"
-                          >
-                            <BookmarkPlus className="w-4 h-4" />
-                            Mark as last reviewed up to here
-                          </ContextMenuItem>
-                        </ContextMenuContent>
-                      </ContextMenu>
-                    );
+                    return <div key={txn.id}>{cardWithRef}</div>;
                   })}
                 </div>
               </motion.div>
