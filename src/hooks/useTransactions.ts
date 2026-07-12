@@ -25,6 +25,8 @@ export function useTransactions(filters?: {
   search?: string;
   limit?: number;
   groupId?: string;
+  ungrouped?: boolean;
+  uncategorized?: boolean;
   bankName?: string;
   accountLast4?: string;
 }) {
@@ -82,6 +84,12 @@ export function useTransactions(filters?: {
       // Numeric terms are matched client-side (see matchesNumericSearch) after fetch.
       if (filters?.groupId) {
         query = query.eq('group_id', filters.groupId);
+      }
+      if (filters?.ungrouped) {
+        query = query.is('group_id', null);
+      }
+      if (filters?.uncategorized) {
+        query = query.is('category_id', null);
       }
 
       // Bank account filter — alias-aware
