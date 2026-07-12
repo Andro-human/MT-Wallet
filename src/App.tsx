@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useLayoutEffect } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -24,16 +24,51 @@ import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
-// Scroll to top only on PUSH navigations (new pages), not on POP (back/forward)
+// PUSH/REPLACE (new page) → top. POP (back/forward) → restore the scroll position
+// saved for that history entry. Native SPA restoration doesn't work here: list pages
+// remount and hydrate from cache a frame or two later, so we retry until the position
+// sticks (content is tall enough) or the user takes over.
+const scrollPositions = new Map<string, number>();
+
 function ScrollManager() {
-  const { pathname } = useLocation();
+  const location = useLocation();
   const navigationType = useNavigationType();
+  const key = location.key;
 
   useEffect(() => {
-    if (navigationType === "PUSH") {
-      window.scrollTo(0, 0);
+    const onScroll = () => {
+      scrollPositions.set(key, window.scrollY);
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, [key]);
+
+  useLayoutEffect(() => {
+    const saved = scrollPositions.get(key);
+    if (navigationType === "POP" && saved != null && saved > 0) {
+      let frame = 0;
+      let cancelled = false;
+      const cancel = () => {
+        cancelled = true;
+      };
+      window.addEventListener("wheel", cancel, { passive: true, once: true });
+      window.addEventListener("touchstart", cancel, { passive: true, once: true });
+      const restore = () => {
+        if (cancelled) return;
+        window.scrollTo(0, saved);
+        frame++;
+        if (Math.abs(window.scrollY - saved) > 2 && frame < 40) {
+          requestAnimationFrame(restore);
+        } else {
+          window.removeEventListener("wheel", cancel);
+          window.removeEventListener("touchstart", cancel);
+        }
+      };
+      requestAnimationFrame(restore);
+      return;
     }
-  }, [pathname, navigationType]);
+    window.scrollTo(0, 0);
+  }, [key, navigationType]);
 
   return null;
 }
