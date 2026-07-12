@@ -616,8 +616,9 @@ export default function TransactionsPage() {
               initial={{ opacity: 0, y: -12 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -12 }}
-              className="flex items-center justify-between mb-4 p-3 glass-card rounded-xl"
+              className="sticky top-0 z-20 -mx-4 sm:-mx-5 px-4 sm:px-5 pt-4 pb-3 bg-background/90 backdrop-blur-xl"
             >
+              <div className="flex items-center justify-between p-3 glass-card rounded-xl">
               <div className="flex items-center gap-3 flex-shrink-0">
                 <button onClick={exitSelectMode} className="text-muted-foreground hover:text-foreground">
                   <X className="w-5 h-5" />
@@ -703,6 +704,7 @@ export default function TransactionsPage() {
                     </Button>
                   </>
                 )}
+              </div>
               </div>
             </motion.div>
           )}
@@ -880,6 +882,7 @@ export default function TransactionsPage() {
         </motion.div>
 
         {/* Filter Toggle + Select Mode Toggle */}
+        <div className={cn(!isSelectMode && 'sticky top-0 z-20 -mx-4 sm:-mx-5 px-4 sm:px-5 pt-3 bg-background/90 backdrop-blur-xl')}>
         <motion.div
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
@@ -1046,6 +1049,7 @@ export default function TransactionsPage() {
             </Button>
           )}
         </motion.div>
+        </div>
 
         {/* Filters */}
         <AnimatePresence>
