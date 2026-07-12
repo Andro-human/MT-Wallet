@@ -55,6 +55,8 @@ export default function InsightsPage() {
   const [chartModeParam, setChartModeParam] = useInsightParam('mode', 'combined');
   const chartMode = chartModeParam as ChartMode;
   const setChartMode = setChartModeParam;
+  const [allocTabParam, setAllocTab] = useInsightParam('alloc', 'combined');
+  const allocTab = allocTabParam as 'combined' | 'categories' | 'groups';
 
   // Custom date range stored in URL
   const [searchParams, setSearchParams] = useSearchParams();
@@ -265,6 +267,56 @@ export default function InsightsPage() {
     return items.sort((a, b) => b.amount - a.amount);
   }, [transactions, groups, categories, netAmount]);
 
+  // Pure category breakdown — ALL expense (grouped included). Drilling into a slice
+  // here shows every transaction in that category, so the numbers match.
+  const categoriesBreakdown = useMemo(() => {
+    const sums: Record<string, number> = {};
+    transactions
+      .filter(t => t.is_expense)
+      .forEach(t => {
+        const catId = t.category_id || 'uncategorized';
+        sums[catId] = (sums[catId] || 0) + netAmount(t);
+      });
+    return Object.entries(sums)
+      .map(([catId, amount]) => {
+        const c = categories.find(x => x.id === catId);
+        return {
+          id: `cat_${catId}`,
+          linkId: catId,
+          name: c?.name || 'Uncategorized',
+          icon: c?.icon || '📦',
+          color: c?.color || '#6B7280',
+          amount,
+          type: 'category' as const,
+        };
+      })
+      .sort((a, b) => b.amount - a.amount);
+  }, [transactions, categories, netAmount]);
+
+  // Pure group breakdown.
+  const groupsBreakdown = useMemo(() => {
+    const sums: Record<string, number> = {};
+    transactions
+      .filter(t => t.is_expense && t.group_id)
+      .forEach(t => {
+        sums[t.group_id!] = (sums[t.group_id!] || 0) + netAmount(t);
+      });
+    return Object.entries(sums)
+      .map(([gid, amount]) => {
+        const g = groups.find(x => x.id === gid);
+        return {
+          id: `group_${gid}`,
+          linkId: gid,
+          name: g?.name || 'Unknown Group',
+          icon: g?.icon || '📁',
+          color: g?.color || '#8B5CF6',
+          amount,
+          type: 'group' as const,
+        };
+      })
+      .sort((a, b) => b.amount - a.amount);
+  }, [transactions, groups, netAmount]);
+
   // Raw (bank_name, account_last4) -> resolved account (nickname-aware, alias-aware).
   // Built from the alias chain baked into useBankAccounts().
   const rawToResolved = useMemo(() => {
@@ -351,6 +403,21 @@ export default function InsightsPage() {
     .filter(t => t.is_income)
     .reduce((sum, t) => sum + creditNet(t as any, refundAllocations), 0);
   const totalBankSpent = bankBreakdown.reduce((sum, b) => sum + b.amount, 0);
+  const totalGroupSpent = groupsBreakdown.reduce((sum, g) => sum + g.amount, 0);
+
+  // Active Allocation tab: which breakdown + which denominator for its bars.
+  const activeAllocation =
+    allocTab === 'categories' ? categoriesBreakdown : allocTab === 'groups' ? groupsBreakdown : allocationBreakdown;
+  const allocationDenom = allocTab === 'groups' ? totalGroupSpent : totalSpent;
+
+  // Drill-down must match the number shown: the Combined tab's category slices
+  // exclude grouped txns, so their links carry &ungrouped=1.
+  const allocationLinkFor = (item: { type: 'group' | 'category'; linkId: string }) => {
+    if (item.type === 'group') return `/transactions?group=${item.linkId}${dateFilterParams}`;
+    const base = item.linkId === 'uncategorized' ? 'uncat=1' : `category=${item.linkId}`;
+    const ungrouped = allocTab === 'combined' ? '&ungrouped=1' : '';
+    return `/transactions?${base}${ungrouped}${dateFilterParams}`;
+  };
 
   // Per-month averages for the current date range.
   const monthsStat = useMemo(() => {
@@ -735,31 +802,45 @@ export default function InsightsPage() {
           transition={{ delay: 0.2 }}
           className="neo-card p-6 mb-6"
         >
-          <h3 className="font-heading font-bold text-foreground mb-4">Allocation</h3>
+          <div className="flex items-center justify-between mb-4 gap-3">
+            <h3 className="font-heading font-bold text-foreground">Allocation</h3>
+            {groups.length > 0 && (
+              <div className="flex gap-1 flex-shrink-0">
+                {(['combined', 'categories', 'groups'] as const).map(tab => (
+                  <button
+                    key={tab}
+                    onClick={() => setAllocTab(tab)}
+                    className={cn(
+                      'px-2.5 py-1 rounded-none border text-[10px] font-mono uppercase tracking-wider transition-all',
+                      allocTab === tab
+                        ? 'bg-primary border-primary text-primary-foreground'
+                        : 'border-border text-muted-foreground hover:text-foreground'
+                    )}
+                  >
+                    {tab}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
 
           {isLoading ? (
             <div className="space-y-4">
               <Skeleton className="h-10 w-full bg-muted/20" />
             </div>
-          ) : allocationBreakdown.length > 0 ? (
+          ) : activeAllocation.length > 0 ? (
             <div className="space-y-9">
-              {allocationBreakdown.map((item) => {
-                const percentage = totalSpent > 0 ? (item.amount / totalSpent) * 100 : 0;
-                const to =
-                  item.type === 'group'
-                    ? `/transactions?group=${item.linkId}${dateFilterParams}`
-                    : item.linkId !== 'uncategorized'
-                      ? `/transactions?category=${item.linkId}${dateFilterParams}`
-                      : `/transactions${dateFilterParams ? '?' + dateFilterParams.slice(1) : ''}`;
+              {activeAllocation.map((item) => {
+                const percentage = allocationDenom > 0 ? (item.amount / allocationDenom) * 100 : 0;
                 return (
-                  <Link key={item.id} to={to}>
+                  <Link key={item.id} to={allocationLinkFor(item)}>
                     <div className="group cursor-pointer">
                       <div className="flex items-center justify-between text-sm mb-3">
                         <span className="flex items-center gap-3">
                           <span className="font-mono text-muted-foreground bg-muted/20 p-1 rounded">{item.icon}</span>
                           <span className="font-bold text-foreground group-hover:text-primary transition-colors uppercase tracking-wide flex items-center gap-1.5">
                             {item.name}
-                            {item.type === 'group' && (
+                            {allocTab === 'combined' && item.type === 'group' && (
                               <Layers className="w-3 h-3 text-muted-foreground" />
                             )}
                           </span>

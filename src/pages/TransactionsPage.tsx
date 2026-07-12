@@ -110,6 +110,8 @@ export default function TransactionsPage() {
   const merchant = searchParams.get('merchant') || '';
   const bankNameParam = searchParams.get('bank') || '';
   const accountLast4Param = searchParams.get('account') || '';
+  const ungroupedParam = searchParams.get('ungrouped') === '1';
+  const uncategorizedParam = searchParams.get('uncat') === '1';
   const [categoryFilter, setCategoryFilter] = useParamState('category', 'all');
   const [groupFilter, setGroupFilter] = useParamState('group', 'all');
   const [directionFilter, setDirectionFilter] = useParamState('direction', 'all');
@@ -117,7 +119,7 @@ export default function TransactionsPage() {
 
   // Date filter: default to 'all' when viewing a filtered entity, otherwise 'this-month'
   const isBankFiltered = !!bankNameParam || !!accountLast4Param;
-  const isFilteredView = !!merchant || categoryFilter !== 'all' || groupFilter !== 'all' || isBankFiltered;
+  const isFilteredView = !!merchant || categoryFilter !== 'all' || groupFilter !== 'all' || isBankFiltered || ungroupedParam || uncategorizedParam;
   const defaultDateFilter = isFilteredView ? 'all' : 'this-month';
   const [dateFilter, setDateFilter] = useParamState('date', defaultDateFilter);
 
@@ -234,6 +236,8 @@ export default function TransactionsPage() {
     direction: (directionFilter !== 'all' ? directionFilter : undefined) as 'credit' | 'debit' | undefined,
     search: effectiveSearch || undefined,
     groupId: groupFilter !== 'all' ? groupFilter : undefined,
+    ungrouped: ungroupedParam || undefined,
+    uncategorized: uncategorizedParam || undefined,
     bankName: bankNameParam || undefined,
     accountLast4: accountLast4Param || undefined,
   });
@@ -478,7 +482,7 @@ export default function TransactionsPage() {
     }
   };
 
-  const hasActiveFilters = (dateFilter !== defaultDateFilter) || directionFilter !== 'all' || categoryFilter !== 'all' || groupFilter !== 'all' || effectiveSearch || searchInput;
+  const hasActiveFilters = (dateFilter !== defaultDateFilter) || directionFilter !== 'all' || categoryFilter !== 'all' || groupFilter !== 'all' || ungroupedParam || uncategorizedParam || effectiveSearch || searchInput;
 
   const activeGroup = groups.find(g => g.id === groupFilter);
 
