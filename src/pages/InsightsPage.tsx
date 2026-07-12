@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import { ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { startOfMonth, endOfMonth, subMonths, format, eachMonthOfInterval, startOfDay, endOfDay } from 'date-fns';
-import { ChevronRight, Folder, Calendar, X, Filter, BarChart3, Layers } from 'lucide-react';
+import { ChevronRight, Folder, Calendar, X, Filter, BarChart3, Layers, LayoutGrid } from 'lucide-react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { MonthYearPicker } from '@/components/ui/MonthYearPicker';
 import { useTransactions } from '@/hooks/useTransactions';
@@ -23,7 +23,7 @@ import { cn } from '@/lib/utils';
 import { monthsTouched } from '@/lib/monthsTouched';
 
 type TimeRange = '1-month' | '3-months' | '6-months' | 'custom';
-type ChartMode = 'total' | 'by-group';
+type ChartMode = 'total' | 'combined';
 
 // Helper to persist state in URL search params
 function useInsightParam(key: string, defaultValue: string) {
@@ -52,7 +52,7 @@ export default function InsightsPage() {
   const navigate = useNavigate();
   // Persist key filters in URL so they survive navigation
   const [timeRange, setTimeRange] = useInsightParam('range', '6-months');
-  const [chartModeParam, setChartModeParam] = useInsightParam('mode', 'total');
+  const [chartModeParam, setChartModeParam] = useInsightParam('mode', 'combined');
   const chartMode = chartModeParam as ChartMode;
   const setChartMode = setChartModeParam;
 
@@ -88,7 +88,6 @@ export default function InsightsPage() {
   const [showCustomPicker, setShowCustomPicker] = useState(timeRange === 'custom');
   const [excludedGroups, setExcludedGroups] = useState<Set<string>>(new Set());
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
-  const [hiddenGroupsInChart, setHiddenGroupsInChart] = useState<Set<string>>(new Set());
 
   const { data: categories = [] } = useCategories();
   const { data: groups = [] } = useTransactionGroups();
@@ -147,6 +146,24 @@ export default function InsightsPage() {
     return groups.filter(g => groupIds.has(g.id));
   }, [transactions, groups]);
 
+  // Categories with UNGROUPED expense only — grouped txns are represented by their
+  // group, never double-counted here. Drives the combined trend's category segments.
+  const activeCategories = useMemo(() => {
+    const ids = new Set<string>();
+    transactions
+      .filter(t => t.is_expense && !t.group_id)
+      .forEach(t => ids.add(t.category_id || 'uncategorized'));
+    return Array.from(ids).map(id => {
+      const c = categories.find(x => x.id === id);
+      return {
+        id,
+        name: c?.name || 'Uncategorized',
+        color: c?.color || '#6B7280',
+        icon: c?.icon || '📦',
+      };
+    });
+  }, [transactions, categories]);
+
   // Monthly trend: bars for spending, line for income (like Axio screenshot)
   const monthlyTrend = useMemo(() => {
     const start = dateRange.startDate || startOfMonth(subMonths(now, 5));
@@ -160,12 +177,14 @@ export default function InsightsPage() {
       const label = format(d, "MMM''yy");
       months[key] = { label, rawDate: d, expense: 0, income: 0 };
 
-      // Initialize group columns
-      if (chartMode === 'by-group') {
+      // Initialize breakdown columns
+      if (chartMode === 'combined') {
         activeGroups.forEach(g => {
           months[key][`group_${g.id}`] = 0;
         });
-        months[key]['group_ungrouped'] = 0;
+        activeCategories.forEach(c => {
+          months[key][`cat_${c.id}`] = 0;
+        });
       }
     });
 
@@ -176,10 +195,10 @@ export default function InsightsPage() {
       if (t.is_expense) {
         months[key].expense += netAmount(t);
 
-        if (chartMode === 'by-group') {
-          const groupKey = t.group_id ? `group_${t.group_id}` : 'group_ungrouped';
-          if (months[key][groupKey] !== undefined) {
-            months[key][groupKey] += netAmount(t);
+        if (chartMode === 'combined') {
+          const segKey = t.group_id ? `group_${t.group_id}` : `cat_${t.category_id || 'uncategorized'}`;
+          if (months[key][segKey] !== undefined) {
+            months[key][segKey] += netAmount(t);
           }
         }
       }
@@ -189,56 +208,62 @@ export default function InsightsPage() {
     });
 
     return Object.values(months);
-  }, [transactions, dateRange, chartMode, activeGroups, netAmount, refundAllocations]);
+  }, [transactions, dateRange, chartMode, activeGroups, activeCategories, netAmount, refundAllocations]);
 
-  // Category breakdown
-  const categoryBreakdown = useMemo(() => {
-    const breakdown: Record<string, number> = {};
+  // Unified allocation: each group is one slice; categories cover only UNGROUPED
+  // transactions. Groups + ungrouped categories = 100% of spend, no double counting.
+  const allocationBreakdown = useMemo(() => {
+    const items: {
+      id: string;
+      linkId: string;
+      name: string;
+      icon: string;
+      color: string;
+      amount: number;
+      type: 'group' | 'category';
+    }[] = [];
 
-    transactions
-      .filter(t => t.is_expense)
-      .forEach(t => {
-        const catId = t.category_id || 'uncategorized';
-        breakdown[catId] = (breakdown[catId] || 0) + netAmount(t);
-      });
-
-    return Object.entries(breakdown)
-      .map(([catId, amount]) => {
-        const category = categories.find(c => c.id === catId);
-        return {
-          id: catId,
-          name: category?.name || 'Uncategorized',
-          icon: category?.icon || '📦',
-          color: category?.color || '#6B7280',
-          amount,
-        };
-      })
-      .sort((a, b) => b.amount - a.amount);
-  }, [transactions, categories, netAmount]);
-
-  // Group breakdown
-  const groupBreakdown = useMemo(() => {
-    const breakdown: Record<string, number> = {};
-
+    const groupSums: Record<string, number> = {};
     transactions
       .filter(t => t.is_expense && t.group_id)
       .forEach(t => {
-        breakdown[t.group_id!] = (breakdown[t.group_id!] || 0) + netAmount(t);
+        groupSums[t.group_id!] = (groupSums[t.group_id!] || 0) + netAmount(t);
       });
+    for (const [groupId, amount] of Object.entries(groupSums)) {
+      const group = groups.find(g => g.id === groupId);
+      items.push({
+        id: `group_${groupId}`,
+        linkId: groupId,
+        name: group?.name || 'Unknown Group',
+        icon: group?.icon || '📁',
+        color: group?.color || '#8B5CF6',
+        amount,
+        type: 'group',
+      });
+    }
 
-    return Object.entries(breakdown)
-      .map(([groupId, amount]) => {
-        const group = groups.find(g => g.id === groupId);
-        return {
-          id: groupId,
-          name: group?.name || 'Unknown Group',
-          icon: group?.icon || '📁',
-          color: group?.color || '#8B5CF6',
-          amount,
-        };
-      })
-      .sort((a, b) => b.amount - a.amount);
-  }, [transactions, groups, netAmount]);
+    const catSums: Record<string, number> = {};
+    transactions
+      .filter(t => t.is_expense && !t.group_id)
+      .forEach(t => {
+        const catId = t.category_id || 'uncategorized';
+        catSums[catId] = (catSums[catId] || 0) + netAmount(t);
+      });
+    for (const [catId, amount] of Object.entries(catSums)) {
+      const category = categories.find(c => c.id === catId);
+      items.push({
+        id: `cat_${catId}`,
+        linkId: catId,
+        name: category?.name || 'Uncategorized',
+        icon: category?.icon || '📦',
+        color: category?.color || '#6B7280',
+        amount,
+        type: 'category',
+      });
+    }
+
+    return items.sort((a, b) => b.amount - a.amount);
+  }, [transactions, groups, categories, netAmount]);
 
   // Raw (bank_name, account_last4) -> resolved account (nickname-aware, alias-aware).
   // Built from the alias chain baked into useBankAccounts().
@@ -321,11 +346,10 @@ export default function InsightsPage() {
   }, [transactions, netAmount]);
 
   // Summary stats
-  const totalSpent = categoryBreakdown.reduce((sum, c) => sum + c.amount, 0);
+  const totalSpent = allocationBreakdown.reduce((sum, c) => sum + c.amount, 0);
   const totalIncome = transactions
     .filter(t => t.is_income)
     .reduce((sum, t) => sum + creditNet(t as any, refundAllocations), 0);
-  const totalGroupSpent = groupBreakdown.reduce((sum, g) => sum + g.amount, 0);
   const totalBankSpent = bankBreakdown.reduce((sum, b) => sum + b.amount, 0);
 
   // Per-month averages for the current date range.
@@ -348,14 +372,6 @@ export default function InsightsPage() {
     });
   };
 
-  const toggleChartGroup = (groupId: string) => {
-    setHiddenGroupsInChart(prev => {
-      const next = new Set(prev);
-      if (next.has(groupId)) next.delete(groupId);
-      else next.add(groupId);
-      return next;
-    });
-  };
 
   const clearAdvancedFilters = () => {
     setExcludedGroups(new Set());
@@ -390,11 +406,17 @@ export default function InsightsPage() {
 
   const CustomTooltip = ({ active, payload }: any) => {
     if (active && payload && payload.length) {
+      // Spends sorted by this month's amount (desc); income pinned to the bottom.
+      const income = payload.find((p: any) => p.dataKey === 'income' && p.value !== 0);
+      const spends = payload
+        .filter((p: any) => p.dataKey !== 'income' && p.value !== 0)
+        .sort((a: any, b: any) => b.value - a.value);
+      const rows = income ? [...spends, income] : spends;
+
       return (
         <div className="bg-background border border-border p-3 shadow-2xl">
           <p className="font-mono font-bold text-xs uppercase tracking-wider mb-2 text-muted-foreground">{payload[0].payload.label}</p>
-          {payload.map((p: any) => {
-            if (p.value === 0) return null;
+          {rows.map((p: any) => {
             let label = p.dataKey;
             let color = p.stroke || p.fill;
 
@@ -406,11 +428,15 @@ export default function InsightsPage() {
               label = 'IN';
               color = 'hsl(var(--foreground))';
             }
-            else if (label === 'group_ungrouped') label = 'OTHER';
             else if (label.startsWith('group_')) {
               const gId = label.replace('group_', '');
               const g = groups.find(g => g.id === gId);
               label = g?.name || 'Group';
+            }
+            else if (label.startsWith('cat_')) {
+              const cId = label.replace('cat_', '');
+              const c = categories.find(c => c.id === cId);
+              label = c?.name || 'Uncategorized';
             }
             return (
               <div key={p.dataKey} className="flex justify-between gap-4 text-xs font-mono">
@@ -561,12 +587,12 @@ export default function InsightsPage() {
             <div>
               <h3 className="font-heading font-bold text-foreground">Trends</h3>
               <p className="text-xs font-mono text-muted-foreground mt-1 lowercase">
-                {chartMode === 'total' ? 'spending vs income' : 'group breakdown'}
+                {chartMode === 'total' ? 'spending vs income' : 'groups + categories'}
               </p>
             </div>
 
             {/* Chart mode toggle */}
-            {groups.length > 0 && (
+            {(
               <div className="flex gap-2">
                 <button
                   onClick={() => setChartMode('total')}
@@ -580,15 +606,15 @@ export default function InsightsPage() {
                   <BarChart3 className="w-4 h-4" />
                 </button>
                 <button
-                  onClick={() => setChartMode('by-group')}
+                  onClick={() => setChartMode('combined')}
                   className={cn(
                     'p-2 rounded-none border transition-all',
-                    chartMode === 'by-group'
+                    chartMode === 'combined'
                       ? 'bg-primary border-primary text-primary-foreground'
                       : 'border-border text-muted-foreground hover:text-foreground'
                   )}
                 >
-                  <Layers className="w-4 h-4" />
+                  <LayoutGrid className="w-4 h-4" />
                 </button>
               </div>
             )}
@@ -662,26 +688,23 @@ export default function InsightsPage() {
                       />
                     ) : (
                       <>
-                        {activeGroups
-                          .filter(g => !hiddenGroupsInChart.has(g.id))
-                          .map((g, i) => (
+                        {(() => {
+                          // Stack order + colour follow the Allocation list (spend desc).
+                          const groupColor = new Map<string, string>();
+                          activeGroups.forEach((g, i) =>
+                            groupColor.set(g.id, GROUP_COLORS[i % GROUP_COLORS.length]),
+                          );
+                          return allocationBreakdown.map(item => (
                             <Bar
-                              key={g.id}
-                              dataKey={`group_${g.id}`}
-                              stackId="groups"
-                              fill={GROUP_COLORS[i % GROUP_COLORS.length]}
+                              key={item.id}
+                              dataKey={item.type === 'group' ? `group_${item.linkId}` : `cat_${item.linkId}`}
+                              stackId="combined"
+                              fill={item.type === 'group' ? (groupColor.get(item.linkId) || GROUP_COLORS[0]) : item.color}
                               maxBarSize={50}
                               radius={[0, 0, 0, 0]}
                             />
-                          ))}
-                        {!hiddenGroupsInChart.has('ungrouped') && (
-                          <Bar
-                            dataKey="group_ungrouped"
-                            stackId="groups"
-                            fill="#333"
-                            maxBarSize={50}
-                          />
-                        )}
+                          ));
+                        })()}
                       </>
                     )}
 
@@ -705,7 +728,7 @@ export default function InsightsPage() {
           )}
         </motion.div>
 
-        {/* Category Breakdown */}
+        {/* Allocation — groups + ungrouped categories, de-duped */}
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
@@ -718,25 +741,31 @@ export default function InsightsPage() {
             <div className="space-y-4">
               <Skeleton className="h-10 w-full bg-muted/20" />
             </div>
-          ) : categoryBreakdown.length > 0 ? (
+          ) : allocationBreakdown.length > 0 ? (
             <div className="space-y-9">
-              {categoryBreakdown.map((cat, i) => {
-                const percentage = totalSpent > 0 ? (cat.amount / totalSpent) * 100 : 0;
+              {allocationBreakdown.map((item) => {
+                const percentage = totalSpent > 0 ? (item.amount / totalSpent) * 100 : 0;
+                const to =
+                  item.type === 'group'
+                    ? `/transactions?group=${item.linkId}${dateFilterParams}`
+                    : item.linkId !== 'uncategorized'
+                      ? `/transactions?category=${item.linkId}${dateFilterParams}`
+                      : `/transactions${dateFilterParams ? '?' + dateFilterParams.slice(1) : ''}`;
                 return (
-                  <Link
-                    key={cat.id}
-                    to={cat.id !== 'uncategorized' ? `/transactions?category=${cat.id}${dateFilterParams}` : `/transactions${dateFilterParams ? '?' + dateFilterParams.slice(1) : ''}`}
-                  >
+                  <Link key={item.id} to={to}>
                     <div className="group cursor-pointer">
                       <div className="flex items-center justify-between text-sm mb-3">
                         <span className="flex items-center gap-3">
-                          <span className="font-mono text-muted-foreground bg-muted/20 p-1 rounded">{cat.icon}</span>
-                          <span className="font-bold text-foreground group-hover:text-primary transition-colors uppercase tracking-wide">
-                            {cat.name}
+                          <span className="font-mono text-muted-foreground bg-muted/20 p-1 rounded">{item.icon}</span>
+                          <span className="font-bold text-foreground group-hover:text-primary transition-colors uppercase tracking-wide flex items-center gap-1.5">
+                            {item.name}
+                            {item.type === 'group' && (
+                              <Layers className="w-3 h-3 text-muted-foreground" />
+                            )}
                           </span>
                         </span>
                         <span className="font-mono text-foreground font-medium">
-                          {percentage.toFixed(0)}% <span className="text-muted-foreground mx-1">/</span> {formatINRCompact(cat.amount)}
+                          {percentage.toFixed(0)}% <span className="text-muted-foreground mx-1">/</span> {formatINRCompact(item.amount)}
                         </span>
                       </div>
                       <div className="h-1.5 bg-muted/20 w-full overflow-hidden rounded-full mb-2">
@@ -756,55 +785,6 @@ export default function InsightsPage() {
             <p className="text-center text-muted-foreground py-4 font-mono text-xs">NO DATA</p>
           )}
         </motion.div>
-
-        {/* Group Breakdown */}
-        {groupBreakdown.length > 0 && (
-          <motion.div
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.22 }}
-            className="neo-card p-6 mb-6"
-          >
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-heading font-bold text-foreground">Groups</h3>
-              <span className="text-xs font-mono text-muted-foreground uppercase tracking-wider">Project Spending</span>
-            </div>
-
-            <div className="space-y-9">
-              {groupBreakdown.map((grp, i) => {
-                const percentage = totalGroupSpent > 0 ? (grp.amount / totalGroupSpent) * 100 : 0;
-                return (
-                  <Link
-                    key={grp.id}
-                    to={`/transactions?group=${grp.id}${dateFilterParams}`}
-                  >
-                    <div className="group cursor-pointer">
-                      <div className="flex items-center justify-between text-sm mb-2.5">
-                        <span className="flex items-center gap-3">
-                          <span className="font-mono text-muted-foreground bg-muted/20 p-1 rounded">{grp.icon}</span>
-                          <span className="font-bold text-foreground group-hover:text-primary transition-colors uppercase tracking-wide">
-                            {grp.name}
-                          </span>
-                        </span>
-                        <span className="font-mono text-foreground font-medium">
-                          {formatINRCompact(grp.amount)}
-                        </span>
-                      </div>
-                      <div className="h-1.5 bg-muted/20 w-full overflow-hidden rounded-full mb-2">
-                        <motion.div
-                          initial={{ width: 0 }}
-                          animate={{ width: `${percentage}%` }}
-                          transition={{ delay: 0.2, duration: 0.5 }}
-                          className="h-full bg-foreground group-hover:bg-primary transition-colors rounded-full"
-                        />
-                      </div>
-                    </div>
-                  </Link>
-                );
-              })}
-            </div>
-          </motion.div>
-        )}
 
         {/* Bank Account Breakdown */}
         {!isLoading && bankBreakdown.length > 0 && (
