@@ -355,7 +355,7 @@ export default function SyncRunDetailPage() {
   if (isLoading) {
     return (
       <AppLayout>
-        <div className="px-5 pt-8 pb-4 safe-area-top space-y-4">
+        <div className="px-5 pb-4 pt-[calc(2rem+env(safe-area-inset-top))] space-y-4">
           <Skeleton className="h-10 w-48" />
           <Skeleton className="h-32 rounded-2xl" />
           <Skeleton className="h-24 rounded-2xl" />
@@ -368,7 +368,7 @@ export default function SyncRunDetailPage() {
   if (!run) {
     return (
       <AppLayout>
-        <div className="px-5 pt-8 pb-4 safe-area-top text-center py-20">
+        <div className="px-5 pb-4 pt-[calc(2rem+env(safe-area-inset-top))] text-center py-20">
           <AlertCircle className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
           <p className="text-muted-foreground">Sync run not found</p>
         </div>
@@ -411,7 +411,7 @@ export default function SyncRunDetailPage() {
 
   return (
     <AppLayout>
-      <div className="px-5 pt-8 pb-4 safe-area-top">
+      <div className="px-5 pb-4 pt-[calc(2rem+env(safe-area-inset-top))]">
         {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: -12 }}
