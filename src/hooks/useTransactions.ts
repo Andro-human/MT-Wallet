@@ -4,6 +4,19 @@ import { useAuth } from './useAuth';
 import { TransactionWithCategory, Transaction, BankAccountAlias } from '@/types/database';
 import { escapePostgRESTValue } from '@/lib/escapePostgREST';
 
+// Substring match for numeric searches: "899" finds 899.13, 1899, 8990.
+// PostgREST can't pattern-match a numeric column, so this runs client-side.
+function matchesNumericSearch(txn: TransactionWithCategory, term: string): boolean {
+  const q = term.replace(/[,\s]/g, '');
+  // Keep the decimal point so "900" doesn't match 899.00 and "899" doesn't match 89.90.
+  if (q && String(txn.amount).includes(q)) return true;
+  const lower = term.toLowerCase();
+  return (
+    (txn.merchant?.toLowerCase().includes(lower) ?? false) ||
+    (txn.notes?.toLowerCase().includes(lower) ?? false)
+  );
+}
+
 export function useTransactions(filters?: {
   startDate?: Date;
   endDate?: Date;
@@ -59,20 +72,14 @@ export function useTransactions(filters?: {
       if (filters?.direction) {
         query = query.eq('direction', filters.direction);
       }
-      if (filters?.search) {
-        const searchTerm = filters.search.trim();
-        const escaped = escapePostgRESTValue(searchTerm);
-        const numericSearch = parseFloat(searchTerm.replace(/,/g, ''));
-        if (!isNaN(numericSearch) && /^[\d,.\s]+$/.test(searchTerm)) {
-          query = query.or(
-            `amount.eq.${numericSearch},merchant.ilike.%${escaped}%,notes.ilike.%${escaped}%`,
-          );
-        } else {
-          query = query.or(
-            `merchant.ilike.%${escaped}%,notes.ilike.%${escaped}%`,
-          );
-        }
+      const rawSearch = filters?.search?.trim();
+      const isNumericSearch =
+        !!rawSearch && /^[\d,.\s]+$/.test(rawSearch) && /\d/.test(rawSearch);
+      if (rawSearch && !isNumericSearch) {
+        const escaped = escapePostgRESTValue(rawSearch);
+        query = query.or(`merchant.ilike.%${escaped}%,notes.ilike.%${escaped}%`);
       }
+      // Numeric terms are matched client-side (see matchesNumericSearch) after fetch.
       if (filters?.groupId) {
         query = query.eq('group_id', filters.groupId);
       }
@@ -118,7 +125,8 @@ export function useTransactions(filters?: {
       if (filters?.limit) {
         const { data, error } = await query.limit(filters.limit);
         if (error) throw error;
-        return data as TransactionWithCategory[];
+        const rows = data as TransactionWithCategory[];
+        return isNumericSearch ? rows.filter((r) => matchesNumericSearch(r, rawSearch!)) : rows;
       }
 
       // Otherwise paginate around Supabase's default 1000-row cap. Each .range()
@@ -133,7 +141,7 @@ export function useTransactions(filters?: {
         all.push(...(data as TransactionWithCategory[]));
         if (data.length < PAGE_SIZE) break;
       }
-      return all;
+      return isNumericSearch ? all.filter((r) => matchesNumericSearch(r, rawSearch!)) : all;
     },
     enabled: !!user,
   });
