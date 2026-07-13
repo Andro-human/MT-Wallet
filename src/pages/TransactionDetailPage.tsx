@@ -1,7 +1,7 @@
 import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ArrowLeft, MessageSquare, TrendingUp, TrendingDown, ChevronRight, Folder, MoreVertical, RefreshCw, Pencil, Trash2, Wallet, Banknote, Copy, AlertTriangle, Link2, Bell } from 'lucide-react';
+import { ArrowLeft, MessageSquare, TrendingUp, TrendingDown, ChevronRight, Folder, MoreVertical, RefreshCw, Pencil, Trash2, Wallet, Banknote, Copy, AlertTriangle, Link2, Bell, HandCoins, Sparkles } from 'lucide-react';
 import { format } from 'date-fns';
 import { useTransaction, useUpdateTransaction } from '@/hooks/useTransactions';
 import { useTransactionGroups } from '@/hooks/useTransactionGroups';
@@ -9,6 +9,10 @@ import { useCategories } from '@/hooks/useCategories';
 import { useRefundLinksForOriginal } from '@/hooks/useRefundLinks';
 import { netAmount as computeNetAmount } from '@/lib/transactionMath';
 import { useDuplicateTransactions, useCreateDuplicateLink } from '@/hooks/useDuplicateLinks';
+import { useEnrichmentFor, useUpdateEnrichment } from '@/hooks/useTxnEnrichment';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 import { CreateReminderFromTransactionDialog } from '@/components/reminders/CreateReminderFromTransactionDialog';
 import { usePotentialDuplicates } from '@/hooks/usePotentialDuplicates';
 import { useBankAccounts, parseBankAccount } from '@/hooks/useBankAccounts';
@@ -45,6 +49,10 @@ export default function TransactionDetailPage() {
   const { data: linkedDuplicates = [] } = useDuplicateTransactions(id!);
   const potentialDuplicates = usePotentialDuplicates(transaction);
   const createDuplicateLink = useCreateDuplicateLink();
+  const { data: enrichment } = useEnrichmentFor(id);
+  const updateEnrichment = useUpdateEnrichment();
+  const [lendDialogOpen, setLendDialogOpen] = useState(false);
+  const [counterparty, setCounterparty] = useState('');
   const { data: bankAccounts = [] } = useBankAccounts();
   const updateMutation = useUpdateTransaction();
 
@@ -70,6 +78,24 @@ export default function TransactionDetailPage() {
     () => linkedRefunds.reduce((sum, r) => sum + r.linked_amount, 0),
     [linkedRefunds],
   );
+
+  const suggestedCategory = useMemo(() => {
+    const slug = enrichment?.category_suggestion;
+    if (!slug || !transaction) return null;
+    const cat = categories.find((c) => c.slug === slug);
+    if (!cat || cat.id === transaction.category_id) return null;
+    return cat;
+  }, [enrichment, categories, transaction]);
+
+  const clearSuggestion = async () => {
+    if (!transaction || !enrichment) return;
+    await updateEnrichment.mutateAsync({
+      transactionId: transaction.id,
+      notes: transaction.notes,
+      existing: enrichment,
+      categorySuggestion: null,
+    });
+  };
 
   const netAmount = transaction
     ? computeNetAmount(transaction as any, { [transaction.id]: totalRefunded })
@@ -383,6 +409,16 @@ export default function TransactionDetailPage() {
                     <Bell className="w-4 h-4" />
                     Create Reminder
                   </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => {
+                      setCounterparty(enrichment?.lending?.counterparty ?? '');
+                      setLendDialogOpen(true);
+                    }}
+                    className="gap-2"
+                  >
+                    <HandCoins className="w-4 h-4" />
+                    {enrichment?.lending ? 'Edit Loan' : 'Track as Lent'}
+                  </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
@@ -483,6 +519,53 @@ export default function TransactionDetailPage() {
                   </button>
                 </div>
               ))}
+            </div>
+          )}
+
+          {/* AI category suggestion */}
+          {suggestedCategory && (
+            <div className="mt-4 p-3 rounded-xl bg-blue-500/10 border border-blue-500/20">
+              <div className="flex items-center gap-2 mb-2">
+                <Sparkles className="w-4 h-4 text-blue-500" />
+                <span className="text-sm font-medium text-blue-600 dark:text-blue-400">
+                  Is this category right?
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground truncate flex-1">
+                  Your note suggests {suggestedCategory.icon} {suggestedCategory.name}
+                </span>
+                <span className="flex items-center gap-1 ml-2 shrink-0">
+                  <button
+                    onClick={async () => {
+                      try {
+                        await handleUpdateField('category_id', suggestedCategory.id);
+                        await clearSuggestion();
+                        toast({ title: `Moved to ${suggestedCategory.name}` });
+                      } catch {
+                        toast({ title: 'Failed to update category', variant: 'destructive' });
+                      }
+                    }}
+                    disabled={updateEnrichment.isPending}
+                    className="text-xs font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors px-2 py-1 rounded-lg hover:bg-blue-500/10"
+                  >
+                    Apply
+                  </button>
+                  <button
+                    onClick={async () => {
+                      try {
+                        await clearSuggestion();
+                      } catch {
+                        toast({ title: 'Failed to dismiss', variant: 'destructive' });
+                      }
+                    }}
+                    disabled={updateEnrichment.isPending}
+                    className="text-xs font-medium text-muted-foreground hover:text-foreground transition-colors px-2 py-1 rounded-lg hover:bg-muted/30"
+                  >
+                    Dismiss
+                  </button>
+                </span>
+              </div>
             </div>
           )}
 
@@ -801,6 +884,69 @@ export default function TransactionDetailPage() {
         transactionId={transaction.id}
         transactionAmount={Number(transaction.amount)}
       />
+
+      {/* Track as Lent Dialog */}
+      <Dialog open={lendDialogOpen} onOpenChange={setLendDialogOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <HandCoins className="w-5 h-5" /> Track as lent
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground -mt-2">
+            This transaction appears on the Debt page until repayments linked to it cover the amount.
+          </p>
+          <Input
+            value={counterparty}
+            onChange={(e) => setCounterparty(e.target.value)}
+            placeholder="Who did you lend to?"
+            autoFocus
+          />
+          <DialogFooter className="gap-2">
+            {enrichment?.lending && (
+              <Button
+                variant="ghost"
+                disabled={updateEnrichment.isPending}
+                onClick={async () => {
+                  try {
+                    await updateEnrichment.mutateAsync({
+                      transactionId: transaction.id,
+                      notes: transaction.notes,
+                      existing: enrichment,
+                      lending: null,
+                    });
+                    setLendDialogOpen(false);
+                    toast({ title: 'Removed from debt tracking' });
+                  } catch {
+                    toast({ title: 'Failed to remove', variant: 'destructive' });
+                  }
+                }}
+              >
+                Remove loan
+              </Button>
+            )}
+            <Button
+              disabled={!counterparty.trim() || updateEnrichment.isPending}
+              onClick={async () => {
+                try {
+                  await updateEnrichment.mutateAsync({
+                    transactionId: transaction.id,
+                    notes: transaction.notes,
+                    existing: enrichment ?? null,
+                    lending: { counterparty: counterparty.trim(), type: 'lent' },
+                  });
+                  setLendDialogOpen(false);
+                  toast({ title: 'Added to debt tracker' });
+                } catch {
+                  toast({ title: 'Failed to save', variant: 'destructive' });
+                }
+              }}
+            >
+              Save
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Link Duplicate Dialog */}
       <LinkDuplicateDialog
