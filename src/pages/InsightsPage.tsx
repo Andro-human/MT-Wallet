@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import { ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { startOfMonth, endOfMonth, subMonths, format, eachMonthOfInterval, startOfDay, endOfDay } from 'date-fns';
-import { ChevronRight, Folder, Calendar, X, Filter, BarChart3, Layers, LayoutGrid } from 'lucide-react';
+import { ChevronRight, ChevronDown, Folder, Calendar, X, Filter, BarChart3, Layers, LayoutGrid, HandCoins } from 'lucide-react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { MonthYearPicker } from '@/components/ui/MonthYearPicker';
 import { useTransactions } from '@/hooks/useTransactions';
@@ -11,6 +11,7 @@ import { useCategories } from '@/hooks/useCategories';
 import { useTransactionGroups } from '@/hooks/useTransactionGroups';
 import { useBankAccounts } from '@/hooks/useBankAccounts';
 import { useFinanceContext } from '@/hooks/useFinanceData';
+import { useEnrichmentMap } from '@/hooks/useTxnEnrichment';
 import {
   netAmount as computeNetAmount,
   creditNet,
@@ -117,6 +118,8 @@ export default function InsightsPage() {
   const { data: allTransactions = [], isLoading: txnsLoading } = useTransactions(dateRange);
 
   const { refundTotals, refundAllocations, duplicateExcludeIds, isReady: contextReady } = useFinanceContext();
+  const { data: enrichmentMap } = useEnrichmentMap();
+  const [expandedAlloc, setExpandedAlloc] = useState<string | null>(null);
   const isLoading = txnsLoading || !contextReady;
 
   const netAmount = useCallback(
@@ -409,6 +412,35 @@ export default function InsightsPage() {
   const activeAllocation =
     allocTab === 'categories' ? categoriesBreakdown : allocTab === 'groups' ? groupsBreakdown : allocationBreakdown;
   const allocationDenom = allocTab === 'groups' ? totalGroupSpent : totalSpent;
+
+  // Sub-theme breakdown inside a tile, from AI item_labels. MUST aggregate over
+  // the same transaction set the tile's number came from (combined view excludes
+  // grouped txns from category slices) so sub-lines sum to the tile total.
+  const subThemesFor = useCallback(
+    (item: { type: 'group' | 'category'; linkId: string }) => {
+      const txns = transactions.filter(t =>
+        t.is_expense &&
+        (item.type === 'group'
+          ? t.group_id === item.linkId
+          : (allocTab !== 'combined' || !t.group_id) &&
+            (t.category_id || 'uncategorized') === item.linkId)
+      );
+      const sums = new Map<string, { amount: number; count: number }>();
+      for (const t of txns) {
+        const amt = netAmount(t);
+        if (amt <= 0) continue;
+        const label = enrichmentMap?.get(t.id)?.item_label ?? 'unlabeled';
+        const cur = sums.get(label) ?? { amount: 0, count: 0 };
+        cur.amount += amt;
+        cur.count += 1;
+        sums.set(label, cur);
+      }
+      return [...sums.entries()]
+        .map(([label, v]) => ({ label, ...v }))
+        .sort((a, b) => b.amount - a.amount);
+    },
+    [transactions, allocTab, netAmount, enrichmentMap],
+  );
 
   // Drill-down must match the number shown: the Combined tab's category slices
   // exclude grouped txns, so their links carry &ungrouped=1.
@@ -803,7 +835,16 @@ export default function InsightsPage() {
           className="neo-card p-6 mb-6"
         >
           <div className="flex items-center justify-between mb-4 gap-3">
-            <h3 className="font-heading font-bold text-foreground">Allocation</h3>
+            <span className="flex items-center gap-2">
+              <h3 className="font-heading font-bold text-foreground">Allocation</h3>
+              <Link
+                to="/debt"
+                aria-label="Debt tracker"
+                className="flex items-center gap-1 px-2 py-0.5 rounded-full border border-border/50 text-[10px] font-mono uppercase tracking-wider text-muted-foreground hover:text-foreground hover:border-border transition-colors"
+              >
+                <HandCoins className="w-3 h-3" /> Debt
+              </Link>
+            </span>
             {groups.length > 0 && (
               <div className="flex gap-1 flex-shrink-0">
                 {(['combined', 'categories', 'groups'] as const).map(tab => (
@@ -832,33 +873,79 @@ export default function InsightsPage() {
             <div className="space-y-9">
               {activeAllocation.map((item) => {
                 const percentage = allocationDenom > 0 ? (item.amount / allocationDenom) * 100 : 0;
+                const isExpanded = expandedAlloc === item.id;
+                const subThemes = isExpanded ? subThemesFor(item) : [];
                 return (
-                  <Link key={item.id} to={allocationLinkFor(item)}>
-                    <div className="group cursor-pointer">
-                      <div className="flex items-center justify-between text-sm mb-3">
-                        <span className="flex items-center gap-3">
-                          <span className="font-mono text-muted-foreground bg-muted/20 p-1 rounded">{item.icon}</span>
-                          <span className="font-bold text-foreground group-hover:text-primary transition-colors uppercase tracking-wide flex items-center gap-1.5">
-                            {item.name}
-                            {allocTab === 'combined' && item.type === 'group' && (
-                              <Layers className="w-3 h-3 text-muted-foreground" />
-                            )}
+                  <div key={item.id}>
+                    <Link to={allocationLinkFor(item)}>
+                      <div className="group cursor-pointer">
+                        <div className="flex items-center justify-between text-sm mb-3">
+                          <span className="flex items-center gap-3">
+                            <span className="font-mono text-muted-foreground bg-muted/20 p-1 rounded">{item.icon}</span>
+                            <span className="font-bold text-foreground group-hover:text-primary transition-colors uppercase tracking-wide flex items-center gap-1.5">
+                              {item.name}
+                              {allocTab === 'combined' && item.type === 'group' && (
+                                <Layers className="w-3 h-3 text-muted-foreground" />
+                              )}
+                            </span>
                           </span>
-                        </span>
-                        <span className="font-mono text-foreground font-medium">
-                          {percentage.toFixed(0)}% <span className="text-muted-foreground mx-1">/</span> {formatINRCompact(item.amount)}
-                        </span>
+                          <span className="font-mono text-foreground font-medium flex items-center gap-1.5">
+                            {percentage.toFixed(0)}% <span className="text-muted-foreground mx-1">/</span> {formatINRCompact(item.amount)}
+                            <button
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                setExpandedAlloc(isExpanded ? null : item.id);
+                              }}
+                              aria-label={isExpanded ? 'Hide sub-themes' : 'Show sub-themes'}
+                              className="p-1 -m-1 ml-0.5 rounded hover:bg-muted/30 transition-colors"
+                            >
+                              <ChevronDown
+                                className={cn(
+                                  'w-3.5 h-3.5 text-muted-foreground transition-transform',
+                                  isExpanded && 'rotate-180',
+                                )}
+                              />
+                            </button>
+                          </span>
+                        </div>
+                        <div className="h-1.5 bg-muted/20 w-full overflow-hidden rounded-full mb-2">
+                          <motion.div
+                            initial={{ width: 0 }}
+                            animate={{ width: `${percentage}%` }}
+                            transition={{ delay: 0.2, duration: 0.5 }}
+                            className="h-full bg-foreground group-hover:bg-primary transition-colors rounded-full"
+                          />
+                        </div>
                       </div>
-                      <div className="h-1.5 bg-muted/20 w-full overflow-hidden rounded-full mb-2">
+                    </Link>
+                    <AnimatePresence>
+                      {isExpanded && (
                         <motion.div
-                          initial={{ width: 0 }}
-                          animate={{ width: `${percentage}%` }}
-                          transition={{ delay: 0.2, duration: 0.5 }}
-                          className="h-full bg-foreground group-hover:bg-primary transition-colors rounded-full"
-                        />
-                      </div>
-                    </div>
-                  </Link>
+                          initial={{ height: 0, opacity: 0 }}
+                          animate={{ height: 'auto', opacity: 1 }}
+                          exit={{ height: 0, opacity: 0 }}
+                          transition={{ duration: 0.2 }}
+                          className="overflow-hidden"
+                        >
+                          <div className="pt-1 pb-2 pl-10 pr-1 space-y-1.5">
+                            {subThemes.map((s) => (
+                              <div key={s.label} className="flex items-center justify-between text-xs">
+                                <span className="text-muted-foreground">
+                                  {s.label}
+                                  <span className="opacity-50 ml-1.5">×{s.count}</span>
+                                </span>
+                                <span className="font-mono text-muted-foreground">{formatINRCompact(s.amount)}</span>
+                              </div>
+                            ))}
+                            {subThemes.length === 0 && (
+                              <div className="text-xs text-muted-foreground/60">No sub-themes yet</div>
+                            )}
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
                 );
               })}
             </div>
