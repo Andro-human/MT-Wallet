@@ -533,20 +533,21 @@ export default function SyncRunDetailPage() {
                   const entries = Object.entries(run.usage);
                   const totalIn = entries.reduce((s, [, v]) => s + (v?.input ?? 0), 0);
                   const totalOut = entries.reduce((s, [, v]) => s + (v?.output ?? 0), 0);
+                  const totalThink = entries.reduce((s, [, v]) => s + (v?.reasoning ?? 0), 0);
                   return (
                     <div className="space-y-1.5">
                       <div className="flex items-center justify-between">
                         <span className="text-sm text-muted-foreground">Tokens</span>
                         <span className="text-[15px] font-medium text-foreground">
-                          {(totalIn + totalOut).toLocaleString()}
-                          <span className="text-muted-foreground"> ({totalIn.toLocaleString()} in / {totalOut.toLocaleString()} out)</span>
+                          {(totalIn + totalOut + totalThink).toLocaleString()}
+                          <span className="text-muted-foreground"> ({totalIn.toLocaleString()} in / {totalOut.toLocaleString()} out{totalThink > 0 ? ` / ${totalThink.toLocaleString()} think` : ''})</span>
                         </span>
                       </div>
                       {entries.map(([model, v]) => (
                         <div key={model} className="flex items-center justify-between pl-3">
                           <span className="text-xs text-muted-foreground font-mono">{model}</span>
                           <span className="text-xs text-muted-foreground font-mono">
-                            {(v?.input ?? 0).toLocaleString()} / {(v?.output ?? 0).toLocaleString()}
+                            {(v?.input ?? 0).toLocaleString()} / {(v?.output ?? 0).toLocaleString()}{(v?.reasoning ?? 0) > 0 ? ` / ${(v?.reasoning ?? 0).toLocaleString()}` : ''}
                           </span>
                         </div>
                       ))}
