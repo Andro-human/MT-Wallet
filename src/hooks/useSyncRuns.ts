@@ -24,7 +24,9 @@ export interface SyncRunDetail {
   };
 }
 
-export type SyncRunUsage = Record<string, { input: number; output: number }>;
+// `reasoning` = Gemini thinking tokens, billed at the output rate.
+// Absent on rows written before reasoning-token logging shipped (Jul 2026).
+export type SyncRunUsage = Record<string, { input: number; output: number; reasoning?: number }>;
 
 export interface SyncRun {
   id: string;
