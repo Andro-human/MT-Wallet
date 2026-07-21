@@ -26,26 +26,35 @@ import NotFound from "./pages/NotFound";
 const queryClient = new QueryClient();
 
 // PUSH/REPLACE (new page) → top. POP (back/forward) → restore the scroll position
-// saved for that history entry. Native SPA restoration doesn't work here: list pages
-// remount and hydrate from cache a frame or two later, so we retry until the position
-// sticks (content is tall enough) or the user takes over.
+// saved for that path. Keyed by pathname, NOT location.key: the history key on the
+// returning POP visit differs from the key of the visit that saved, so a key-based
+// lookup misses. suppressSave stops our own scrollTo() from overwriting a saved value.
+// The restore retries across frames because list pages rehydrate from cache a frame or
+// two after mount, so the page isn't tall enough to hold the scroll on the first tick.
 const scrollPositions = new Map<string, number>();
+let suppressSave = false;
 
 function ScrollManager() {
   const location = useLocation();
   const navigationType = useNavigationType();
-  const key = location.key;
+  const path = location.pathname;
 
   useEffect(() => {
     const onScroll = () => {
-      scrollPositions.set(key, window.scrollY);
+      if (suppressSave) return;
+      scrollPositions.set(path, window.scrollY);
     };
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
-  }, [key]);
+  }, [path]);
 
   useLayoutEffect(() => {
-    const saved = scrollPositions.get(key);
+    const saved = scrollPositions.get(path);
+    suppressSave = true;
+    const release = () => {
+      suppressSave = false;
+    };
+
     if (navigationType === "POP" && saved != null && saved > 0) {
       let frame = 0;
       let cancelled = false;
@@ -55,12 +64,16 @@ function ScrollManager() {
       window.addEventListener("wheel", cancel, { passive: true, once: true });
       window.addEventListener("touchstart", cancel, { passive: true, once: true });
       const restore = () => {
-        if (cancelled) return;
+        if (cancelled) {
+          release();
+          return;
+        }
         window.scrollTo(0, saved);
         frame++;
         if (Math.abs(window.scrollY - saved) > 2 && frame < 40) {
           requestAnimationFrame(restore);
         } else {
+          release();
           window.removeEventListener("wheel", cancel);
           window.removeEventListener("touchstart", cancel);
         }
@@ -68,8 +81,10 @@ function ScrollManager() {
       requestAnimationFrame(restore);
       return;
     }
+
     window.scrollTo(0, 0);
-  }, [key, navigationType]);
+    requestAnimationFrame(release);
+  }, [path, navigationType]);
 
   return null;
 }
