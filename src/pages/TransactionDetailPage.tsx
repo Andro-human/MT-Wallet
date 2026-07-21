@@ -1,9 +1,10 @@
 import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ArrowLeft, MessageSquare, TrendingUp, TrendingDown, ChevronRight, Folder, MoreVertical, RefreshCw, Pencil, Trash2, Wallet, Banknote, Copy, AlertTriangle, Link2, Bell, HandCoins, Sparkles } from 'lucide-react';
+import { ArrowLeft, MessageSquare, TrendingUp, TrendingDown, ChevronRight, Folder, MoreVertical, RefreshCw, Pencil, Trash2, Wallet, Banknote, Copy, AlertTriangle, Link2, Repeat, HandCoins, Sparkles } from 'lucide-react';
 import { format } from 'date-fns';
 import { useTransaction, useUpdateTransaction } from '@/hooks/useTransactions';
+import { useAutoLinkSubscription } from '@/hooks/useSubscriptions';
 import { useTransactionGroups } from '@/hooks/useTransactionGroups';
 import { useCategories } from '@/hooks/useCategories';
 import { useRefundLinksForOriginal } from '@/hooks/useRefundLinks';
@@ -13,7 +14,7 @@ import { useEnrichmentFor, useUpdateEnrichment } from '@/hooks/useTxnEnrichment'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { CreateReminderFromTransactionDialog } from '@/components/reminders/CreateReminderFromTransactionDialog';
+import { CreateSubscriptionDialog } from '@/components/subscriptions/CreateSubscriptionDialog';
 import { usePotentialDuplicates } from '@/hooks/usePotentialDuplicates';
 import { useBankAccounts, parseBankAccount } from '@/hooks/useBankAccounts';
 import { formatINR } from '@/lib/formatCurrency';
@@ -55,6 +56,7 @@ export default function TransactionDetailPage() {
   const [counterparty, setCounterparty] = useState('');
   const { data: bankAccounts = [] } = useBankAccounts();
   const updateMutation = useUpdateTransaction();
+  const autoLink = useAutoLinkSubscription();
 
   const transactionGroup = groups.find(g => g.id === (transaction as any)?.group_id);
 
@@ -65,7 +67,7 @@ export default function TransactionDetailPage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [linkRefundOpen, setLinkRefundOpen] = useState(false);
   const [linkDuplicateOpen, setLinkDuplicateOpen] = useState(false);
-  const [createReminderOpen, setCreateReminderOpen] = useState(false);
+  const [trackSubOpen, setTrackSubOpen] = useState(false);
   const [bulkEditOpen, setBulkEditOpen] = useState(false);
   const [bulkEditConfig, setBulkEditConfig] = useState<{
     field: 'category_id' | 'group_id' | 'merchant' | 'is_expense' | 'is_income';
@@ -162,10 +164,20 @@ export default function TransactionDetailPage() {
       });
       setEditingNotes(false);
       toast({ title: 'Notes saved' });
+      const linked = await autoLink
+        .mutateAsync({
+          id: transaction.id,
+          merchant: transaction.merchant,
+          notes: val,
+          amount: Number(transaction.amount),
+          transacted_at: transaction.transacted_at,
+        })
+        .catch(() => null);
+      if (linked) toast({ title: `Linked to ${linked.subscriptionLabel}` });
     } catch {
       toast({ title: 'Failed to save notes', variant: 'destructive' });
     }
-  }, [transaction?.id, updateMutation, toast]);
+  }, [transaction?.id, updateMutation, autoLink, toast]);
 
   // Cleanup timer on unmount
   useEffect(() => {
@@ -203,6 +215,16 @@ export default function TransactionDetailPage() {
       });
       setEditingNotes(false);
       toast({ title: 'Notes saved' });
+      const linked = await autoLink
+        .mutateAsync({
+          id: transaction.id,
+          merchant: transaction.merchant,
+          notes,
+          amount: Number(transaction.amount),
+          transacted_at: transaction.transacted_at,
+        })
+        .catch(() => null);
+      if (linked) toast({ title: `Linked to ${linked.subscriptionLabel}` });
     } catch {
       toast({ title: 'Failed to save notes', variant: 'destructive' });
     }
@@ -405,9 +427,9 @@ export default function TransactionDetailPage() {
                     <Trash2 className="w-4 h-4" />
                     Delete
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setCreateReminderOpen(true)} className="gap-2">
-                    <Bell className="w-4 h-4" />
-                    Create Reminder
+                  <DropdownMenuItem onClick={() => setTrackSubOpen(true)} className="gap-2">
+                    <Repeat className="w-4 h-4" />
+                    Track as subscription
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     onClick={() => {
@@ -975,12 +997,16 @@ export default function TransactionDetailPage() {
         />
       )}
 
-      {/* Create Reminder from Transaction */}
-      {createReminderOpen && (
-        <CreateReminderFromTransactionDialog
-          transaction={transaction}
-          open={createReminderOpen}
-          onOpenChange={setCreateReminderOpen}
+      {/* Track this transaction as a subscription (seeded from its note/merchant) */}
+      {trackSubOpen && (
+        <CreateSubscriptionDialog
+          open={trackSubOpen}
+          onOpenChange={setTrackSubOpen}
+          seed={{
+            label: transaction.merchant ?? transaction.notes ?? '',
+            note: transaction.notes ?? '',
+            merchant: transaction.merchant ?? '',
+          }}
         />
       )}
     </div>
