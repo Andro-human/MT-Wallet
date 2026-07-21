@@ -168,6 +168,55 @@ export function useCreateSubscription() {
   });
 }
 
+// All transaction_ids already linked to any of the user's subscriptions — used to
+// keep the manual "add transaction" picker from offering (and silently stealing) a
+// transaction that already belongs to another subscription.
+export function useLinkedTransactionIds() {
+  const { user } = useAuth();
+  return useQuery({
+    queryKey: [KEY, 'linked-ids', user?.id],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from('subscription_transactions')
+        .select('transaction_id')
+        .eq('user_id', user!.id);
+      if (error) throw error;
+      return new Set<string>((data ?? []).map((r: any) => r.transaction_id));
+    },
+    enabled: !!user,
+    staleTime: 30_000,
+  });
+}
+
+export function useLinkTransaction() {
+  const { user } = useAuth();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      subscriptionId,
+      txn,
+    }: {
+      subscriptionId: string;
+      txn: { id: string; amount: number; transacted_at: string };
+    }) => {
+      const { error } = await (supabase as any).from('subscription_transactions').upsert(
+        {
+          subscription_id: subscriptionId,
+          transaction_id: txn.id,
+          user_id: user!.id,
+          amount: txn.amount,
+          transacted_at: txn.transacted_at,
+          linked_by: 'manual',
+        },
+        { onConflict: 'transaction_id' },
+      );
+      if (error) throw error;
+      await recomputeSubscription(subscriptionId);
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: [KEY] }),
+  });
+}
+
 export function useUnlinkTransaction() {
   const qc = useQueryClient();
   return useMutation({

@@ -1,8 +1,7 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { motion } from 'framer-motion';
 import { format } from 'date-fns';
-import { ArrowLeft, X, Pause, Play, Ban } from 'lucide-react';
+import { ArrowLeft, X, Pause, Play, Ban, Plus } from 'lucide-react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import {
   useSubscriptions,
@@ -10,6 +9,7 @@ import {
   useUnlinkTransaction,
   useSetSubscriptionStatus,
 } from '@/hooks/useSubscriptions';
+import { AddTransactionDialog } from '@/components/subscriptions/AddTransactionDialog';
 import { formatINR, formatINRCompact } from '@/lib/formatCurrency';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
@@ -24,6 +24,7 @@ export default function SubscriptionDetailPage() {
   const unlink = useUnlinkTransaction();
   const setStatus = useSetSubscriptionStatus();
 
+  const [addOpen, setAddOpen] = useState(false);
   const sub = useMemo(() => subs.find((s) => s.id === id), [subs, id]);
   const variable = sub && sub.amount_min != null && sub.amount_max != null && sub.amount_min !== sub.amount_max;
 
@@ -94,8 +95,16 @@ export default function SubscriptionDetailPage() {
               </div>
             </div>
 
-            <div className="text-xs font-mono uppercase tracking-wider text-muted-foreground mt-5 mb-1">
-              Linked transactions · {linked.length}
+            <div className="flex items-center justify-between mt-5 mb-1">
+              <span className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
+                Linked transactions · {linked.length}
+              </span>
+              <button
+                onClick={() => setAddOpen(true)}
+                className="flex items-center gap-1 text-xs font-medium text-primary hover:opacity-80"
+              >
+                <Plus className="w-3.5 h-3.5" /> Add
+              </button>
             </div>
             {txnsLoading ? (
               <Skeleton className="h-16 w-full bg-muted/20 mt-3" />
@@ -149,6 +158,8 @@ export default function SubscriptionDetailPage() {
           </>
         )}
       </div>
+
+      {sub && <AddTransactionDialog open={addOpen} onOpenChange={setAddOpen} subscriptionId={sub.id} />}
     </AppLayout>
   );
 }
