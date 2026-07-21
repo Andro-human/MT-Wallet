@@ -12,7 +12,7 @@ import { useTransactionGroups } from '@/hooks/useTransactionGroups';
 import { useBankAccounts } from '@/hooks/useBankAccounts';
 import { useFinanceContext } from '@/hooks/useFinanceData';
 import { useEnrichmentMap } from '@/hooks/useTxnEnrichment';
-import { RecurringSection, useDetectedSubscriptions } from '@/components/insights/RecurringSection';
+import { useDetectedSubscriptions } from '@/hooks/useDetectedSubscriptions';
 import { MonthlySummaryCard } from '@/components/insights/MonthlySummaryCard';
 import type { MonthlyAggregates } from '@/hooks/useMonthlySummary';
 import {
@@ -888,16 +888,16 @@ export default function InsightsPage() {
           transition={{ delay: 0.2 }}
           className="neo-card p-6 mb-6"
         >
-          <div className="flex items-center justify-between mb-4 gap-3">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-2 sm:gap-3">
             <h3 className="font-heading font-bold text-foreground">Allocation</h3>
             {groups.length > 0 && (
-              <div className="flex gap-1 flex-shrink-0">
+              <div className="flex gap-1 w-full sm:w-auto">
                 {(['combined', 'categories', 'groups'] as const).map(tab => (
                   <button
                     key={tab}
                     onClick={() => setAllocTab(tab)}
                     className={cn(
-                      'px-2.5 py-1 rounded-none border text-[10px] font-mono uppercase tracking-wider transition-all',
+                      'flex-1 sm:flex-none text-center px-2.5 py-1 rounded-none border text-[10px] font-mono uppercase tracking-wider transition-all',
                       allocTab === tab
                         ? 'bg-primary border-primary text-primary-foreground'
                         : 'border-border text-muted-foreground hover:text-foreground'
@@ -998,9 +998,6 @@ export default function InsightsPage() {
             <p className="text-center text-muted-foreground py-4 font-mono text-xs">NO DATA</p>
           )}
         </motion.div>
-
-        {/* Recurring subscriptions — cadence-detected, with confirm/ignore/snooze */}
-        {!isLoading && <RecurringSection />}
 
         {/* Bank Account Breakdown */}
         {!isLoading && bankBreakdown.length > 0 && (
