@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useRef } from 'react';
+import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import { ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts';
@@ -14,7 +14,7 @@ import { useFinanceContext } from '@/hooks/useFinanceData';
 import { useEnrichmentMap } from '@/hooks/useTxnEnrichment';
 import { useDetectedSubscriptions } from '@/hooks/useDetectedSubscriptions';
 import { MonthlySummaryCard } from '@/components/insights/MonthlySummaryCard';
-import type { MonthlyAggregates } from '@/hooks/useMonthlySummary';
+import type { MonthlyAggregates, MonthlyCategoryInput } from '@/hooks/useMonthlySummary';
 import {
   netAmount as computeNetAmount,
   creditNet,
@@ -445,51 +445,108 @@ export default function InsightsPage() {
     [transactions, allocTab, netAmount, enrichmentMap],
   );
 
-  // Monthly summary is only meaningful for a single-month view.
-  const summaryMonth = useMemo(() => {
-    if (timeRange === '1-month') return format(now, 'yyyy-MM');
-    if (
-      timeRange === 'custom' &&
-      customStart.getFullYear() === customEnd.getFullYear() &&
-      customStart.getMonth() === customEnd.getMonth()
-    ) {
-      return format(customStart, 'yyyy-MM');
-    }
-    return null;
-  }, [timeRange, customStart, customEnd, now]);
+  // Months spanned by the current range — each is independently reviewable
+  // (never merged). The selector strip and the review card key off these.
+  const monthsInRange = useMemo(() => {
+    const start = dateRange.startDate || startOfMonth(subMonths(now, 5));
+    const end = dateRange.endDate || endOfMonth(now);
+    return eachMonthOfInterval({ start, end }).map((d) => ({
+      key: format(d, 'yyyy-MM'),
+      label: format(d, "MMM ''yy"),
+    }));
+  }, [dateRange, now]);
+
+  const [selectedReviewMonth, setSelectedReviewMonth] = useState<string | null>(null);
+  useEffect(() => {
+    const keys = monthsInRange.map((m) => m.key);
+    setSelectedReviewMonth((prev) =>
+      prev && keys.includes(prev) ? prev : (keys[keys.length - 1] ?? null),
+    );
+  }, [monthsInRange]);
 
   const { detected: detectedSubs } = useDetectedSubscriptions();
 
-  const buildMonthlyAggregates = useCallback((): MonthlyAggregates => {
-    const themeSums = new Map<string, { context: string; amount: number }>();
-    for (const t of transactions) {
-      if (!t.is_expense) continue;
-      const amt = netAmount(t);
-      if (amt <= 0) continue;
-      const label = enrichmentMap?.get(t.id)?.item_label;
-      if (!label || label === 'other') continue;
-      const cur = themeSums.get(label) ?? { context: t.categories?.name || 'Uncategorized', amount: 0 };
-      cur.amount += amt;
-      themeSums.set(label, cur);
-    }
-    const committed = detectedSubs
-      .filter((s) => s.state === 'active' && (s.band === 'high' || s.band === 'medium'))
-      .reduce((sum, s) => sum + s.monthlyNormalized, 0);
-    return {
-      month: summaryMonth!,
-      total_spent: Math.round(totalSpent),
-      total_income: Math.round(totalIncome),
-      allocations: allocationBreakdown
-        .slice(0, 10)
-        .map((a) => ({ name: a.name, amount: Math.round(a.amount), type: a.type })),
-      top_sub_themes: [...themeSums.entries()]
-        .map(([label, v]) => ({ context: v.context, label, amount: Math.round(v.amount) }))
+  // Per-month payload: refund-netted numbers (transactionMath) plus per-category
+  // transactions with month-unique ordinals for the AI to group. Scoped to ONE
+  // month so multi-month ranges never merge.
+  const buildForMonth = useCallback(
+    (monthKey: string): { aggregates: MonthlyAggregates; categories: MonthlyCategoryInput[] } => {
+      const monthTxns = transactions.filter(
+        (t) => format(new Date(t.transacted_at), 'yyyy-MM') === monthKey,
+      );
+
+      let n = 0;
+      const catMap = new Map<string, MonthlyCategoryInput>();
+      const groupSums: Record<string, number> = {};
+      const ungroupedCatSums: Record<string, number> = {};
+      const themeSums = new Map<string, { context: string; amount: number }>();
+      let totalSpentM = 0;
+      let totalIncomeM = 0;
+
+      for (const t of monthTxns) {
+        if (t.is_income) totalIncomeM += creditNet(t as any, refundAllocations);
+        if (!t.is_expense) continue;
+        const amt = netAmount(t);
+        if (amt <= 0) continue;
+        totalSpentM += amt;
+
+        const catId = t.category_id || 'uncategorized';
+        const c = categories.find((x) => x.id === catId);
+        const slug = c?.slug ?? (catId === 'uncategorized' ? 'uncategorized' : catId);
+        const name = c?.name ?? 'Uncategorized';
+        n += 1;
+        const cur = catMap.get(slug) ?? { category: slug, name, total: 0, items: [] };
+        cur.items.push({ n, merchant: t.merchant ?? null, note: t.notes ?? null, amount: amt });
+        cur.total += amt;
+        catMap.set(slug, cur);
+
+        if (t.group_id) groupSums[t.group_id] = (groupSums[t.group_id] || 0) + amt;
+        else ungroupedCatSums[catId] = (ungroupedCatSums[catId] || 0) + amt;
+
+        const label = enrichmentMap?.get(t.id)?.item_label;
+        if (label && label !== 'other') {
+          const cur2 = themeSums.get(label) ?? { context: t.categories?.name || 'Uncategorized', amount: 0 };
+          cur2.amount += amt;
+          themeSums.set(label, cur2);
+        }
+      }
+
+      const allocations = [
+        ...Object.entries(groupSums).map(([id, amount]) => ({
+          name: groups.find((g) => g.id === id)?.name || 'Group',
+          amount: Math.round(amount),
+          type: 'group' as const,
+        })),
+        ...Object.entries(ungroupedCatSums).map(([id, amount]) => ({
+          name: categories.find((c) => c.id === id)?.name || 'Uncategorized',
+          amount: Math.round(amount),
+          type: 'category' as const,
+        })),
+      ]
         .sort((a, b) => b.amount - a.amount)
-        .slice(0, 8),
-      recurring_monthly_committed: committed > 0 ? committed : null,
-      loans_outstanding: null,
-    };
-  }, [transactions, enrichmentMap, detectedSubs, summaryMonth, totalSpent, totalIncome, allocationBreakdown, netAmount]);
+        .slice(0, 10);
+
+      const committed = detectedSubs
+        .filter((s) => s.state === 'active' && (s.band === 'high' || s.band === 'medium'))
+        .reduce((sum, s) => sum + s.monthlyNormalized, 0);
+
+      const aggregates: MonthlyAggregates = {
+        month: monthKey,
+        total_spent: Math.round(totalSpentM),
+        total_income: Math.round(totalIncomeM),
+        allocations,
+        top_sub_themes: [...themeSums.entries()]
+          .map(([label, v]) => ({ context: v.context, label, amount: Math.round(v.amount) }))
+          .sort((a, b) => b.amount - a.amount)
+          .slice(0, 8),
+        recurring_monthly_committed: committed > 0 ? committed : null,
+        loans_outstanding: null,
+      };
+
+      return { aggregates, categories: [...catMap.values()] };
+    },
+    [transactions, categories, groups, enrichmentMap, detectedSubs, netAmount, refundAllocations],
+  );
 
   // Drill-down must match the number shown: the Combined tab's category slices
   // exclude grouped txns, so their links carry &ungrouped=1.
@@ -876,9 +933,33 @@ export default function InsightsPage() {
           )}
         </motion.div>
 
-        {/* Monthly AI recap — single-month views only */}
-        {!isLoading && summaryMonth && (
-          <MonthlySummaryCard month={summaryMonth} buildAggregates={buildMonthlyAggregates} />
+        {/* Monthly AI review — any range. In a multi-month range a selector picks
+            which single month's review shows (never merged, tap not hover). */}
+        {!isLoading && selectedReviewMonth && (
+          <div>
+            {monthsInRange.length > 1 && (
+              <div className="flex gap-2 overflow-x-auto pb-3 -mx-1 px-1">
+                {monthsInRange.map((m) => (
+                  <button
+                    key={m.key}
+                    onClick={() => setSelectedReviewMonth(m.key)}
+                    className={cn(
+                      'px-3 py-1.5 rounded-none border text-[10px] font-mono uppercase tracking-wider whitespace-nowrap transition-all',
+                      selectedReviewMonth === m.key
+                        ? 'bg-primary border-primary text-primary-foreground'
+                        : 'border-border text-muted-foreground hover:text-foreground',
+                    )}
+                  >
+                    {m.label}
+                  </button>
+                ))}
+              </div>
+            )}
+            <MonthlySummaryCard
+              month={selectedReviewMonth}
+              buildPayload={() => buildForMonth(selectedReviewMonth)}
+            />
+          </div>
         )}
 
         {/* Allocation — groups + ungrouped categories, de-duped */}
