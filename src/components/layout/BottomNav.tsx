@@ -1,5 +1,5 @@
 import { NavLink, useLocation } from 'react-router-dom';
-import { Home, Receipt, TrendingUp, Settings, Bell } from 'lucide-react';
+import { Home, Receipt, TrendingUp, Settings, Bell, HandCoins } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 
@@ -8,6 +8,7 @@ const navItems = [
   { to: '/transactions', icon: Receipt, label: 'Activity' },
   { to: '/reminders', icon: Bell, label: 'Reminders' },
   { to: '/insights', icon: TrendingUp, label: 'Insights' },
+  { to: '/debt', icon: HandCoins, label: 'Debt' },
   { to: '/settings', icon: Settings, label: 'Settings' },
 ];
 

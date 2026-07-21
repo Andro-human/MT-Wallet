@@ -12,6 +12,9 @@ import { useTransactionGroups } from '@/hooks/useTransactionGroups';
 import { useBankAccounts } from '@/hooks/useBankAccounts';
 import { useFinanceContext } from '@/hooks/useFinanceData';
 import { useEnrichmentMap } from '@/hooks/useTxnEnrichment';
+import { useDetectedSubscriptions } from '@/hooks/useDetectedSubscriptions';
+import { MonthlySummaryCard } from '@/components/insights/MonthlySummaryCard';
+import type { MonthlyAggregates } from '@/hooks/useMonthlySummary';
 import {
   netAmount as computeNetAmount,
   creditNet,
@@ -442,6 +445,52 @@ export default function InsightsPage() {
     [transactions, allocTab, netAmount, enrichmentMap],
   );
 
+  // Monthly summary is only meaningful for a single-month view.
+  const summaryMonth = useMemo(() => {
+    if (timeRange === '1-month') return format(now, 'yyyy-MM');
+    if (
+      timeRange === 'custom' &&
+      customStart.getFullYear() === customEnd.getFullYear() &&
+      customStart.getMonth() === customEnd.getMonth()
+    ) {
+      return format(customStart, 'yyyy-MM');
+    }
+    return null;
+  }, [timeRange, customStart, customEnd, now]);
+
+  const { detected: detectedSubs } = useDetectedSubscriptions();
+
+  const buildMonthlyAggregates = useCallback((): MonthlyAggregates => {
+    const themeSums = new Map<string, { context: string; amount: number }>();
+    for (const t of transactions) {
+      if (!t.is_expense) continue;
+      const amt = netAmount(t);
+      if (amt <= 0) continue;
+      const label = enrichmentMap?.get(t.id)?.item_label;
+      if (!label || label === 'other') continue;
+      const cur = themeSums.get(label) ?? { context: t.categories?.name || 'Uncategorized', amount: 0 };
+      cur.amount += amt;
+      themeSums.set(label, cur);
+    }
+    const committed = detectedSubs
+      .filter((s) => s.state === 'active' && (s.band === 'high' || s.band === 'medium'))
+      .reduce((sum, s) => sum + s.monthlyNormalized, 0);
+    return {
+      month: summaryMonth!,
+      total_spent: Math.round(totalSpent),
+      total_income: Math.round(totalIncome),
+      allocations: allocationBreakdown
+        .slice(0, 10)
+        .map((a) => ({ name: a.name, amount: Math.round(a.amount), type: a.type })),
+      top_sub_themes: [...themeSums.entries()]
+        .map(([label, v]) => ({ context: v.context, label, amount: Math.round(v.amount) }))
+        .sort((a, b) => b.amount - a.amount)
+        .slice(0, 8),
+      recurring_monthly_committed: committed > 0 ? committed : null,
+      loans_outstanding: null,
+    };
+  }, [transactions, enrichmentMap, detectedSubs, summaryMonth, totalSpent, totalIncome, allocationBreakdown, netAmount]);
+
   // Drill-down must match the number shown: the Combined tab's category slices
   // exclude grouped txns, so their links carry &ungrouped=1.
   const allocationLinkFor = (item: { type: 'group' | 'category'; linkId: string }) => {
@@ -827,6 +876,11 @@ export default function InsightsPage() {
           )}
         </motion.div>
 
+        {/* Monthly AI recap — single-month views only */}
+        {!isLoading && summaryMonth && (
+          <MonthlySummaryCard month={summaryMonth} buildAggregates={buildMonthlyAggregates} />
+        )}
+
         {/* Allocation — groups + ungrouped categories, de-duped */}
         <motion.div
           initial={{ opacity: 0, y: 16 }}
@@ -834,25 +888,16 @@ export default function InsightsPage() {
           transition={{ delay: 0.2 }}
           className="neo-card p-6 mb-6"
         >
-          <div className="flex items-center justify-between mb-4 gap-3">
-            <span className="flex items-center gap-2">
-              <h3 className="font-heading font-bold text-foreground">Allocation</h3>
-              <Link
-                to="/debt"
-                aria-label="Debt tracker"
-                className="flex items-center gap-1 px-2 py-0.5 rounded-full border border-border/50 text-[10px] font-mono uppercase tracking-wider text-muted-foreground hover:text-foreground hover:border-border transition-colors"
-              >
-                <HandCoins className="w-3 h-3" /> Debt
-              </Link>
-            </span>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-2 sm:gap-3">
+            <h3 className="font-heading font-bold text-foreground">Allocation</h3>
             {groups.length > 0 && (
-              <div className="flex gap-1 flex-shrink-0">
+              <div className="flex gap-1 w-full sm:w-auto">
                 {(['combined', 'categories', 'groups'] as const).map(tab => (
                   <button
                     key={tab}
                     onClick={() => setAllocTab(tab)}
                     className={cn(
-                      'px-2.5 py-1 rounded-none border text-[10px] font-mono uppercase tracking-wider transition-all',
+                      'flex-1 sm:flex-none text-center px-2.5 py-1 rounded-none border text-[10px] font-mono uppercase tracking-wider transition-all',
                       allocTab === tab
                         ? 'bg-primary border-primary text-primary-foreground'
                         : 'border-border text-muted-foreground hover:text-foreground'

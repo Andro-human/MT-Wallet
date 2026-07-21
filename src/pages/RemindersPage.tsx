@@ -12,6 +12,7 @@ import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
 import { Reminder, ReminderType } from '@/types/database';
+import { DetectedSubscriptions } from '@/components/reminders/DetectedSubscriptions';
 
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
@@ -550,6 +551,9 @@ export default function RemindersPage() {
             </Button>
           ))}
         </div>
+
+        {/* Detected subscriptions — suggestions you can turn into reminders */}
+        {filter === 'pending' && <DetectedSubscriptions />}
 
         {/* List */}
         {isLoading ? (

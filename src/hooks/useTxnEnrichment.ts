@@ -11,19 +11,28 @@ export interface TxnEnrichment {
 
 const KEY = 'txn-enrichment';
 
-/** All enrichment rows for the user, as transaction_id -> row. */
+const PAGE = 1000;
+
+/** All enrichment rows for the user, as transaction_id -> row. Paged because
+ *  PostgREST caps a single response at 1000 rows and a user can exceed that. */
 export function useEnrichmentMap() {
   const { user } = useAuth();
   return useQuery({
     queryKey: [KEY, user?.id],
     queryFn: async () => {
-      const { data, error } = await (supabase as any)
-        .from('txn_enrichment')
-        .select('transaction_id, item_label, lending, category_suggestion')
-        .eq('user_id', user!.id);
-      if (error) throw error;
       const map = new Map<string, TxnEnrichment>();
-      for (const row of (data ?? []) as TxnEnrichment[]) map.set(row.transaction_id, row);
+      for (let from = 0; ; from += PAGE) {
+        const { data, error } = await (supabase as any)
+          .from('txn_enrichment')
+          .select('transaction_id, item_label, lending, category_suggestion')
+          .eq('user_id', user!.id)
+          .order('transaction_id', { ascending: true })
+          .range(from, from + PAGE - 1);
+        if (error) throw error;
+        const rows = (data ?? []) as TxnEnrichment[];
+        for (const row of rows) map.set(row.transaction_id, row);
+        if (rows.length < PAGE) break;
+      }
       return map;
     },
     enabled: !!user,
