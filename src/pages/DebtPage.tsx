@@ -1,8 +1,9 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { format } from 'date-fns';
-import { ArrowLeft, HandCoins, ChevronRight, X } from 'lucide-react';
+import { ArrowLeft, HandCoins, ChevronRight, X, Plus } from 'lucide-react';
+import { RecordDebtDialog } from '@/components/debt/RecordDebtDialog';
 import { useQuery } from '@tanstack/react-query';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { supabase } from '@/integrations/supabase/client';
@@ -29,6 +30,7 @@ export default function DebtPage() {
   const { data: enrichmentMap, isLoading: enrichmentLoading } = useEnrichmentMap();
   const { data: refundTotals = {} } = useRefundTotals();
   const updateEnrichment = useUpdateEnrichment();
+  const [recordOpen, setRecordOpen] = useState(false);
 
   const loanRows = useMemo(() => {
     if (!enrichmentMap) return [] as TxnEnrichment[];
@@ -103,6 +105,12 @@ export default function DebtPage() {
             </h1>
             <p className="text-sm text-muted-foreground">Money lent, detected from your notes</p>
           </div>
+          <button
+            onClick={() => setRecordOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium shrink-0"
+          >
+            <Plus className="w-4 h-4" /> Record
+          </button>
         </div>
 
         {isLoading ? (
@@ -111,8 +119,15 @@ export default function DebtPage() {
             <Skeleton className="h-24 w-full bg-muted/20" />
           </div>
         ) : byCounterparty.length === 0 ? (
-          <div className="text-center py-16 text-muted-foreground text-sm">
-            No open loans. Mark a transaction as lent from its detail page.
+          <div className="text-center py-16">
+            <p className="text-muted-foreground text-sm">No open loans.</p>
+            <button
+              onClick={() => setRecordOpen(true)}
+              className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium"
+            >
+              <Plus className="w-4 h-4" /> Record a debt
+            </button>
+            <p className="text-xs text-muted-foreground/70 mt-3">or mark any transaction as lent from its detail page</p>
           </div>
         ) : (
           <>
@@ -172,6 +187,8 @@ export default function DebtPage() {
           </>
         )}
       </div>
+
+      <RecordDebtDialog open={recordOpen} onOpenChange={setRecordOpen} />
     </AppLayout>
   );
 }

@@ -94,3 +94,34 @@ export function useUpdateEnrichment() {
     },
   });
 }
+
+/** Mark several transactions as lent to one counterparty in a single upsert. */
+export function useMarkLentBulk() {
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: {
+      counterparty: string;
+      transactions: { id: string; notes: string | null; existing: TxnEnrichment | null }[];
+    }) => {
+      const rows = await Promise.all(
+        input.transactions.map(async (t) => ({
+          transaction_id: t.id,
+          user_id: user!.id,
+          item_label: t.existing?.item_label ?? 'loan',
+          lending: { counterparty: input.counterparty, type: 'lent' as const },
+          category_suggestion: t.existing?.category_suggestion ?? null,
+          note_hash: await sha256Hex((t.notes ?? '').trim()),
+          model: 'manual',
+        })),
+      );
+      const { error } = await (supabase as any)
+        .from('txn_enrichment')
+        .upsert(rows, { onConflict: 'transaction_id' });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [KEY] });
+    },
+  });
+}
