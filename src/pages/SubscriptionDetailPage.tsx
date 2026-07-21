@@ -1,0 +1,154 @@
+import { useMemo } from 'react';
+import { useParams, useNavigate, Link } from 'react-router-dom';
+import { motion } from 'framer-motion';
+import { format } from 'date-fns';
+import { ArrowLeft, X, Pause, Play, Ban } from 'lucide-react';
+import { AppLayout } from '@/components/layout/AppLayout';
+import {
+  useSubscriptions,
+  useSubscriptionTransactions,
+  useUnlinkTransaction,
+  useSetSubscriptionStatus,
+} from '@/hooks/useSubscriptions';
+import { formatINR, formatINRCompact } from '@/lib/formatCurrency';
+import { Skeleton } from '@/components/ui/skeleton';
+import { useToast } from '@/hooks/use-toast';
+import { cn } from '@/lib/utils';
+
+export default function SubscriptionDetailPage() {
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const { toast } = useToast();
+  const { data: subs = [], isLoading } = useSubscriptions();
+  const { data: linked = [], isLoading: txnsLoading } = useSubscriptionTransactions(id);
+  const unlink = useUnlinkTransaction();
+  const setStatus = useSetSubscriptionStatus();
+
+  const sub = useMemo(() => subs.find((s) => s.id === id), [subs, id]);
+  const variable = sub && sub.amount_min != null && sub.amount_max != null && sub.amount_min !== sub.amount_max;
+
+  const doUnlink = async (transactionId: string) => {
+    if (!id) return;
+    try {
+      await unlink.mutateAsync({ subscriptionId: id, transactionId });
+    } catch {
+      toast({ title: 'Failed to unlink', variant: 'destructive' });
+    }
+  };
+
+  const changeStatus = async (status: 'active' | 'paused' | 'cancelled') => {
+    if (!id) return;
+    try {
+      await setStatus.mutateAsync({ id, status });
+      toast({ title: status === 'active' ? 'Reactivated' : status === 'paused' ? 'Paused' : 'Cancelled' });
+    } catch {
+      toast({ title: 'Failed to update', variant: 'destructive' });
+    }
+  };
+
+  if (!isLoading && !sub) {
+    return (
+      <AppLayout>
+        <div className="px-4 pt-6 max-w-lg mx-auto">
+          <button onClick={() => navigate('/subscriptions')} className="text-sm text-muted-foreground">← Subscriptions</button>
+          <p className="text-center py-16 text-muted-foreground">Subscription not found.</p>
+        </div>
+      </AppLayout>
+    );
+  }
+
+  return (
+    <AppLayout>
+      <div className="sticky top-0 z-10 backdrop-blur-xl bg-background/80 border-b border-border/30 safe-area-top">
+        <div className="flex items-center gap-3 px-4 py-3">
+          <button onClick={() => navigate('/subscriptions')} className="p-1.5 -ml-1.5 rounded-lg hover:bg-muted/30" aria-label="Back">
+            <ArrowLeft className="w-5 h-5" />
+          </button>
+          <h1 className="text-lg font-semibold truncate">{sub?.label ?? 'Subscription'}</h1>
+        </div>
+      </div>
+
+      <div className="px-4 pb-24 max-w-lg mx-auto">
+        {isLoading || !sub ? (
+          <div className="pt-6 space-y-4"><Skeleton className="h-28 w-full bg-muted/20" /></div>
+        ) : (
+          <>
+            <div className="py-5 border-b border-border/50">
+              <div className="flex items-center gap-2">
+                {sub.cadence && (
+                  <span className="text-[9px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded-full border border-primary/40 text-primary">{sub.cadence}</span>
+                )}
+                <span className="text-[9px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded-full border border-border text-muted-foreground">
+                  {sub.status}
+                </span>
+              </div>
+              <div className="font-mono text-3xl font-semibold mt-3">
+                {formatINR(sub.median_amount ?? 0)}
+                {variable && <span className="text-sm text-muted-foreground"> avg</span>}
+              </div>
+              <div className="text-sm text-muted-foreground mt-1.5">
+                {variable && <>Ranges {formatINRCompact(sub.amount_min!)}–{formatINRCompact(sub.amount_max!)} · </>}
+                {sub.predicted_next
+                  ? <>next expected <b className="text-foreground">~{format(new Date(`${sub.predicted_next}T12:00:00`), 'MMM d, yyyy')}</b></>
+                  : 'not enough history to predict yet'}
+              </div>
+            </div>
+
+            <div className="text-xs font-mono uppercase tracking-wider text-muted-foreground mt-5 mb-1">
+              Linked transactions · {linked.length}
+            </div>
+            {txnsLoading ? (
+              <Skeleton className="h-16 w-full bg-muted/20 mt-3" />
+            ) : linked.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-6">No linked transactions yet.</p>
+            ) : (
+              <div>
+                {linked.map((t) => (
+                  <div key={t.transaction_id} className="flex items-center justify-between gap-3 py-3 border-b border-border/40">
+                    <Link to={`/transactions/${t.transaction_id}`} className="min-w-0 flex-1 group">
+                      <div className="text-sm truncate group-hover:text-primary transition-colors">
+                        {t.notes?.trim() || t.merchant || 'Transaction'}
+                        {t.linked_by === 'manual' && <span className="text-[9px] font-mono text-muted-foreground/60 ml-1.5">manual</span>}
+                      </div>
+                      <div className="text-xs text-muted-foreground mt-0.5">{format(new Date(t.transacted_at), 'MMM d, yyyy')}</div>
+                    </Link>
+                    <span className="font-mono text-sm shrink-0">{formatINR(t.amount)}</span>
+                    <button
+                      onClick={() => doUnlink(t.transaction_id)}
+                      disabled={unlink.isPending}
+                      aria-label="Unlink"
+                      className="h-9 w-9 grid place-items-center rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors shrink-0"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="flex gap-2 mt-6">
+              {sub.status === 'active' ? (
+                <button onClick={() => changeStatus('paused')} className="flex-1 flex items-center justify-center gap-1.5 border border-border rounded-lg py-2.5 text-sm font-medium">
+                  <Pause className="w-4 h-4" /> Pause
+                </button>
+              ) : sub.status === 'paused' ? (
+                <button onClick={() => changeStatus('active')} className="flex-1 flex items-center justify-center gap-1.5 border border-border rounded-lg py-2.5 text-sm font-medium">
+                  <Play className="w-4 h-4" /> Resume
+                </button>
+              ) : (
+                <button onClick={() => changeStatus('active')} className="flex-1 flex items-center justify-center gap-1.5 border border-border rounded-lg py-2.5 text-sm font-medium">
+                  <Play className="w-4 h-4" /> Reactivate
+                </button>
+              )}
+              {sub.status !== 'cancelled' && (
+                <button onClick={() => changeStatus('cancelled')} className={cn('flex-1 flex items-center justify-center gap-1.5 border rounded-lg py-2.5 text-sm font-medium', 'border-destructive/30 text-destructive')}>
+                  <Ban className="w-4 h-4" /> Cancel
+                </button>
+              )}
+            </div>
+          </>
+        )}
+      </div>
+    </AppLayout>
+  );
+}

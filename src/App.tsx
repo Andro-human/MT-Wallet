@@ -3,7 +3,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, useLocation, useNavigationType } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigationType } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 
@@ -20,7 +20,8 @@ import BankAccountsPage from "./pages/BankAccountsPage";
 import CategoriesPage from "./pages/CategoriesPage";
 import GroupsPage from "./pages/GroupsPage";
 import MerchantRulesPage from "./pages/MerchantRulesPage";
-import RemindersPage from "./pages/RemindersPage";
+import SubscriptionsPage from "./pages/SubscriptionsPage";
+import SubscriptionDetailPage from "./pages/SubscriptionDetailPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -147,11 +148,19 @@ const App = () => (
               </ProtectedRoute>
             } />
 
-            <Route path="/reminders" element={
+            <Route path="/subscriptions" element={
               <ProtectedRoute>
-                <RemindersPage />
+                <SubscriptionsPage />
               </ProtectedRoute>
             } />
+
+            <Route path="/subscriptions/:id" element={
+              <ProtectedRoute>
+                <SubscriptionDetailPage />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/reminders" element={<Navigate to="/subscriptions" replace />} />
             
             <Route path="/sync" element={
               <ProtectedRoute>
