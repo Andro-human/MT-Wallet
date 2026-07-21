@@ -217,6 +217,36 @@ export function useLinkTransaction() {
   });
 }
 
+export function useLinkTransactions() {
+  const { user } = useAuth();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      subscriptionId,
+      txns,
+    }: {
+      subscriptionId: string;
+      txns: { id: string; amount: number; transacted_at: string }[];
+    }) => {
+      if (txns.length === 0) return;
+      const rows = txns.map((t) => ({
+        subscription_id: subscriptionId,
+        transaction_id: t.id,
+        user_id: user!.id,
+        amount: t.amount,
+        transacted_at: t.transacted_at,
+        linked_by: 'manual',
+      }));
+      const { error } = await (supabase as any)
+        .from('subscription_transactions')
+        .upsert(rows, { onConflict: 'transaction_id' });
+      if (error) throw error;
+      await recomputeSubscription(subscriptionId);
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: [KEY] }),
+  });
+}
+
 export function useUnlinkTransaction() {
   const qc = useQueryClient();
   return useMutation({
