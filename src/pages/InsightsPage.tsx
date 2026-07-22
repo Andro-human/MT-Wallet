@@ -484,23 +484,30 @@ export default function InsightsPage() {
   // selected-month breakdown exists (replacing the old flat item_labels),
   // otherwise the flat item_label fallback. Groups stay on flat labels.
   const categoryDetail = useCallback(
-    (item: { type: 'group' | 'category'; linkId: string }) => {
+    (item: { type: 'group' | 'category'; linkId: string }): {
+      oneLiner: string | null;
+      monthTag: string | null;
+      lines: { label: string; amount: number; count: number }[];
+      note: string | null;
+    } => {
+      const monthTag = monthsInRange.length > 1 ? monthLabelOf(selectedReviewMonth) : null;
       if (item.type === 'category') {
         const slug =
           item.linkId === 'uncategorized' ? 'uncategorized' : categories.find((c) => c.id === item.linkId)?.slug;
         const b = slug ? breakdownBySlug.get(slug) : undefined;
         if (b) {
-          return {
-            ai: true,
-            oneLiner: b.one_liner,
-            monthTag: monthsInRange.length > 1 ? monthLabelOf(selectedReviewMonth) : null,
-            lines: b.groups,
-          };
+          return { oneLiner: b.one_liner, monthTag, lines: b.groups, note: null };
         }
+        // No AI grouping for this category in the selected month — don't fall back
+        // to the old flat labels (the whole point was to replace them).
+        const note = reviewSummary
+          ? 'No grouped breakdown for this category this month.'
+          : `Generate ${monthLabelOf(selectedReviewMonth)}'s review to see the grouped breakdown.`;
+        return { oneLiner: null, monthTag, lines: [], note };
       }
-      return { ai: false, oneLiner: null, monthTag: null, lines: subThemesFor(item) };
+      return { oneLiner: null, monthTag: null, lines: subThemesFor(item), note: null };
     },
-    [categories, breakdownBySlug, monthsInRange, selectedReviewMonth, subThemesFor],
+    [categories, breakdownBySlug, monthsInRange, selectedReviewMonth, reviewSummary, subThemesFor],
   );
 
   // Per-month payload: refund-netted numbers (transactionMath) plus per-category
@@ -1111,9 +1118,7 @@ export default function InsightsPage() {
                             ))}
                             {(detail?.lines.length ?? 0) === 0 && (
                               <div className="text-xs text-muted-foreground/60">
-                                {detail?.ai === false && item.type === 'category'
-                                  ? 'Generate this month’s review for a grouped breakdown'
-                                  : 'No sub-themes yet'}
+                                {detail?.note ?? 'No sub-themes yet'}
                               </div>
                             )}
                           </div>
