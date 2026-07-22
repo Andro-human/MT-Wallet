@@ -14,6 +14,7 @@ import { useFinanceContext } from '@/hooks/useFinanceData';
 import { useEnrichmentMap } from '@/hooks/useTxnEnrichment';
 import { useDetectedSubscriptions } from '@/hooks/useDetectedSubscriptions';
 import { MonthlySummaryCard } from '@/components/insights/MonthlySummaryCard';
+import { useMonthlySummary } from '@/hooks/useMonthlySummary';
 import type { MonthlyAggregates, MonthlyCategoryInput } from '@/hooks/useMonthlySummary';
 import {
   netAmount as computeNetAmount,
@@ -465,6 +466,42 @@ export default function InsightsPage() {
   }, [monthsInRange]);
 
   const { detected: detectedSubs } = useDetectedSubscriptions();
+
+  // Cached AI review for the selected month — feeds the category drill-down's
+  // grouped lines (per-month; the strip picks which month).
+  const { data: reviewSummary } = useMonthlySummary(selectedReviewMonth);
+  const breakdownBySlug = useMemo(() => {
+    const m = new Map<string, { one_liner: string | null; groups: { label: string; amount: number; count: number }[] }>();
+    for (const b of reviewSummary?.category_breakdowns ?? []) {
+      if (b.reconciled && b.groups.length > 0) m.set(b.category, { one_liner: b.one_liner, groups: b.groups });
+    }
+    return m;
+  }, [reviewSummary]);
+
+  const monthLabelOf = (key: string | null) => (key ? format(new Date(`${key}-01`), "MMM ''yy") : '');
+
+  // What to show when a tile is expanded: AI groups for a category when its
+  // selected-month breakdown exists (replacing the old flat item_labels),
+  // otherwise the flat item_label fallback. Groups stay on flat labels.
+  const categoryDetail = useCallback(
+    (item: { type: 'group' | 'category'; linkId: string }) => {
+      if (item.type === 'category') {
+        const slug =
+          item.linkId === 'uncategorized' ? 'uncategorized' : categories.find((c) => c.id === item.linkId)?.slug;
+        const b = slug ? breakdownBySlug.get(slug) : undefined;
+        if (b) {
+          return {
+            ai: true,
+            oneLiner: b.one_liner,
+            monthTag: monthsInRange.length > 1 ? monthLabelOf(selectedReviewMonth) : null,
+            lines: b.groups,
+          };
+        }
+      }
+      return { ai: false, oneLiner: null, monthTag: null, lines: subThemesFor(item) };
+    },
+    [categories, breakdownBySlug, monthsInRange, selectedReviewMonth, subThemesFor],
+  );
 
   // Per-month payload: refund-netted numbers (transactionMath) plus per-category
   // transactions with month-unique ordinals for the AI to group. Scoped to ONE
@@ -1000,7 +1037,7 @@ export default function InsightsPage() {
               {activeAllocation.map((item) => {
                 const percentage = allocationDenom > 0 ? (item.amount / allocationDenom) * 100 : 0;
                 const isExpanded = expandedAlloc === item.id;
-                const subThemes = isExpanded ? subThemesFor(item) : [];
+                const detail = isExpanded ? categoryDetail(item) : null;
                 return (
                   <div key={item.id}>
                     <Link to={allocationLinkFor(item)}>
@@ -1055,7 +1092,15 @@ export default function InsightsPage() {
                           className="overflow-hidden"
                         >
                           <div className="pt-1 pb-2 pl-10 pr-1 space-y-1.5">
-                            {subThemes.map((s) => (
+                            {detail?.monthTag && (
+                              <div className="text-[10px] font-mono uppercase tracking-wider text-primary/70">
+                                {detail.monthTag} breakdown
+                              </div>
+                            )}
+                            {detail?.oneLiner && (
+                              <p className="text-xs text-muted-foreground/90 italic">{detail.oneLiner}</p>
+                            )}
+                            {(detail?.lines ?? []).map((s) => (
                               <div key={s.label} className="flex items-center justify-between text-xs">
                                 <span className="text-muted-foreground">
                                   {s.label}
@@ -1064,8 +1109,12 @@ export default function InsightsPage() {
                                 <span className="font-mono text-muted-foreground">{formatINRCompact(s.amount)}</span>
                               </div>
                             ))}
-                            {subThemes.length === 0 && (
-                              <div className="text-xs text-muted-foreground/60">No sub-themes yet</div>
+                            {(detail?.lines.length ?? 0) === 0 && (
+                              <div className="text-xs text-muted-foreground/60">
+                                {detail?.ai === false && item.type === 'category'
+                                  ? 'Generate this month’s review for a grouped breakdown'
+                                  : 'No sub-themes yet'}
+                              </div>
                             )}
                           </div>
                         </motion.div>
