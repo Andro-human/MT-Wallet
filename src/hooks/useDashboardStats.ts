@@ -10,6 +10,7 @@ import {
   categoryChartData,
   spentByCategory,
   percentChange,
+  classifyTransaction,
 } from '@/lib/transactionMath';
 
 export function useDashboardStats() {
@@ -42,7 +43,15 @@ export function useDashboardStats() {
     const categorySpending = spentByCategory(thisMonthTxns, refundTotals, duplicateExcludeIds);
     const chartData = categoryChartData(thisMonthTxns, refundTotals, duplicateExcludeIds, categories);
 
-    const recentTxns = thisMonthTxns.slice(0, 5);
+    // Same noise rule as the transactions page defaults: duplicates, fully
+    // refunded, and non-counted rows stay off the home feed.
+    const recentTxns = thisMonthTxns
+      .filter(
+        (t) =>
+          classifyTransaction(t as any, { duplicateExcludeIds, refundTotals, refundAllocations }) ===
+          'real',
+      )
+      .slice(0, 5);
 
     return {
       thisMonthSpent,

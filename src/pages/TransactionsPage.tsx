@@ -399,10 +399,14 @@ export default function TransactionsPage() {
       u.kind === 'single' ? u.txn.transacted_at : mostRecent(u.members).transacted_at;
 
     if ((sortMode as SortMode) === 'amount') {
+      // Sort on the effective amount (refund-netted), not the raw one, so the
+      // order matches the figures shown on the rows.
+      const netOf = (m: TransactionWithCategory) =>
+        m.direction !== 'credit'
+          ? computeNetAmount(m as any, refundTotals)
+          : creditNet(m as any, refundAllocations);
       const value = (u: DisplayUnit) =>
-        u.kind === 'single'
-          ? Number(u.txn.amount)
-          : u.members.reduce((s, m) => s + Number(m.amount), 0);
+        u.kind === 'single' ? netOf(u.txn) : u.members.reduce((s, m) => s + netOf(m), 0);
       return { _all: [...visibleUnits].sort((a, b) => value(b) - value(a)) };
     }
 
