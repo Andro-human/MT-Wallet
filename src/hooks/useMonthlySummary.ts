@@ -20,11 +20,21 @@ export interface CategoryBreakdown {
   reconciled: boolean;
 }
 
+// A month-global partition of ALL spend transactions by meaning (cross-category),
+// reconciled in code: slice amounts are ordinal sums and total exactly the month's
+// spend. Drives the "where it went" donut.
+export interface SpendSlice {
+  label: string;
+  amount: number;
+  count: number;
+}
+
 export interface MonthlySummary {
   month: string;
   summary: string;
   highlights: string[];
   category_breakdowns: CategoryBreakdown[];
+  spend_slices: SpendSlice[];
   generated_at: string;
 }
 
@@ -56,13 +66,17 @@ export function useMonthlySummary(month: string | null) {
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from('monthly_summaries')
-        .select('month, summary, highlights, category_breakdowns, generated_at')
+        .select('month, summary, highlights, category_breakdowns, spend_slices, generated_at')
         .eq('user_id', user!.id)
         .eq('month', month)
         .maybeSingle();
       if (error) throw error;
       if (!data) return null;
-      return { ...data, category_breakdowns: data.category_breakdowns ?? [] } as MonthlySummary;
+      return {
+        ...data,
+        category_breakdowns: data.category_breakdowns ?? [],
+        spend_slices: data.spend_slices ?? [],
+      } as MonthlySummary;
     },
     enabled: !!user && !!month,
   });

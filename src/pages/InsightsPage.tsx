@@ -11,11 +11,8 @@ import { useCategories } from '@/hooks/useCategories';
 import { useTransactionGroups } from '@/hooks/useTransactionGroups';
 import { useBankAccounts } from '@/hooks/useBankAccounts';
 import { useFinanceContext } from '@/hooks/useFinanceData';
-import { useEnrichmentMap } from '@/hooks/useTxnEnrichment';
-import { useDetectedSubscriptions } from '@/hooks/useDetectedSubscriptions';
 import { MonthlySummaryCard } from '@/components/insights/MonthlySummaryCard';
 import { useMonthlySummary } from '@/hooks/useMonthlySummary';
-import type { MonthlyAggregates, MonthlyCategoryInput } from '@/hooks/useMonthlySummary';
 import {
   netAmount as computeNetAmount,
   creditNet,
@@ -122,8 +119,9 @@ export default function InsightsPage() {
   const { data: allTransactions = [], isLoading: txnsLoading } = useTransactions(dateRange);
 
   const { refundTotals, refundAllocations, duplicateExcludeIds, isReady: contextReady } = useFinanceContext();
-  const { data: enrichmentMap } = useEnrichmentMap();
   const [expandedAlloc, setExpandedAlloc] = useState<string | null>(null);
+  const TOP_TXNS_PAGE = 8;
+  const [txnLimit, setTxnLimit] = useState(TOP_TXNS_PAGE);
   const isLoading = txnsLoading || !contextReady;
 
   const netAmount = useCallback(
@@ -417,35 +415,6 @@ export default function InsightsPage() {
     allocTab === 'categories' ? categoriesBreakdown : allocTab === 'groups' ? groupsBreakdown : allocationBreakdown;
   const allocationDenom = allocTab === 'groups' ? totalGroupSpent : totalSpent;
 
-  // Sub-theme breakdown inside a tile, from AI item_labels. MUST aggregate over
-  // the same transaction set the tile's number came from (combined view excludes
-  // grouped txns from category slices) so sub-lines sum to the tile total.
-  const subThemesFor = useCallback(
-    (item: { type: 'group' | 'category'; linkId: string }) => {
-      const txns = transactions.filter(t =>
-        t.is_expense &&
-        (item.type === 'group'
-          ? t.group_id === item.linkId
-          : (allocTab !== 'combined' || !t.group_id) &&
-            (t.category_id || 'uncategorized') === item.linkId)
-      );
-      const sums = new Map<string, { amount: number; count: number }>();
-      for (const t of txns) {
-        const amt = netAmount(t);
-        if (amt <= 0) continue;
-        const label = enrichmentMap?.get(t.id)?.item_label ?? 'unlabeled';
-        const cur = sums.get(label) ?? { amount: 0, count: 0 };
-        cur.amount += amt;
-        cur.count += 1;
-        sums.set(label, cur);
-      }
-      return [...sums.entries()]
-        .map(([label, v]) => ({ label, ...v }))
-        .sort((a, b) => b.amount - a.amount);
-    },
-    [transactions, allocTab, netAmount, enrichmentMap],
-  );
-
   // Months spanned by the current range — each is independently reviewable
   // (never merged). The selector strip and the review card key off these.
   const monthsInRange = useMemo(() => {
@@ -465,12 +434,10 @@ export default function InsightsPage() {
     );
   }, [monthsInRange]);
 
-  const { detected: detectedSubs } = useDetectedSubscriptions();
-
   // Cached AI review for the selected month — feeds the category drill-down's
   // grouped lines (per-month; the strip picks which month).
   const { data: reviewSummary } = useMonthlySummary(selectedReviewMonth);
-  const breakdownBySlug = useMemo(() => {
+  const breakdownByKey = useMemo(() => {
     const m = new Map<string, { one_liner: string | null; groups: { label: string; amount: number; count: number }[] }>();
     for (const b of reviewSummary?.category_breakdowns ?? []) {
       if (b.reconciled && b.groups.length > 0) m.set(b.category, { one_liner: b.one_liner, groups: b.groups });
@@ -480,125 +447,83 @@ export default function InsightsPage() {
 
   const monthLabelOf = (key: string | null) => (key ? format(new Date(`${key}-01`), "MMM ''yy") : '');
 
-  // What to show when a tile is expanded: AI groups for a category when its
-  // selected-month breakdown exists (replacing the old flat item_labels),
-  // otherwise the flat item_label fallback. Groups stay on flat labels.
+  // Biggest transactions of the tile, effective amounts, descending. Scoped to
+  // a month when one is given, else the whole selected range. Membership
+  // matches the tile's number (combined view excludes grouped txns from
+  // category slices).
+  const topTxnsFor = useCallback(
+    (item: { type: 'group' | 'category'; linkId: string }, monthKey: string | null) =>
+      transactions
+        .filter(
+          (t) =>
+            t.is_expense &&
+            (!monthKey || format(new Date(t.transacted_at), 'yyyy-MM') === monthKey) &&
+            (item.type === 'group'
+              ? t.group_id === item.linkId
+              : (allocTab !== 'combined' || !t.group_id) &&
+                (t.category_id || 'uncategorized') === item.linkId),
+        )
+        .map((t) => ({
+          id: t.id,
+          label: t.notes?.trim() || t.merchant || 'Unknown',
+          date: format(new Date(t.transacted_at), 'MMM d'),
+          amount: netAmount(t),
+        }))
+        .filter((t) => t.amount > 0)
+        .sort((a, b) => b.amount - a.amount),
+    [transactions, allocTab, netAmount],
+  );
+
+  // What to show when a tile is expanded. Single-month range: that month's AI
+  // breakdown (categories keyed by slug, groups by `group:<id>`), falling back
+  // to the month's biggest transactions. Multi-month range: always the range's
+  // biggest transactions — a one-month breakdown under a 6-month total would
+  // contradict the tile's number.
   const categoryDetail = useCallback(
     (item: { type: 'group' | 'category'; linkId: string }): {
       oneLiner: string | null;
-      monthTag: string | null;
       lines: { label: string; amount: number; count: number }[];
+      txns: { id: string; label: string; date: string; amount: number }[];
       note: string | null;
     } => {
-      const monthTag = monthsInRange.length > 1 ? monthLabelOf(selectedReviewMonth) : null;
-      if (item.type === 'category') {
-        const slug =
-          item.linkId === 'uncategorized' ? 'uncategorized' : categories.find((c) => c.id === item.linkId)?.slug;
-        const b = slug ? breakdownBySlug.get(slug) : undefined;
-        if (b) {
-          return { oneLiner: b.one_liner, monthTag, lines: b.groups, note: null };
-        }
-        // No AI grouping for this category in the selected month — don't fall back
-        // to the old flat labels (the whole point was to replace them).
-        const note = reviewSummary
-          ? 'No grouped breakdown for this category this month.'
-          : `Generate ${monthLabelOf(selectedReviewMonth)}'s review to see the grouped breakdown.`;
-        return { oneLiner: null, monthTag, lines: [], note };
+      if (monthsInRange.length > 1) {
+        const txns = topTxnsFor(item, null);
+        return {
+          oneLiner: null,
+          lines: [],
+          txns,
+          note: txns.length === 0 ? 'No spend here in this period.' : 'Biggest transactions in this period:',
+        };
       }
-      return { oneLiner: null, monthTag: null, lines: subThemesFor(item), note: null };
-    },
-    [categories, breakdownBySlug, monthsInRange, selectedReviewMonth, reviewSummary, subThemesFor],
-  );
-
-  // Per-month payload: refund-netted numbers (transactionMath) plus per-category
-  // transactions with month-unique ordinals for the AI to group. Scoped to ONE
-  // month so multi-month ranges never merge.
-  const buildForMonth = useCallback(
-    (monthKey: string): { aggregates: MonthlyAggregates; categories: MonthlyCategoryInput[] } => {
-      const monthTxns = transactions.filter(
-        (t) => format(new Date(t.transacted_at), 'yyyy-MM') === monthKey,
-      );
-
-      let n = 0;
-      const catMap = new Map<string, MonthlyCategoryInput>();
-      const groupSums: Record<string, number> = {};
-      const ungroupedCatSums: Record<string, number> = {};
-      const themeSums = new Map<string, { context: string; amount: number }>();
-      let totalSpentM = 0;
-      let totalIncomeM = 0;
-
-      for (const t of monthTxns) {
-        if (t.is_income) totalIncomeM += creditNet(t as any, refundAllocations);
-        if (!t.is_expense) continue;
-        const amt = netAmount(t);
-        if (amt <= 0) continue;
-        totalSpentM += amt;
-
-        const catId = t.category_id || 'uncategorized';
-        const c = categories.find((x) => x.id === catId);
-        const slug = c?.slug ?? (catId === 'uncategorized' ? 'uncategorized' : catId);
-        const name = c?.name ?? 'Uncategorized';
-        n += 1;
-        const cur = catMap.get(slug) ?? { category: slug, name, total: 0, items: [] };
-        cur.items.push({ n, merchant: t.merchant ?? null, note: t.notes ?? null, amount: amt });
-        cur.total += amt;
-        catMap.set(slug, cur);
-
-        if (t.group_id) groupSums[t.group_id] = (groupSums[t.group_id] || 0) + amt;
-        else ungroupedCatSums[catId] = (ungroupedCatSums[catId] || 0) + amt;
-
-        const label = enrichmentMap?.get(t.id)?.item_label;
-        if (label && label !== 'other') {
-          const cur2 = themeSums.get(label) ?? { context: t.categories?.name || 'Uncategorized', amount: 0 };
-          cur2.amount += amt;
-          themeSums.set(label, cur2);
-        }
+      const key =
+        item.type === 'group'
+          ? `group:${item.linkId}`
+          : item.linkId === 'uncategorized'
+            ? 'uncategorized'
+            : categories.find((c) => c.id === item.linkId)?.slug;
+      const b = key ? breakdownByKey.get(key) : undefined;
+      if (b) {
+        return { oneLiner: b.one_liner, lines: b.groups, txns: [], note: null };
       }
-
-      const allocations = [
-        ...Object.entries(groupSums).map(([id, amount]) => ({
-          name: groups.find((g) => g.id === id)?.name || 'Group',
-          amount: Math.round(amount),
-          type: 'group' as const,
-        })),
-        ...Object.entries(ungroupedCatSums).map(([id, amount]) => ({
-          name: categories.find((c) => c.id === id)?.name || 'Uncategorized',
-          amount: Math.round(amount),
-          type: 'category' as const,
-        })),
-      ]
-        .sort((a, b) => b.amount - a.amount)
-        .slice(0, 10);
-
-      const committed = detectedSubs
-        .filter((s) => s.state === 'active' && (s.band === 'high' || s.band === 'medium'))
-        .reduce((sum, s) => sum + s.monthlyNormalized, 0);
-
-      const aggregates: MonthlyAggregates = {
-        month: monthKey,
-        total_spent: Math.round(totalSpentM),
-        total_income: Math.round(totalIncomeM),
-        allocations,
-        top_sub_themes: [...themeSums.entries()]
-          .map(([label, v]) => ({ context: v.context, label, amount: Math.round(v.amount) }))
-          .sort((a, b) => b.amount - a.amount)
-          .slice(0, 8),
-        recurring_monthly_committed: committed > 0 ? committed : null,
-        loans_outstanding: null,
-      };
-
-      return { aggregates, categories: [...catMap.values()] };
+      const txns = topTxnsFor(item, selectedReviewMonth);
+      const note =
+        txns.length === 0
+          ? 'No spend here this month.'
+          : reviewSummary
+            ? 'No AI grouping this month — biggest transactions:'
+            : `No ${monthLabelOf(selectedReviewMonth)} review yet (written nightly) — biggest transactions:`;
+      return { oneLiner: null, lines: [], txns, note };
     },
-    [transactions, categories, groups, enrichmentMap, detectedSubs, netAmount, refundAllocations],
+    [categories, breakdownByKey, monthsInRange, selectedReviewMonth, reviewSummary, topTxnsFor],
   );
 
   // Drill-down must match the number shown: the Combined tab's category slices
   // exclude grouped txns, so their links carry &ungrouped=1.
   const allocationLinkFor = (item: { type: 'group' | 'category'; linkId: string }) => {
-    if (item.type === 'group') return `/transactions?group=${item.linkId}${dateFilterParams}`;
+    if (item.type === 'group') return `/transactions?group=${item.linkId}${dateFilterParams}&sort=amount`;
     const base = item.linkId === 'uncategorized' ? 'uncat=1' : `category=${item.linkId}`;
     const ungrouped = allocTab === 'combined' ? '&ungrouped=1' : '';
-    return `/transactions?${base}${ungrouped}${dateFilterParams}`;
+    return `/transactions?${base}${ungrouped}${dateFilterParams}&sort=amount`;
   };
 
   // Per-month averages for the current date range.
@@ -999,10 +924,7 @@ export default function InsightsPage() {
                 ))}
               </div>
             )}
-            <MonthlySummaryCard
-              month={selectedReviewMonth}
-              buildPayload={() => buildForMonth(selectedReviewMonth)}
-            />
+            <MonthlySummaryCard month={selectedReviewMonth} />
           </div>
         )}
 
@@ -1066,6 +988,7 @@ export default function InsightsPage() {
                                 e.preventDefault();
                                 e.stopPropagation();
                                 setExpandedAlloc(isExpanded ? null : item.id);
+                                setTxnLimit(TOP_TXNS_PAGE);
                               }}
                               aria-label={isExpanded ? 'Hide sub-themes' : 'Show sub-themes'}
                               className="p-1 -m-1 ml-0.5 rounded hover:bg-muted/30 transition-colors"
@@ -1099,11 +1022,6 @@ export default function InsightsPage() {
                           className="overflow-hidden"
                         >
                           <div className="pt-1 pb-2 pl-10 pr-1 space-y-1.5">
-                            {detail?.monthTag && (
-                              <div className="text-[10px] font-mono uppercase tracking-wider text-primary/70">
-                                {detail.monthTag} breakdown
-                              </div>
-                            )}
                             {detail?.oneLiner && (
                               <p className="text-xs text-muted-foreground/90 italic">{detail.oneLiner}</p>
                             )}
@@ -1116,10 +1034,28 @@ export default function InsightsPage() {
                                 <span className="font-mono text-muted-foreground">{formatINRCompact(s.amount)}</span>
                               </div>
                             ))}
-                            {(detail?.lines.length ?? 0) === 0 && (
-                              <div className="text-xs text-muted-foreground/60">
-                                {detail?.note ?? 'No sub-themes yet'}
+                            {detail?.note && (
+                              <div className="text-xs text-muted-foreground/60">{detail.note}</div>
+                            )}
+                            {(detail?.txns ?? []).slice(0, txnLimit).map((t) => (
+                              <div key={t.id} className="flex items-center justify-between gap-3 text-xs">
+                                <span className="text-muted-foreground truncate">
+                                  {t.label}
+                                  <span className="opacity-50 ml-1.5">{t.date}</span>
+                                </span>
+                                <span className="font-mono text-muted-foreground shrink-0">
+                                  {formatINRCompact(t.amount)}
+                                </span>
                               </div>
+                            ))}
+                            {(detail?.txns.length ?? 0) > txnLimit && (
+                              <button
+                                onClick={() => setTxnLimit((l) => l + TOP_TXNS_PAGE)}
+                                className="text-[10px] font-mono uppercase tracking-wider text-primary/70 hover:text-primary transition-colors"
+                              >
+                                Show {Math.min(TOP_TXNS_PAGE, detail!.txns.length - txnLimit)} more
+                                <span className="opacity-50 ml-1.5">of {detail!.txns.length}</span>
+                              </button>
                             )}
                           </div>
                         </motion.div>
