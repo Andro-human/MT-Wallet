@@ -19,7 +19,7 @@ import {
   filterOutDuplicates,
 } from '@/lib/transactionMath';
 import { formatINR, formatINRCompact } from '@/lib/formatCurrency';
-import { LONG_TAIL_COLOR, FOLD_STACK, FOLD_LABEL } from '@/lib/categoryColors';
+import { LONG_TAIL_COLOR, FOLD_STACK, FOLD_LABEL, paletteAt } from '@/lib/categoryColors';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -312,7 +312,8 @@ export default function InsightsPage() {
           type: 'category' as const,
         };
       })
-      .sort((a, b) => b.amount - a.amount);
+      .sort((a, b) => b.amount - a.amount)
+      .map((item, i) => ({ ...item, color: paletteAt(i) }));
   }, [transactions, categories, netAmount]);
 
   // Pure group breakdown.
@@ -336,7 +337,8 @@ export default function InsightsPage() {
           type: 'group' as const,
         };
       })
-      .sort((a, b) => b.amount - a.amount);
+      .sort((a, b) => b.amount - a.amount)
+      .map((item, i) => ({ ...item, color: paletteAt(i) }));
   }, [transactions, groups, netAmount]);
 
   // Raw (bank_name, account_last4) -> resolved account (nickname-aware, alias-aware).

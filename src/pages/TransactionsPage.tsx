@@ -63,6 +63,7 @@ import {
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
 import { BookmarkPlus } from 'lucide-react';
+import { entityColor } from '@/lib/categoryColors';
 
 type DateFilter = 'this-month' | 'last-month' | 'last-3-months' | 'custom' | 'all';
 type DirectionFilter = 'all' | 'credit' | 'debit';
@@ -731,7 +732,7 @@ export default function TransactionsPage() {
                 <div className="flex items-center gap-3 mb-1">
                   <div
                     className="w-10 h-10 rounded-xl flex items-center justify-center text-lg"
-                    style={{ backgroundColor: activeGroup.color + '20' }}
+                    style={{ backgroundColor: entityColor(activeGroup.id) + '20' }}
                   >
                     {activeGroup.icon}
                   </div>
@@ -751,7 +752,7 @@ export default function TransactionsPage() {
                 <div className="flex items-center gap-3 mb-1">
                   <div
                     className="w-10 h-10 rounded-xl flex items-center justify-center text-lg"
-                    style={{ backgroundColor: activeCategory.color + '20' }}
+                    style={{ backgroundColor: entityColor(activeCategory.id) + '20' }}
                   >
                     {activeCategory.icon}
                   </div>

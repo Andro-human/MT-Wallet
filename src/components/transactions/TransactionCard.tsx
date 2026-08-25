@@ -5,6 +5,7 @@ import { ChevronRight, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatINR } from '@/lib/formatCurrency';
 import { TransactionWithCategory } from '@/types/database';
+import { entityColor } from '@/lib/categoryColors';
 
 interface TransactionCardProps {
   transaction: TransactionWithCategory;
@@ -65,8 +66,8 @@ export function TransactionCard({ transaction, onClick, index = 0, netAmount, on
           isSelected && "bg-primary border-primary text-primary-foreground ring-2 ring-primary"
         )}
         style={isSelected ? undefined : category ? {
-          borderColor: category.color ? `${category.color}40` : 'var(--border)',
-          color: category.color || 'var(--foreground)',
+          borderColor: `${entityColor(category.id)}40`,
+          color: entityColor(category.id),
         } : {
           borderColor: 'var(--border)',
         }}

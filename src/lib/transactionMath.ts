@@ -1,5 +1,5 @@
 import type { Transaction, TransactionWithCategory } from '@/types/database';
-import { FOLD_DONUT, foldTail, categoryColor } from './categoryColors';
+import { FOLD_DONUT, foldTail, paletteAt } from './categoryColors';
 
 type AnyTxn = Pick<
   Transaction,
@@ -122,11 +122,12 @@ export function categoryChartData(
       return {
         name: cat?.name ?? 'Uncategorized',
         value,
-        color: categoryColor(cat?.color),
+        color: '',
         icon: cat?.icon ?? '📦',
       };
     })
-    .sort((a, b) => b.value - a.value);
+    .sort((a, b) => b.value - a.value)
+    .map((slice, i) => ({ ...slice, color: paletteAt(i) }));
 
   return foldTail(
     ranked,

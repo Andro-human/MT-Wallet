@@ -31,6 +31,7 @@ import { BulkEditSuggestion } from '@/components/transactions/BulkEditSuggestion
 import { InlineEditableField } from '@/components/transactions/InlineEditableField';
 import { InlineSelectField } from '@/components/transactions/InlineSelectField';
 import { InlineDateField } from '@/components/transactions/InlineDateField';
+import { entityColor } from '@/lib/categoryColors';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -136,12 +137,12 @@ export default function TransactionDetailPage() {
   // Prepare options for inline selects
   const categoryOptions = useMemo(() => [
     { value: 'none', label: 'No category' },
-    ...categories.map(c => ({ value: c.id, label: c.name, icon: c.icon, color: c.color }))
+    ...categories.map(c => ({ value: c.id, label: c.name, icon: c.icon, color: entityColor(c.id) }))
   ], [categories]);
 
   const groupOptions = useMemo(() => [
     { value: 'none', label: 'No group' },
-    ...groups.map(g => ({ value: g.id, label: g.name, icon: g.icon, color: g.color }))
+    ...groups.map(g => ({ value: g.id, label: g.name, icon: g.icon, color: entityColor(g.id) }))
   ], [groups]);
 
   const bankAccountOptions = useMemo(
@@ -459,8 +460,8 @@ export default function TransactionDetailPage() {
               <div
                 className="w-12 h-12 flex items-center justify-center rounded-xl text-xl"
                 style={{
-                  backgroundColor: `${transaction.categories.color}18`,
-                  boxShadow: `0 0 0 1px ${transaction.categories.color}20 inset`,
+                  backgroundColor: `${entityColor(transaction.category_id)}18`,
+                  boxShadow: `0 0 0 1px ${entityColor(transaction.category_id)}20 inset`,
                 }}
               >
                 {transaction.categories.icon}
@@ -655,8 +656,8 @@ export default function TransactionDetailPage() {
                 <div
                   className="w-10 h-10 flex items-center justify-center rounded-xl text-base"
                   style={{
-                    backgroundColor: `${transaction.categories.color}18`,
-                    boxShadow: `0 0 0 1px ${transaction.categories.color}20 inset`,
+                    backgroundColor: `${entityColor(transaction.category_id)}18`,
+                    boxShadow: `0 0 0 1px ${entityColor(transaction.category_id)}20 inset`,
                   }}
                 >
                   {transaction.categories.icon}
@@ -717,7 +718,7 @@ export default function TransactionDetailPage() {
               {transactionGroup && (
                 <div 
                   className="w-10 h-10 rounded-xl flex items-center justify-center text-lg"
-                  style={{ backgroundColor: transactionGroup.color + '20' }}
+                  style={{ backgroundColor: entityColor(transactionGroup.id) + '20' }}
                 >
                   {transactionGroup.icon}
                 </div>

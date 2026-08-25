@@ -4,12 +4,12 @@ import { Sparkles } from 'lucide-react';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 import { useMonthlySummary, type SpendSlice } from '@/hooks/useMonthlySummary';
 import { formatINR, formatINRCompact } from '@/lib/formatCurrency';
-import { CATEGORY_PALETTE, LONG_TAIL_COLOR } from '@/lib/categoryColors';
+import { PALETTE, LONG_TAIL_COLOR } from '@/lib/categoryColors';
 import { cn } from '@/lib/utils';
 
 // Gray is the de-emphasis fill for the folded "Everything else" segment,
 // not a sixth identity.
-const SLICE_COLORS = CATEGORY_PALETTE;
+const SLICE_COLORS = PALETTE;
 const OTHER_COLOR = LONG_TAIL_COLOR;
 // A donut reads part-to-whole at a glance only up to ~6 segments; the tail
 // folds into "Everything else" while the list beside it still shows every slice.

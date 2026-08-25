@@ -6,6 +6,7 @@ import { ChevronDown, Layers, Ungroup } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatINR } from '@/lib/formatCurrency';
 import { TransactionWithCategory } from '@/types/database';
+import { entityColor } from '@/lib/categoryColors';
 
 interface CombinedTransactionCardProps {
   members: TransactionWithCategory[];
@@ -69,8 +70,8 @@ export function CombinedTransactionCard({ members, index = 0, onUngroup }: Combi
           style={
             category
               ? {
-                  borderColor: category.color ? `${category.color}40` : 'var(--border)',
-                  color: category.color || 'var(--foreground)',
+                  borderColor: `${entityColor(category.id)}40`,
+                  color: entityColor(category.id),
                 }
               : { borderColor: 'var(--border)' }
           }

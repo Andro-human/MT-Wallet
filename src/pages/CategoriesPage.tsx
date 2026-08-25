@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { EmojiPicker } from '@/components/ui/EmojiPicker';
 import { CreateCategoryDialog } from '@/components/transactions/CreateCategoryDialog';
-import { CATEGORY_PALETTE, LONG_TAIL_COLOR } from '@/lib/categoryColors';
+import { entityColor } from '@/lib/categoryColors';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -29,7 +29,6 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 
-const COLOR_OPTIONS = [...CATEGORY_PALETTE, LONG_TAIL_COLOR];
 
 export default function CategoriesPage() {
   const navigate = useNavigate();
@@ -183,8 +182,8 @@ export default function CategoriesPage() {
                   <div
                     className="w-12 h-12 rounded-xl flex items-center justify-center text-xl flex-shrink-0"
                     style={{
-                      backgroundColor: `${category.color}18`,
-                      boxShadow: `0 0 0 1px ${category.color}20 inset`,
+                      backgroundColor: `${entityColor(category.id)}18`,
+                      boxShadow: `0 0 0 1px ${entityColor(category.id)}20 inset`,
                     }}
                   >
                     {category.icon}
@@ -310,23 +309,6 @@ export default function CategoriesPage() {
               </div>
             </div>
 
-            {/* Color */}
-            <div className="space-y-2">
-              <Label className="text-sm text-muted-foreground">Color</Label>
-              <div className="flex flex-wrap gap-2">
-                {COLOR_OPTIONS.map((c) => (
-                  <button
-                    key={c}
-                    type="button"
-                    onClick={() => setEditColor(c)}
-                    className={`w-8 h-8 rounded-full transition-all ${
-                      editColor === c ? 'ring-2 ring-offset-2 ring-offset-background ring-primary' : ''
-                    }`}
-                    style={{ backgroundColor: c }}
-                  />
-                ))}
-              </div>
-            </div>
 
             {/* Preview */}
             <div className="p-4 rounded-xl bg-muted/20 border border-border/30">
@@ -335,8 +317,8 @@ export default function CategoriesPage() {
                 <div
                   className="w-10 h-10 rounded-xl flex items-center justify-center text-lg"
                   style={{
-                    backgroundColor: `${editColor}18`,
-                    boxShadow: `0 0 0 1px ${editColor}20 inset`,
+                    backgroundColor: `${entityColor(editDialog.category?.id)}18`,
+                    boxShadow: `0 0 0 1px ${entityColor(editDialog.category?.id)}20 inset`,
                   }}
                 >
                   {editIcon}

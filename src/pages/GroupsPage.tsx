@@ -25,6 +25,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { CreateGroupDialog } from '@/components/transactions/CreateGroupDialog';
+import { entityColor } from '@/lib/categoryColors';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -163,8 +164,8 @@ export default function GroupsPage() {
                   <div
                     className="w-12 h-12 rounded-xl flex items-center justify-center text-xl flex-shrink-0"
                     style={{
-                      backgroundColor: `${group.color}18`,
-                      boxShadow: `0 0 0 1px ${group.color}20 inset`,
+                      backgroundColor: `${entityColor(group.id)}18`,
+                      boxShadow: `0 0 0 1px ${entityColor(group.id)}20 inset`,
                     }}
                   >
                     {group.icon}

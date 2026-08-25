@@ -16,9 +16,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { EmojiPicker } from '@/components/ui/EmojiPicker';
-import { CATEGORY_PALETTE, LONG_TAIL_COLOR } from '@/lib/categoryColors';
+import { PALETTE } from '@/lib/categoryColors';
 
-const COLOR_OPTIONS = [...CATEGORY_PALETTE, LONG_TAIL_COLOR];
 
 interface CreateGroupDialogProps {
   open: boolean;
@@ -43,7 +42,7 @@ export function CreateGroupDialog({
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [icon, setIcon] = useState('📁');
-  const [color, setColor] = useState<string>(CATEGORY_PALETTE[0]);
+  const [color, setColor] = useState<string>(PALETTE[0]);
 
   useEffect(() => {
     if (!open) return;
@@ -56,7 +55,7 @@ export function CreateGroupDialog({
       setName('');
       setDescription('');
       setIcon('📁');
-      setColor(CATEGORY_PALETTE[0]);
+      setColor(PALETTE[0]);
     }
   }, [open, initialGroup]);
 
@@ -137,22 +136,6 @@ export function CreateGroupDialog({
             <EmojiPicker value={icon} onChange={setIcon} />
           </div>
 
-          <div className="space-y-2">
-            <Label className="text-sm text-muted-foreground">Color</Label>
-            <div className="flex flex-wrap gap-2">
-              {COLOR_OPTIONS.map((c) => (
-                <button
-                  key={c}
-                  type="button"
-                  onClick={() => setColor(c)}
-                  className={`w-8 h-8 rounded-full transition-all ${
-                    color === c ? 'ring-2 ring-offset-2 ring-offset-background ring-primary' : ''
-                  }`}
-                  style={{ backgroundColor: c }}
-                />
-              ))}
-            </div>
-          </div>
         </div>
 
         <div className="flex gap-3 pt-2">
