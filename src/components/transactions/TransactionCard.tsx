@@ -26,6 +26,7 @@ interface TransactionCardProps {
 
 export function TransactionCard({ transaction, onClick, index = 0, netAmount, onSwipeApprove, bankDisplay, onIconSelect, isSelected }: TransactionCardProps) {
   const isCredit = transaction.direction === 'credit';
+  const note = transaction.notes?.trim() || '';
   const category = transaction.categories;
   const needsReview = (transaction as any).needs_review;
   const swipeEnabled = !!onSwipeApprove && needsReview;
@@ -81,21 +82,26 @@ export function TransactionCard({ transaction, onClick, index = 0, netAmount, on
         </div>
       )}
 
+      {/* The note the user wrote is the row. Merchant, time and account are how
+          it got recorded, which is metadata, so they sit under it muted. Rows
+          with no note fall back to the merchant so the line is never empty. */}
       <div className="flex-1 min-w-0">
-        <h4 className={cn(
-          "font-medium truncate text-sm font-sans",
-          isNotCounted ? "text-muted-foreground line-through" : "text-foreground"
+        <p className={cn(
+          'text-sm leading-snug line-clamp-2',
+          note ? 'font-normal' : 'font-medium',
+          isNotCounted ? 'text-muted-foreground line-through' : 'text-foreground',
         )}>
-          {transaction.merchant || 'Unknown'}
-        </h4>
-        <p className="text-[10px] uppercase tracking-wide text-muted-foreground mt-0.5 font-mono">
-          {format(new Date(transaction.transacted_at), 'MMM d • HH:mm')}
+          {note || transaction.merchant || 'Unknown'}
         </p>
-        {transaction.notes && (
-          <p className="text-xs text-muted-foreground/60 mt-0.5 truncate">
-            {transaction.notes}
-          </p>
-        )}
+        <p className="mt-1 text-2xs font-mono uppercase tracking-wide text-muted-foreground/70 truncate">
+          {[
+            note ? transaction.merchant || 'Unknown' : null,
+            format(new Date(transaction.transacted_at), 'HH:mm'),
+            bankDisplay,
+          ]
+            .filter(Boolean)
+            .join('  ·  ')}
+        </p>
       </div>
 
       <div className="flex items-center gap-3">
@@ -115,11 +121,6 @@ export function TransactionCard({ transaction, onClick, index = 0, netAmount, on
           {hasRefund && !isNotCounted && (
             <p className="text-[10px] text-muted-foreground line-through font-mono">
               ₹{formatINR(transaction.amount).replace('₹', '')}
-            </p>
-          )}
-          {bankDisplay && (
-            <p className="text-[10px] text-muted-foreground/70 font-mono mt-0.5 max-w-[120px] truncate">
-              {bankDisplay}
             </p>
           )}
         </div>
