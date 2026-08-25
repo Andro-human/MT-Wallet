@@ -1,5 +1,5 @@
 import type { Transaction, TransactionWithCategory } from '@/types/database';
-import { FOLD_DONUT, foldTail, paletteAt } from './categoryColors';
+import { FOLD_DONUT, foldTail, assignColors } from './categoryColors';
 
 type AnyTxn = Pick<
   Transaction,
@@ -116,18 +116,22 @@ export function categoryChartData(
   const byCat = spentByCategory(txns, refundTotals, duplicateExcludeIds);
   const catMap = new Map(categories.map((c) => [c.id, c]));
 
-  const ranked = Object.entries(byCat)
-    .map(([catId, value]) => {
-      const cat = catMap.get(catId);
-      return {
-        name: cat?.name ?? 'Uncategorized',
-        value,
-        color: '',
-        icon: cat?.icon ?? '📦',
-      };
-    })
-    .sort((a, b) => b.value - a.value)
-    .map((slice, i) => ({ ...slice, color: paletteAt(i) }));
+  const sorted = Object.entries(byCat)
+    .map(([catId, value]) => ({
+      catId,
+      value,
+      name: catMap.get(catId)?.name ?? 'Uncategorized',
+      icon: catMap.get(catId)?.icon ?? '📦',
+    }))
+    .sort((a, b) => b.value - a.value);
+
+  const colors = assignColors(sorted.map((s) => s.catId));
+  const ranked = sorted.map(({ catId, value, name, icon }) => ({
+    name,
+    value,
+    icon,
+    color: colors.get(catId)!,
+  }));
 
   return foldTail(
     ranked,

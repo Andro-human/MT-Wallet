@@ -19,7 +19,7 @@ import {
   filterOutDuplicates,
 } from '@/lib/transactionMath';
 import { formatINR, formatINRCompact } from '@/lib/formatCurrency';
-import { LONG_TAIL_COLOR, FOLD_STACK, FOLD_LABEL, paletteAt } from '@/lib/categoryColors';
+import { LONG_TAIL_COLOR, FOLD_STACK, FOLD_LABEL, assignColors } from '@/lib/categoryColors';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -224,8 +224,9 @@ export default function InsightsPage() {
       });
     }
 
-    return items
-      .sort((a, b) => b.amount - a.amount);
+    const sorted = items.sort((a, b) => b.amount - a.amount);
+    const colors = assignColors(sorted.map(i => i.linkId));
+    return sorted.map(item => ({ ...item, color: colors.get(item.linkId)! }));
   }, [transactions, groups, categories, netAmount]);
 
   // A stacked bar stops being readable past ~10 segments, so the trend keeps the
@@ -299,7 +300,7 @@ export default function InsightsPage() {
         const catId = t.category_id || 'uncategorized';
         sums[catId] = (sums[catId] || 0) + netAmount(t);
       });
-    return Object.entries(sums)
+    const sorted = Object.entries(sums)
       .map(([catId, amount]) => {
         const c = categories.find(x => x.id === catId);
         return {
@@ -312,8 +313,9 @@ export default function InsightsPage() {
           type: 'category' as const,
         };
       })
-      .sort((a, b) => b.amount - a.amount)
-      .map((item, i) => ({ ...item, color: paletteAt(i) }));
+      .sort((a, b) => b.amount - a.amount);
+    const colors = assignColors(sorted.map(i => i.linkId));
+    return sorted.map(item => ({ ...item, color: colors.get(item.linkId)! }));
   }, [transactions, categories, netAmount]);
 
   // Pure group breakdown.
@@ -324,7 +326,7 @@ export default function InsightsPage() {
       .forEach(t => {
         sums[t.group_id!] = (sums[t.group_id!] || 0) + netAmount(t);
       });
-    return Object.entries(sums)
+    const sorted = Object.entries(sums)
       .map(([gid, amount]) => {
         const g = groups.find(x => x.id === gid);
         return {
@@ -337,8 +339,9 @@ export default function InsightsPage() {
           type: 'group' as const,
         };
       })
-      .sort((a, b) => b.amount - a.amount)
-      .map((item, i) => ({ ...item, color: paletteAt(i) }));
+      .sort((a, b) => b.amount - a.amount);
+    const colors = assignColors(sorted.map(i => i.linkId));
+    return sorted.map(item => ({ ...item, color: colors.get(item.linkId)! }));
   }, [transactions, groups, netAmount]);
 
   // Raw (bank_name, account_last4) -> resolved account (nickname-aware, alias-aware).

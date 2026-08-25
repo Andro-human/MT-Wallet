@@ -22,6 +22,14 @@ export const PALETTE = [
   '#4FC79A', // jade
   '#E8B14D', // amber
   '#C98FE8', // lilac
+  '#5AC8A0', // seafoam
+  '#FF9F7A', // coral
+  '#8FC4FF', // powder
+  '#D4C25A', // brass
+  '#B87FE8', // violet
+  '#4FBFD9', // cerulean
+  '#E8845A', // rust
+  '#9FD97F', // pistachio
 ] as const;
 
 export const LONG_TAIL_COLOR = '#8E8574';
@@ -33,20 +41,42 @@ export const FOLD_LABEL = 'Everything else';
 export const FOLD_DONUT = 8;
 export const FOLD_STACK = 10;
 
-// Ranked views: position in the sorted list. Distinct for the first
-// PALETTE.length entries, which is well past any fold threshold.
-export function paletteAt(index: number): string {
-  return PALETTE[index % PALETTE.length];
+// djb2 over the key, so a given category or group always prefers the same slot.
+function hashIndex(key: string): number {
+  let h = 5381;
+  for (let i = 0; i < key.length; i++) h = ((h << 5) + h + key.charCodeAt(i)) | 0;
+  return Math.abs(h) % PALETTE.length;
 }
 
-// Single chips have no ranking context, so hash the id instead. Stable for a
-// given entity forever, and a brand new category or group is coloured on
-// creation with no seeding.
-export function entityColor(id: string | null | undefined): string {
-  if (!id) return LONG_TAIL_COLOR;
-  let h = 5381;
-  for (let i = 0; i < id.length; i++) h = ((h << 5) + h + id.charCodeAt(i)) | 0;
-  return paletteAt(Math.abs(h));
+// Context-free surfaces (a chip on a transaction row) take the hashed slot
+// directly: there is no view to deduplicate against.
+export function entityColor(key: string | null | undefined): string {
+  return key ? PALETTE[hashIndex(key)] : LONG_TAIL_COLOR;
+}
+
+// Every key hashes to a preferred slot; when two collide the slot is settled by
+// linear probing in CANONICAL KEY ORDER, never in rank order. So the result
+// depends only on WHICH entities are in the view, not how they are sorted —
+// re-sorting, or viewing the same categories over a different month, yields the
+// same colours, while two slices in one chart can never come out identical.
+//
+// A small palette cannot give both absolute global stability and guaranteed
+// in-view distinctness. This trades the former: if the SET changes (a category
+// appears or drops out) a colliding pair may swap slots. Distinctness within a
+// chart is never traded, because two identical slices is the bug this exists to
+// prevent.
+export function assignColors(keys: string[]): Map<string, string> {
+  const used = new Set<number>();
+  const out = new Map<string, string>();
+  for (const key of [...keys].sort()) {
+    let slot = hashIndex(key);
+    if (used.size < PALETTE.length) {
+      while (used.has(slot)) slot = (slot + 1) % PALETTE.length;
+      used.add(slot);
+    }
+    out.set(key, PALETTE[slot]);
+  }
+  return out;
 }
 
 // Keeps the highest `max` items as-is and sums the rest into one folded entry.
