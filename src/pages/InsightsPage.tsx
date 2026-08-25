@@ -254,7 +254,8 @@ export default function InsightsPage() {
     monthIntervals.forEach(d => {
       const key = format(d, 'yyyy-MM');
       const label = format(d, "MMM''yy");
-      months[key] = { label, rawDate: d, expense: 0, income: 0 };
+      // otherDetail keeps what the fold swallowed, so the tooltip can open it up
+      months[key] = { label, rawDate: d, expense: 0, income: 0, otherDetail: {} as Record<string, number> };
 
       // Initialize breakdown columns
       if (chartMode === 'combined') {
@@ -268,6 +269,11 @@ export default function InsightsPage() {
       }
     });
 
+    const nameOf = new Map<string, string>([
+      ...groups.map(g => [`group_${g.id}`, g.name] as [string, string]),
+      ...categories.map(c => [`cat_${c.id}`, c.name] as [string, string]),
+    ]);
+
     transactions.forEach(t => {
       const key = format(new Date(t.transacted_at), 'yyyy-MM');
       if (!months[key]) return;
@@ -277,8 +283,13 @@ export default function InsightsPage() {
 
         if (chartMode === 'combined') {
           const segKey = t.group_id ? `group_${t.group_id}` : `cat_${t.category_id || 'uncategorized'}`;
-          const bucket = keptSegKeys.has(segKey) ? segKey : 'seg_other';
+          const kept = keptSegKeys.has(segKey);
+          const bucket = kept ? segKey : 'seg_other';
           months[key][bucket] = (months[key][bucket] || 0) + netAmount(t);
+          if (!kept) {
+            const name = nameOf.get(segKey) || 'Uncategorized';
+            months[key].otherDetail[name] = (months[key].otherDetail[name] || 0) + netAmount(t);
+          }
         }
       }
       if (t.is_income) {
@@ -287,7 +298,7 @@ export default function InsightsPage() {
     });
 
     return Object.values(months);
-  }, [transactions, dateRange, chartMode, activeGroups, activeCategories, keptSegKeys, netAmount, refundAllocations]);
+  }, [transactions, dateRange, chartMode, activeGroups, activeCategories, keptSegKeys, groups, categories, netAmount, refundAllocations]);
 
 
   // Pure category breakdown — ALL expense (grouped included). Drilling into a slice
@@ -598,6 +609,13 @@ export default function InsightsPage() {
         .sort((a: any, b: any) => b.value - a.value);
       // expense is on the datum whether or not it is drawn as its own bar
       const totalOut = payload[0].payload.expense;
+      // a recharts tooltip cannot be hovered, so the fold opens inline
+      const OTHER_ROWS = 6;
+      const otherDetail: [string, number][] = Object.entries(
+        (payload[0].payload.otherDetail || {}) as Record<string, number>,
+      ).sort((a, b) => b[1] - a[1]);
+      const otherShown = otherDetail.slice(0, OTHER_ROWS);
+      const otherRest = otherDetail.slice(OTHER_ROWS);
 
       return (
         <div className="bg-background border border-border p-3 shadow-2xl">
@@ -629,9 +647,27 @@ export default function InsightsPage() {
               color = LONG_TAIL_COLOR;
             }
             return (
-              <div key={p.dataKey} className="flex justify-between gap-4 text-xs font-mono">
-                <span style={{ color }}>{label.toUpperCase()}</span>
-                <span className="text-foreground">{formatINR(p.value)}</span>
+              <div key={p.dataKey}>
+                <div className="flex justify-between gap-4 text-xs font-mono">
+                  <span style={{ color }}>{label.toUpperCase()}</span>
+                  <span className="text-foreground">{formatINR(p.value)}</span>
+                </div>
+                {p.dataKey === 'seg_other' && otherShown.length > 0 && (
+                  <div className="mt-0.5 mb-1 ml-3 pl-2 border-l border-border/60 space-y-0.5">
+                    {otherShown.map(([name, amount]) => (
+                      <div key={name} className="flex justify-between gap-4 text-2xs font-mono text-muted-foreground">
+                        <span className="truncate max-w-[13rem]">{name}</span>
+                        <span>{formatINR(amount)}</span>
+                      </div>
+                    ))}
+                    {otherRest.length > 0 && (
+                      <div className="flex justify-between gap-4 text-2xs font-mono text-muted-foreground/60">
+                        <span>+{otherRest.length} more</span>
+                        <span>{formatINR(otherRest.reduce((sum, [, a]) => sum + a, 0))}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             );
           })}
