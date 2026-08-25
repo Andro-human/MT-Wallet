@@ -33,45 +33,54 @@ export function DayLedger({ days, bankDisplayMap, netAmountFor, summaries = {} }
             transition={{ delay: Math.min(i * 0.015, 0.3) }}
             className="border-b border-border/60 last:border-b-0"
           >
-            <button
-              type="button"
+            <div
+              role="button"
+              tabIndex={0}
               onClick={() => setOpen(isOpen ? null : day.key)}
-              className="w-full flex items-center gap-3 py-3 px-1 text-left hover:bg-muted/20 transition-colors"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  setOpen(isOpen ? null : day.key);
+                }
+              }}
+              className="group w-full cursor-pointer px-1 pt-3 pb-2.5 text-left transition-colors hover:bg-muted/20"
             >
-              <span
-                className={cn(
-                  'font-heading italic text-xs w-16 shrink-0',
-                  day.weekend ? 'text-gold' : 'text-muted-foreground',
-                )}
-              >
-                {day.folio}
-              </span>
+              <div className="flex items-center gap-3">
+                <span
+                  className={cn(
+                    'font-heading italic text-xs w-16 shrink-0',
+                    day.weekend ? 'text-gold' : 'text-muted-foreground',
+                  )}
+                >
+                  {day.folio}
+                </span>
 
-              <span className="flex-1 flex items-center gap-px h-2 min-w-0">
-                {day.segments.map((seg) => (
-                  <span
-                    key={seg.categoryId}
-                    title={`${seg.name} ${formatINR(seg.value)}`}
-                    className="h-2 rounded-sm"
-                    style={{
-                      backgroundColor: seg.color,
-                      width: `${Math.max((seg.value / heaviest) * 100, 0.8)}%`,
-                    }}
-                  />
-                ))}
-                {isToday(day.date) && <span className="h-3 w-px bg-primary ml-1 shrink-0" />}
-              </span>
+                <span className="flex-1 flex items-center gap-px h-2 min-w-0">
+                  {day.segments.map((seg) => (
+                    <span
+                      key={seg.categoryId}
+                      title={`${seg.name} ${formatINR(seg.value)}`}
+                      className="h-2 rounded-sm"
+                      style={{
+                        backgroundColor: seg.color,
+                        width: `${Math.max((seg.value / heaviest) * 100, 0.8)}%`,
+                      }}
+                    />
+                  ))}
+                  {isToday(day.date) && <span className="h-3 w-px bg-primary ml-1 shrink-0" />}
+                </span>
 
-              <span className="amount text-xs w-20 text-right shrink-0">
-                {day.spent > 0 ? formatINR(day.spent) : '—'}
-              </span>
-            </button>
+                <span className="amount text-xs w-20 text-right shrink-0">
+                  {day.spent > 0 ? formatINR(day.spent) : '—'}
+                </span>
+              </div>
 
-            {summaries[day.key] && (
-              <p className="pl-[4.75rem] pr-1 -mt-1.5 pb-2.5 text-2xs text-muted-foreground/85 leading-relaxed">
-                {summaries[day.key]}
-              </p>
-            )}
+              {summaries[day.key] && (
+                <p className="pl-[4.75rem] pr-1 mt-1 text-2xs leading-relaxed text-muted-foreground/75 transition-colors group-hover:text-muted-foreground">
+                  {summaries[day.key]}
+                </p>
+              )}
+            </div>
 
             {isOpen && (
               <div className="pb-2">
