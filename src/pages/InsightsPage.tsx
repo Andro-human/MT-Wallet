@@ -19,7 +19,7 @@ import {
   filterOutDuplicates,
 } from '@/lib/transactionMath';
 import { formatINR, formatINRCompact } from '@/lib/formatCurrency';
-import { CATEGORY_PALETTE, LONG_TAIL_COLOR } from '@/lib/categoryColors';
+import { LONG_TAIL_COLOR, cappedColor } from '@/lib/categoryColors';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -270,7 +270,9 @@ export default function InsightsPage() {
       });
     }
 
-    return items.sort((a, b) => b.amount - a.amount);
+    return items
+      .sort((a, b) => b.amount - a.amount)
+      .map((item, i) => ({ ...item, color: cappedColor(i, item.color) }));
   }, [transactions, groups, categories, netAmount]);
 
   // Pure category breakdown — ALL expense (grouped included). Drilling into a slice
@@ -296,7 +298,8 @@ export default function InsightsPage() {
           type: 'category' as const,
         };
       })
-      .sort((a, b) => b.amount - a.amount);
+      .sort((a, b) => b.amount - a.amount)
+      .map((item, i) => ({ ...item, color: cappedColor(i, item.color) }));
   }, [transactions, categories, netAmount]);
 
   // Pure group breakdown.
@@ -320,7 +323,8 @@ export default function InsightsPage() {
           type: 'group' as const,
         };
       })
-      .sort((a, b) => b.amount - a.amount);
+      .sort((a, b) => b.amount - a.amount)
+      .map((item, i) => ({ ...item, color: cappedColor(i, item.color) }));
   }, [transactions, groups, netAmount]);
 
   // Raw (bank_name, account_last4) -> resolved account (nickname-aware, alias-aware).
@@ -566,7 +570,6 @@ export default function InsightsPage() {
     }
   }, [timeRange, customStart, customEnd, dateRange]);
 
-  const GROUP_COLORS = [...CATEGORY_PALETTE, LONG_TAIL_COLOR];
 
   const CustomTooltip = ({ active, payload }: any) => {
     if (active && payload && payload.length) {
@@ -853,17 +856,14 @@ export default function InsightsPage() {
                     ) : (
                       <>
                         {(() => {
-                          // Stack order + colour follow the Allocation list (spend desc).
-                          const groupColor = new Map<string, string>();
-                          activeGroups.forEach((g, i) =>
-                            groupColor.set(g.id, GROUP_COLORS[i % GROUP_COLORS.length]),
-                          );
+                          // Stack order + colour follow the Allocation list (spend desc),
+                          // which already applies the eight-colour cap per view.
                           return allocationBreakdown.map(item => (
                             <Bar
                               key={item.id}
                               dataKey={item.type === 'group' ? `group_${item.linkId}` : `cat_${item.linkId}`}
                               stackId="combined"
-                              fill={item.type === 'group' ? (groupColor.get(item.linkId) || GROUP_COLORS[0]) : item.color}
+                              fill={item.color}
                               maxBarSize={50}
                               radius={[0, 0, 0, 0]}
                             />

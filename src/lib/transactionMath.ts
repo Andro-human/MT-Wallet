@@ -1,4 +1,5 @@
 import type { Transaction, TransactionWithCategory } from '@/types/database';
+import { cappedColor } from './categoryColors';
 
 type AnyTxn = Pick<
   Transaction,
@@ -126,7 +127,8 @@ export function categoryChartData(
       };
     })
     .sort((a, b) => b.value - a.value)
-    .slice(0, topN);
+    .slice(0, topN)
+    .map((slice, i) => ({ ...slice, color: cappedColor(i, slice.color) }));
 }
 
 export function filterOutDuplicates<T extends { id: string }>(
