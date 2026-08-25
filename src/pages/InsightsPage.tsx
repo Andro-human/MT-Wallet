@@ -172,6 +172,62 @@ export default function InsightsPage() {
     });
   }, [transactions, categories]);
 
+  // Unified allocation: each group is one slice; categories cover only UNGROUPED
+  // transactions. Groups + ungrouped categories = 100% of spend, no double counting.
+  const allocationBreakdown = useMemo(() => {
+    const items: {
+      id: string;
+      linkId: string;
+      name: string;
+      icon: string;
+      color: string;
+      amount: number;
+      type: 'group' | 'category';
+    }[] = [];
+
+    const groupSums: Record<string, number> = {};
+    transactions
+      .filter(t => t.is_expense && t.group_id)
+      .forEach(t => {
+        groupSums[t.group_id!] = (groupSums[t.group_id!] || 0) + netAmount(t);
+      });
+    for (const [groupId, amount] of Object.entries(groupSums)) {
+      const group = groups.find(g => g.id === groupId);
+      items.push({
+        id: `group_${groupId}`,
+        linkId: groupId,
+        name: group?.name || 'Unknown Group',
+        icon: group?.icon || '📁',
+        color: group?.color || LONG_TAIL_COLOR,
+        amount,
+        type: 'group',
+      });
+    }
+
+    const catSums: Record<string, number> = {};
+    transactions
+      .filter(t => t.is_expense && !t.group_id)
+      .forEach(t => {
+        const catId = t.category_id || 'uncategorized';
+        catSums[catId] = (catSums[catId] || 0) + netAmount(t);
+      });
+    for (const [catId, amount] of Object.entries(catSums)) {
+      const category = categories.find(c => c.id === catId);
+      items.push({
+        id: `cat_${catId}`,
+        linkId: catId,
+        name: category?.name || 'Uncategorized',
+        icon: category?.icon || '📦',
+        color: category?.color || LONG_TAIL_COLOR,
+        amount,
+        type: 'category',
+      });
+    }
+
+    return items
+      .sort((a, b) => b.amount - a.amount);
+  }, [transactions, groups, categories, netAmount]);
+
   // A stacked bar stops being readable past ~10 segments, so the trend keeps the
   // biggest segments across the whole range and folds the rest into one series.
   // Membership is computed over the full range, not per month, so a series never
@@ -232,61 +288,6 @@ export default function InsightsPage() {
     return Object.values(months);
   }, [transactions, dateRange, chartMode, activeGroups, activeCategories, keptSegKeys, netAmount, refundAllocations]);
 
-  // Unified allocation: each group is one slice; categories cover only UNGROUPED
-  // transactions. Groups + ungrouped categories = 100% of spend, no double counting.
-  const allocationBreakdown = useMemo(() => {
-    const items: {
-      id: string;
-      linkId: string;
-      name: string;
-      icon: string;
-      color: string;
-      amount: number;
-      type: 'group' | 'category';
-    }[] = [];
-
-    const groupSums: Record<string, number> = {};
-    transactions
-      .filter(t => t.is_expense && t.group_id)
-      .forEach(t => {
-        groupSums[t.group_id!] = (groupSums[t.group_id!] || 0) + netAmount(t);
-      });
-    for (const [groupId, amount] of Object.entries(groupSums)) {
-      const group = groups.find(g => g.id === groupId);
-      items.push({
-        id: `group_${groupId}`,
-        linkId: groupId,
-        name: group?.name || 'Unknown Group',
-        icon: group?.icon || '📁',
-        color: group?.color || LONG_TAIL_COLOR,
-        amount,
-        type: 'group',
-      });
-    }
-
-    const catSums: Record<string, number> = {};
-    transactions
-      .filter(t => t.is_expense && !t.group_id)
-      .forEach(t => {
-        const catId = t.category_id || 'uncategorized';
-        catSums[catId] = (catSums[catId] || 0) + netAmount(t);
-      });
-    for (const [catId, amount] of Object.entries(catSums)) {
-      const category = categories.find(c => c.id === catId);
-      items.push({
-        id: `cat_${catId}`,
-        linkId: catId,
-        name: category?.name || 'Uncategorized',
-        icon: category?.icon || '📦',
-        color: category?.color || LONG_TAIL_COLOR,
-        amount,
-        type: 'category',
-      });
-    }
-
-    return items
-      .sort((a, b) => b.amount - a.amount);
-  }, [transactions, groups, categories, netAmount]);
 
   // Pure category breakdown — ALL expense (grouped included). Drilling into a slice
   // here shows every transaction in that category, so the numbers match.
