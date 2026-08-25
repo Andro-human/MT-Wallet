@@ -1,17 +1,22 @@
--- Stable per-category identity colours (DESIGN.md, revised 2026-08-25).
+-- Stable per-category identity colours (DESIGN.md).
 --
--- Every category owns a permanent colour. The eight-colour cap is NOT enforced
--- here: it is a RENDERING decision made per view, so the categories that lead
--- spending in whatever range you are looking at light up and the rest grey out.
--- Freezing membership in the database made off-peak months render their own
--- biggest slices grey, which is the opposite of useful.
+-- Every category owns a permanent colour, used on every surface that has room
+-- for it: ranked lists, chips, dropdowns, filter pills. No category is ever
+-- greyed out for being small -- greying a tail makes distinct categories
+-- indistinguishable rather than decluttering anything.
 --
--- Hues are spaced around the wheel with alternating lightness so any eight shown
--- together stay distinguishable. Income categories (Salary, Credit, Refund) sit
--- in the gold family per the income-is-gold rule. Unknown stays near-neutral: it
--- is a data-quality bucket, not a category.
+-- The only real limit is chart geometry, and that is handled in the render layer
+-- (foldTail in src/lib/categoryColors.ts): the Home donut keeps 8 slices and the
+-- monthly trend keeps 10 segments, each folding the remainder into ONE aggregated
+-- 'Everything else' entry. Nothing about that lives in this table.
 --
--- Run as service role: 15 rows are is_system with user_id IS NULL.
+-- Hues are spaced around the wheel with alternating lightness so any subset shown
+-- together stays distinguishable. Income categories (Salary, Credit, Refund) sit
+-- in the gold family per the income-is-gold rule. Unknown is held near-neutral:
+-- it is a data-quality bucket, not a category.
+--
+-- Run as service role: 15 of the 27 rows are is_system with user_id IS NULL, and
+-- RLS silently drops writes to those from the authenticated path.
 
 BEGIN;
 
