@@ -119,6 +119,18 @@ export default function InsightsPage() {
 
   const { data: allTransactions = [], isLoading: txnsLoading } = useTransactions(dateRange);
 
+  // The same span immediately before the one on screen, so every row can say
+  // whether it is heavier or lighter than usual. A number with nothing to
+  // compare it to cannot answer "is that a lot".
+  const prevRange = useMemo(() => {
+    const start = dateRange.startDate;
+    const end = dateRange.endDate;
+    const span = end.getTime() - start.getTime();
+    return { startDate: new Date(start.getTime() - span - 1), endDate: new Date(start.getTime() - 1) };
+  }, [dateRange]);
+
+  const { data: prevTransactions = [] } = useTransactions(prevRange);
+
   const { refundTotals, refundAllocations, duplicateExcludeIds, isReady: contextReady } = useFinanceContext();
   const [expandedAlloc, setExpandedAlloc] = useState<string | null>(null);
   const TOP_TXNS_PAGE = 8;
@@ -144,6 +156,35 @@ export default function InsightsPage() {
   }, [allTransactions, excludedGroups, duplicateExcludeIds]);
 
   const hasAdvancedFilters = excludedGroups.size > 0;
+
+  const prevTotals = useMemo(() => {
+    const acc: Record<string, number> = {};
+    for (const t of filterOutDuplicates(prevTransactions, duplicateExcludeIds)) {
+      if (!t.is_expense) continue;
+      const value = computeNetAmount(t as any, refundTotals);
+      if (value <= 0) continue;
+      const key = t.group_id ? `group_${t.group_id}` : `cat_${t.category_id || 'uncategorized'}`;
+      acc[key] = (acc[key] || 0) + value;
+      // categories tab counts a grouped txn under its category too
+      if (t.group_id) {
+        const ck = `cat_${t.category_id || 'uncategorized'}`;
+        acc[ck] = (acc[ck] || 0) + value;
+      }
+    }
+    return acc;
+  }, [prevTransactions, duplicateExcludeIds, refundTotals]);
+
+  // Muted on purpose: a delta is information, not a verdict (DESIGN.md).
+  const deltaFor = useCallback(
+    (item: { id: string; amount: number }): string | null => {
+      const prev = prevTotals[item.id];
+      if (!prev) return item.amount > 0 ? 'new' : null;
+      const change = ((item.amount - prev) / prev) * 100;
+      if (Math.abs(change) < 1) return 'flat';
+      return `${change > 0 ? '+' : '−'}${Math.abs(change).toFixed(0)}%`;
+    },
+    [prevTotals],
+  );
 
   // ─── Chart Data ────────────────────────────────────────────────────────────
 
@@ -1024,6 +1065,14 @@ export default function InsightsPage() {
                             </span>
                           </span>
                           <span className="font-mono text-foreground font-medium flex items-center gap-1.5">
+                            {(() => {
+                              const d = deltaFor(item);
+                              return d ? (
+                                <span className="text-2xs text-muted-foreground/60 mr-1.5 normal-case tracking-normal">
+                                  {d}
+                                </span>
+                              ) : null;
+                            })()}
                             {percentage.toFixed(0)}% <span className="text-muted-foreground mx-1">/</span> {formatINRCompact(item.amount)}
                             <button
                               onClick={(e) => {
@@ -1049,7 +1098,8 @@ export default function InsightsPage() {
                             initial={{ width: 0 }}
                             animate={{ width: `${percentage}%` }}
                             transition={{ delay: 0.2, duration: 0.5 }}
-                            className="h-full bg-foreground group-hover:bg-primary transition-colors rounded-full"
+                            className="h-full rounded-full"
+                            style={{ backgroundColor: item.color }}
                           />
                         </div>
                       </div>
