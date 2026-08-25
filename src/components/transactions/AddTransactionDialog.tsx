@@ -132,7 +132,6 @@ export function AddTransactionDialog({ open, onOpenChange, smsContext }: AddTran
       }
       return ranked.sort((a, b) => b.total - a.total).map((r) => r.display);
     },
-    enabled: !!user,
   });
 
   const filteredMerchants = useMemo(() => {
