@@ -19,7 +19,7 @@ import {
   filterOutDuplicates,
 } from '@/lib/transactionMath';
 import { formatINR, formatINRCompact } from '@/lib/formatCurrency';
-import { LONG_TAIL_COLOR, cappedColor } from '@/lib/categoryColors';
+import { LONG_TAIL_COLOR, FOLD_STACK, FOLD_LABEL } from '@/lib/categoryColors';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -172,6 +172,20 @@ export default function InsightsPage() {
     });
   }, [transactions, categories]);
 
+  // A stacked bar stops being readable past ~10 segments, so the trend keeps the
+  // biggest segments across the whole range and folds the rest into one series.
+  // Membership is computed over the full range, not per month, so a series never
+  // changes colour mid-chart.
+  const keptSegKeys = useMemo(
+    () =>
+      new Set(
+        allocationBreakdown
+          .slice(0, FOLD_STACK)
+          .map(item => (item.type === 'group' ? `group_${item.linkId}` : `cat_${item.linkId}`)),
+      ),
+    [allocationBreakdown],
+  );
+
   // Monthly trend: bars for spending, line for income (like Axio screenshot)
   const monthlyTrend = useMemo(() => {
     const start = dateRange.startDate || startOfMonth(subMonths(now, 5));
@@ -188,11 +202,12 @@ export default function InsightsPage() {
       // Initialize breakdown columns
       if (chartMode === 'combined') {
         activeGroups.forEach(g => {
-          months[key][`group_${g.id}`] = 0;
+          if (keptSegKeys.has(`group_${g.id}`)) months[key][`group_${g.id}`] = 0;
         });
         activeCategories.forEach(c => {
-          months[key][`cat_${c.id}`] = 0;
+          if (keptSegKeys.has(`cat_${c.id}`)) months[key][`cat_${c.id}`] = 0;
         });
+        months[key].seg_other = 0;
       }
     });
 
@@ -205,9 +220,8 @@ export default function InsightsPage() {
 
         if (chartMode === 'combined') {
           const segKey = t.group_id ? `group_${t.group_id}` : `cat_${t.category_id || 'uncategorized'}`;
-          if (months[key][segKey] !== undefined) {
-            months[key][segKey] += netAmount(t);
-          }
+          const bucket = keptSegKeys.has(segKey) ? segKey : 'seg_other';
+          months[key][bucket] = (months[key][bucket] || 0) + netAmount(t);
         }
       }
       if (t.is_income) {
@@ -216,7 +230,7 @@ export default function InsightsPage() {
     });
 
     return Object.values(months);
-  }, [transactions, dateRange, chartMode, activeGroups, activeCategories, netAmount, refundAllocations]);
+  }, [transactions, dateRange, chartMode, activeGroups, activeCategories, keptSegKeys, netAmount, refundAllocations]);
 
   // Unified allocation: each group is one slice; categories cover only UNGROUPED
   // transactions. Groups + ungrouped categories = 100% of spend, no double counting.
@@ -271,8 +285,7 @@ export default function InsightsPage() {
     }
 
     return items
-      .sort((a, b) => b.amount - a.amount)
-      .map((item, i) => ({ ...item, color: cappedColor(i, item.color) }));
+      .sort((a, b) => b.amount - a.amount);
   }, [transactions, groups, categories, netAmount]);
 
   // Pure category breakdown — ALL expense (grouped included). Drilling into a slice
@@ -298,8 +311,7 @@ export default function InsightsPage() {
           type: 'category' as const,
         };
       })
-      .sort((a, b) => b.amount - a.amount)
-      .map((item, i) => ({ ...item, color: cappedColor(i, item.color) }));
+      .sort((a, b) => b.amount - a.amount);
   }, [transactions, categories, netAmount]);
 
   // Pure group breakdown.
@@ -323,8 +335,7 @@ export default function InsightsPage() {
           type: 'group' as const,
         };
       })
-      .sort((a, b) => b.amount - a.amount)
-      .map((item, i) => ({ ...item, color: cappedColor(i, item.color) }));
+      .sort((a, b) => b.amount - a.amount);
   }, [transactions, groups, netAmount]);
 
   // Raw (bank_name, account_last4) -> resolved account (nickname-aware, alias-aware).
@@ -858,7 +869,8 @@ export default function InsightsPage() {
                         {(() => {
                           // Stack order + colour follow the Allocation list (spend desc),
                           // which already applies the eight-colour cap per view.
-                          return allocationBreakdown.map(item => (
+                          const folded = allocationBreakdown.length > FOLD_STACK;
+                          return allocationBreakdown.slice(0, FOLD_STACK).map(item => (
                             <Bar
                               key={item.id}
                               dataKey={item.type === 'group' ? `group_${item.linkId}` : `cat_${item.linkId}`}
@@ -867,7 +879,21 @@ export default function InsightsPage() {
                               maxBarSize={50}
                               radius={[0, 0, 0, 0]}
                             />
-                          ));
+                          )).concat(
+                            folded
+                              ? [
+                                  <Bar
+                                    key="seg_other"
+                                    dataKey="seg_other"
+                                    name={FOLD_LABEL}
+                                    stackId="combined"
+                                    fill={LONG_TAIL_COLOR}
+                                    maxBarSize={50}
+                                    radius={[0, 0, 0, 0]}
+                                  />,
+                                ]
+                              : [],
+                          );
                         })()}
                       </>
                     )}

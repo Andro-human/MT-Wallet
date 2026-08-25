@@ -1,5 +1,5 @@
 import type { Transaction, TransactionWithCategory } from '@/types/database';
-import { cappedColor } from './categoryColors';
+import { FOLD_DONUT, foldTail, categoryColor } from './categoryColors';
 
 type AnyTxn = Pick<
   Transaction,
@@ -111,24 +111,29 @@ export function categoryChartData(
   refundTotals: RefundTotalsMap,
   duplicateExcludeIds: DuplicateExcludeSet,
   categories: Array<{ id: string; name: string; color: string; icon: string }>,
-  topN: number = 6,
+  topN: number = FOLD_DONUT,
 ): CategoryChartSlice[] {
   const byCat = spentByCategory(txns, refundTotals, duplicateExcludeIds);
   const catMap = new Map(categories.map((c) => [c.id, c]));
 
-  return Object.entries(byCat)
+  const ranked = Object.entries(byCat)
     .map(([catId, value]) => {
       const cat = catMap.get(catId);
       return {
         name: cat?.name ?? 'Uncategorized',
         value,
-        color: cat?.color ?? '#9CA3AF',
+        color: categoryColor(cat?.color),
         icon: cat?.icon ?? '📦',
       };
     })
-    .sort((a, b) => b.value - a.value)
-    .slice(0, topN)
-    .map((slice, i) => ({ ...slice, color: cappedColor(i, slice.color) }));
+    .sort((a, b) => b.value - a.value);
+
+  return foldTail(
+    ranked,
+    topN,
+    (name, value, color) => ({ name, value, color, icon: '\u2026' }),
+    (slice) => slice.value,
+  );
 }
 
 export function filterOutDuplicates<T extends { id: string }>(

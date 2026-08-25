@@ -19,32 +19,26 @@ export function categoryColor(stored: string | null | undefined): string {
   return stored && stored.trim() ? stored : LONG_TAIL_COLOR;
 }
 
-export const COLOUR_CAP = 8;
+export const FOLD_LABEL = 'Everything else';
 
-// The eight-colour cap is a rendering decision, not stored data: in any ranked
-// view the leaders keep their own identity colour and the tail greys out, so
-// whichever categories dominate the range you are looking at are the ones that
-// read. Membership is per-view; the hue stays pinned to the category so the same
-// series holds its colour across a multi-month range.
-export function cappedColor(
-  rank: number,
-  storedColor: string | null | undefined,
-  cap: number = COLOUR_CAP,
-): string {
-  return rank < cap ? categoryColor(storedColor) : LONG_TAIL_COLOR;
-}
+// Geometry, not colour count, is what limits a chart. A donut dies past ~8
+// slices because the slivers get too thin to read; a stacked bar dies past ~10
+// segments. Greying the tail does not declutter it, it makes separate
+// categories indistinguishable from each other. So the tail is AGGREGATED into
+// one honest slice instead, and every category keeps its own colour everywhere
+// space allows (ranked lists, chips).
+export const FOLD_DONUT = 8;
+export const FOLD_STACK = 10;
 
-// Ranks ids by descending value, then maps each to its capped colour.
-export function rankedColors<T>(
-  items: T[],
+// Keeps the highest `max` items as-is and sums the rest into one folded entry.
+export function foldTail<T>(
+  sorted: T[],
+  max: number,
+  make: (label: string, total: number, color: string) => T,
   value: (item: T) => number,
-  key: (item: T) => string,
-  color: (item: T) => string | null | undefined,
-  cap: number = COLOUR_CAP,
-): Map<string, string> {
-  return new Map(
-    [...items]
-      .sort((a, b) => value(b) - value(a))
-      .map((item, i) => [key(item), cappedColor(i, color(item), cap)]),
-  );
+): T[] {
+  if (sorted.length <= max + 1) return sorted;
+  const kept = sorted.slice(0, max);
+  const tail = sorted.slice(max);
+  return [...kept, make(FOLD_LABEL, tail.reduce((sum, x) => sum + value(x), 0), LONG_TAIL_COLOR)];
 }
