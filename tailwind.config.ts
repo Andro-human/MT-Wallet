@@ -71,6 +71,10 @@ export default {
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
       },
+      fontSize: {
+        // used in 21 places but never defined, so it silently inherited
+        '2xs': ['0.625rem', { lineHeight: '0.9rem' }],
+      },
       fontFamily: {
         sans: ["Satoshi", "sans-serif"],
         heading: ["Fraunces", "serif"],

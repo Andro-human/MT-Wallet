@@ -121,6 +121,8 @@ export default function InsightsPage() {
 
   const { refundTotals, refundAllocations, duplicateExcludeIds, isReady: contextReady } = useFinanceContext();
   const [expandedAlloc, setExpandedAlloc] = useState<string | null>(null);
+  // which stacked segment the pointer is on, so the fold only opens on the fold
+  const [hoverSeg, setHoverSeg] = useState<string | null>(null);
   const TOP_TXNS_PAGE = 8;
   const [txnLimit, setTxnLimit] = useState(TOP_TXNS_PAGE);
   const isLoading = txnsLoading || !contextReady;
@@ -609,8 +611,10 @@ export default function InsightsPage() {
         .sort((a: any, b: any) => b.value - a.value);
       // expense is on the datum whether or not it is drawn as its own bar
       const totalOut = payload[0].payload.expense;
-      // a recharts tooltip cannot be hovered, so the fold opens inline
+      // a recharts tooltip cannot itself be hovered, so the fold opens when the
+      // pointer is on the fold's own segment rather than anywhere on the bar
       const OTHER_ROWS = 6;
+      const foldOpen = hoverSeg === 'seg_other';
       const otherDetail: [string, number][] = Object.entries(
         (payload[0].payload.otherDetail || {}) as Record<string, number>,
       ).sort((a, b) => b[1] - a[1]);
@@ -623,6 +627,7 @@ export default function InsightsPage() {
           {rows.map((p: any) => {
             let label = p.dataKey;
             let color = p.stroke || p.fill;
+            let hint = '';
 
             if (label === 'expense') {
               label = 'OUT';
@@ -645,23 +650,27 @@ export default function InsightsPage() {
             else if (label === 'seg_other') {
               label = FOLD_LABEL;
               color = LONG_TAIL_COLOR;
+              hint = otherDetail.length > 0 && !foldOpen ? `${otherDetail.length} items` : '';
             }
             return (
               <div key={p.dataKey}>
                 <div className="flex justify-between gap-4 text-xs font-mono">
-                  <span style={{ color }}>{label.toUpperCase()}</span>
+                  <span style={{ color }}>
+                    {label.toUpperCase()}
+                    {hint && <span className="ml-1.5 text-2xs text-muted-foreground/60">{hint}</span>}
+                  </span>
                   <span className="text-foreground">{formatINR(p.value)}</span>
                 </div>
-                {p.dataKey === 'seg_other' && otherShown.length > 0 && (
-                  <div className="mt-0.5 mb-1 ml-3 pl-2 border-l border-border/60 space-y-0.5">
+                {p.dataKey === 'seg_other' && foldOpen && otherShown.length > 0 && (
+                  <div className="mt-0.5 mb-1 ml-2 pl-2 border-l border-border/50 space-y-px">
                     {otherShown.map(([name, amount]) => (
-                      <div key={name} className="flex justify-between gap-4 text-2xs font-mono text-muted-foreground">
-                        <span className="truncate max-w-[13rem]">{name}</span>
+                      <div key={name} className="flex justify-between gap-3 text-2xs font-mono text-muted-foreground/80">
+                        <span className="truncate max-w-[11rem]">{name}</span>
                         <span>{formatINR(amount)}</span>
                       </div>
                     ))}
                     {otherRest.length > 0 && (
-                      <div className="flex justify-between gap-4 text-2xs font-mono text-muted-foreground/60">
+                      <div className="flex justify-between gap-3 text-2xs font-mono text-muted-foreground/50">
                         <span>+{otherRest.length} more</span>
                         <span>{formatINR(otherRest.reduce((sum, [, a]) => sum + a, 0))}</span>
                       </div>
@@ -940,6 +949,8 @@ export default function InsightsPage() {
                               fill={item.color}
                               maxBarSize={50}
                               radius={[0, 0, 0, 0]}
+                              onMouseEnter={() => setHoverSeg(null)}
+                              onClick={() => setHoverSeg(null)}
                             />
                           )).concat(
                             folded
@@ -952,6 +963,9 @@ export default function InsightsPage() {
                                     fill={LONG_TAIL_COLOR}
                                     maxBarSize={50}
                                     radius={[0, 0, 0, 0]}
+                                    className="cursor-pointer"
+                                    onMouseEnter={() => setHoverSeg('seg_other')}
+                                    onClick={() => setHoverSeg(v => (v ? null : 'seg_other'))}
                                   />,
                                 ]
                               : [],
