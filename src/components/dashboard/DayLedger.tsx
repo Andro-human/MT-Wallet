@@ -15,14 +15,40 @@ interface DayLedgerProps {
   summaries?: Record<string, string>;
 }
 
+interface SegTip {
+  name: string;
+  value: number;
+  x: number;
+  y: number;
+}
+
 export function DayLedger({ days, bankDisplayMap, netAmountFor, summaries = {} }: DayLedgerProps) {
   const [open, setOpen] = useState<string | null>(null);
+  // One shared tip in fixed position rather than a node per segment: the list
+  // scrolls inside its own box, and an absolutely positioned tip would be
+  // clipped at the box edge. Shown on mouseenter, so it is instant. The native
+  // title attribute waits about a second before appearing.
+  const [tip, setTip] = useState<SegTip | null>(null);
   // Bar length is a share of the heaviest day, so a fat weekend reads as fat
   // without any axis. Comparing days to each other is the whole point.
   const heaviest = Math.max(...days.map((d) => d.spent), 1);
 
   return (
-    <div>
+    <div className="relative">
+      {tip && (
+        <div
+          className="pointer-events-none fixed z-50 -translate-x-1/2 -translate-y-full whitespace-nowrap rounded-md border border-border bg-popover px-2.5 py-1.5 text-2xs shadow-xl"
+          style={{ left: tip.x, top: tip.y - 6 }}
+        >
+          <span className="text-muted-foreground">{tip.name}</span>
+          <span className="amount ml-2 text-foreground">{formatINR(tip.value)}</span>
+        </div>
+      )}
+
+      <div
+        className="max-h-[62vh] overflow-y-auto overscroll-contain pr-1"
+        onScroll={() => setTip(null)}
+      >
       {days.map((day, i) => {
         const isOpen = open === day.key;
         return (
@@ -59,8 +85,17 @@ export function DayLedger({ days, bankDisplayMap, netAmountFor, summaries = {} }
                   {day.segments.map((seg) => (
                     <span
                       key={seg.categoryId}
-                      title={`${seg.name} ${formatINR(seg.value)}`}
-                      className="h-2 rounded-sm"
+                      onMouseEnter={(e) => {
+                        const r = e.currentTarget.getBoundingClientRect();
+                        setTip({
+                          name: seg.name,
+                          value: seg.value,
+                          x: r.left + r.width / 2,
+                          y: r.top,
+                        });
+                      }}
+                      onMouseLeave={() => setTip(null)}
+                      className="h-2 rounded-sm transition-[height] hover:h-3"
                       style={{
                         backgroundColor: seg.color,
                         width: `${Math.max((seg.value / heaviest) * 100, 0.8)}%`,
@@ -105,6 +140,7 @@ export function DayLedger({ days, bankDisplayMap, netAmountFor, summaries = {} }
           </motion.div>
         );
       })}
+      </div>
     </div>
   );
 }
