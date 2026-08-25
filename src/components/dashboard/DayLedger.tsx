@@ -46,7 +46,7 @@ export function DayLedger({ days, bankDisplayMap, netAmountFor, summaries = {} }
       )}
 
       <div
-        className="max-h-[62vh] overflow-y-auto overscroll-contain pr-1"
+        className="ledger-scroll max-h-[62vh] overflow-y-auto overscroll-contain pr-3.5"
         onScroll={() => setTip(null)}
       >
       {days.map((day, i) => {
