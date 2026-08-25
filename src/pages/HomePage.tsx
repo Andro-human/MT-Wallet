@@ -5,6 +5,7 @@ import { TrendingDown, TrendingUp, ChevronRight, ChevronDown, ArrowUpRight, Arro
 import { format } from 'date-fns';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { SpendingDonut } from '@/components/dashboard/SpendingDonut';
+import { DayLedger } from '@/components/dashboard/DayLedger';
 import { StatCard } from '@/components/dashboard/StatCard';
 import { TransactionCard } from '@/components/transactions/TransactionCard';
 import { useBankDisplayMap, lookupBankDisplay } from '@/hooks/useBankDisplayMap';
@@ -14,18 +15,21 @@ import { netAmount as computeNetAmount, creditNet } from '@/lib/transactionMath'
 import { formatINR, formatINRCompact } from '@/lib/formatCurrency';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/hooks/useAuth';
+import { useProfile } from '@/hooks/useProfile';
 import { cn } from '@/lib/utils';
 
 export default function HomePage() {
   const { user } = useAuth();
   const [openFold, setOpenFold] = useState(false);
+  const { data: profile } = useProfile();
+  const budget = profile?.monthly_budget ?? 0;
   const bankDisplayMap = useBankDisplayMap();
   const {
     thisMonthSpent,
     monthChange,
     thisMonthIncome,
     chartData,
-    recentTxns,
+    dayLedger,
     transactionCount,
     isLoading,
   } = useDashboardStats();
@@ -59,61 +63,73 @@ export default function HomePage() {
           </div>
         </motion.div>
 
-        {/* Bento Grid Layout */}
-        <div className="grid grid-cols-2 gap-4 mb-4 md:mb-8">
-
-          {/* Main Hero: Total Spent - Spans 2 cols */}
-          <div className="col-span-2">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.98 }}
-              animate={{ opacity: 1, scale: 1 }}
-              className="neo-card p-6 relative overflow-hidden bg-card"
-            >
-              <div className="absolute top-0 right-0 p-4 opacity-50">
-                <Activity className="w-12 h-12 text-muted-foreground/10" />
-              </div>
-
-              <p className="text-xs font-mono uppercase tracking-widest text-muted-foreground mb-2">
-                Total Output
+        {/* Stat strip: the one-second answer, then the drill-down below */}
+        <motion.div
+          initial={{ opacity: 0, y: -6 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex flex-wrap items-baseline gap-x-7 gap-y-3 mb-6 md:mb-8 pb-5 border-b border-border/60"
+        >
+          <div>
+            <p className="text-2xs font-mono uppercase tracking-widest text-muted-foreground mb-1">
+              Spent
+            </p>
+            {isLoading ? (
+              <Skeleton className="h-7 w-28 bg-muted/20" />
+            ) : (
+              <p className="text-2xl font-semibold text-foreground currency-display">
+                {formatINR(thisMonthSpent)}
               </p>
-
-              {isLoading ? (
-                <Skeleton className="h-12 w-48 bg-muted/20" />
-              ) : (
-                <div className="relative z-10">
-                  <h2 className="text-5xl font-bold text-foreground tracking-tight currency-display">
-                    <span className="text-2xl text-muted-foreground align-top mr-1">₹</span>
-                    {formatINR(thisMonthSpent).replace('₹', '')}
-                  </h2>
-
-                  <div className="flex items-center gap-3 mt-4">
-                    <div className={`flex items-center gap-1.5 px-2 py-1 border text-xs font-mono font-medium ${monthChange > 0
-                      ? 'border-warning/30 text-warning bg-warning/5'
-                      : 'border-gold/30 text-gold bg-gold/5'
-                      }`}>
-                      {monthChange > 0 ? '▲' : '▼'} {Math.abs(monthChange).toFixed(0)}%
-                    </div>
-                    <span className="text-xs text-muted-foreground font-mono uppercase">vs last month</span>
-                  </div>
-                </div>
-              )}
-            </motion.div>
+            )}
           </div>
 
-          {/* Quick Stats */}
-          <StatCard
-            label="Income"
-            value={isLoading ? '...' : formatINRCompact(thisMonthIncome)}
-            icon={<TrendingUp className="w-4 h-4" />}
-            variant="default"
-          />
-          <StatCard
-            label="Transactions"
-            value={isLoading ? '...' : transactionCount.toString()}
-            icon={<TrendingDown className="w-4 h-4" />}
-            variant="default"
-          />
-        </div>
+          {budget > 0 && (
+            <div>
+              <p className="text-2xs font-mono uppercase tracking-widest text-muted-foreground mb-1">
+                Left of {formatINRCompact(budget)}
+              </p>
+              {isLoading ? (
+                <Skeleton className="h-7 w-24 bg-muted/20" />
+              ) : (
+                <p
+                  className={cn(
+                    'text-2xl font-semibold currency-display',
+                    budget - thisMonthSpent >= 0 ? 'text-gold' : 'text-warning',
+                  )}
+                >
+                  {formatINR(budget - thisMonthSpent)}
+                </p>
+              )}
+            </div>
+          )}
+
+          <div>
+            <p className="text-2xs font-mono uppercase tracking-widest text-muted-foreground mb-1">
+              vs last month
+            </p>
+            {isLoading ? (
+              <Skeleton className="h-7 w-16 bg-muted/20" />
+            ) : (
+              <p
+                className={cn(
+                  'text-2xl font-semibold currency-display',
+                  monthChange > 0 ? 'text-warning' : 'text-gold',
+                )}
+              >
+                {monthChange > 0 ? '+' : '−'}
+                {Math.abs(monthChange).toFixed(0)}%
+              </p>
+            )}
+          </div>
+
+          <div className="ml-auto text-right">
+            <p className="text-2xs font-mono uppercase tracking-widest text-muted-foreground mb-1">
+              In · Txns
+            </p>
+            <p className="text-sm text-muted-foreground currency-display">
+              {isLoading ? '…' : `${formatINRCompact(thisMonthIncome)} · ${transactionCount}`}
+            </p>
+          </div>
+        </motion.div>
 
         {/* Charts & Breakdown */}
         <motion.div
@@ -179,14 +195,14 @@ export default function HomePage() {
           </div>
         </motion.div>
 
-        {/* Recent Transactions */}
+        {/* Day Ledger: one row per day, tap to unfold that day */}
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
         >
-          <div className="flex items-center justify-between mb-4 border-b border-border/50 pb-2">
-            <h3 className="font-heading font-semibold text-foreground">Activity Log</h3>
+          <div className="flex items-center justify-between mb-2 border-b border-border/50 pb-2">
+            <h3 className="font-heading font-semibold text-foreground">The Month, Day by Day</h3>
             <Link
               to="/transactions"
               className="text-xs font-mono text-primary flex items-center gap-1 hover:underline underline-offset-4"
@@ -195,35 +211,29 @@ export default function HomePage() {
             </Link>
           </div>
 
-          <div className="space-y-0 border border-border bg-card">
-            {isLoading ? (
-              <div className="p-4 space-y-4">
-                <Skeleton className="h-12 w-full bg-muted/10" />
-                <Skeleton className="h-12 w-full bg-muted/10" />
-              </div>
-            ) : recentTxns.length > 0 ? (
-              recentTxns.map((txn, i) => {
-                let net: number | undefined;
-                if (contextReady) {
-                  if (txn.direction === 'credit' && refundAllocations[txn.id]) {
-                    net = creditNet(txn as any, refundAllocations);
-                  } else if (refundTotals[txn.id]) {
-                    net = computeNetAmount(txn as any, refundTotals);
-                  }
+          {isLoading ? (
+            <div className="py-4 space-y-3">
+              <Skeleton className="h-6 w-full bg-muted/10" />
+              <Skeleton className="h-6 w-full bg-muted/10" />
+              <Skeleton className="h-6 w-full bg-muted/10" />
+            </div>
+          ) : dayLedger.length > 0 ? (
+            <DayLedger
+              days={dayLedger}
+              bankDisplayMap={bankDisplayMap}
+              netAmountFor={(id, direction) => {
+                if (!contextReady) return undefined;
+                if (direction === 'credit' && refundAllocations[id]) {
+                  return creditNet({ id } as any, refundAllocations);
                 }
-                const bankDisplay = lookupBankDisplay(bankDisplayMap, txn.bank_name, txn.account_last4);
-                return (
-                  <Link key={txn.id} to={`/transactions/${txn.id}`}>
-                    <TransactionCard transaction={txn} index={i} netAmount={net} bankDisplay={bankDisplay} />
-                  </Link>
-                );
-              })
-            ) : (
-              <div className="text-center py-12 text-muted-foreground font-mono text-xs">
-                NO TRANSACTIONS RECORDED
-              </div>
-            )}
-          </div>
+                return refundTotals[id] ? computeNetAmount({ id } as any, refundTotals) : undefined;
+              }}
+            />
+          ) : (
+            <div className="text-center py-12 text-muted-foreground font-mono text-xs">
+              NO TRANSACTIONS RECORDED
+            </div>
+          )}
         </motion.div>
       </div>
     </AppLayout>

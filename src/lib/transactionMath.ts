@@ -128,14 +128,14 @@ export function categoryChartData(
     .sort((a, b) => b.value - a.value);
 
   const colors = assignColors(sorted.map((s) => s.catId));
-  const ranked = sorted.map(({ catId, value, name, icon }) => ({
+  const ranked: CategoryChartSlice[] = sorted.map(({ catId, value, name, icon }) => ({
     name,
     value,
     icon,
     color: colors.get(catId)!,
   }));
 
-  const folded = foldTail(
+  const folded = foldTail<CategoryChartSlice>(
     ranked,
     topN,
     (name, value, color) => ({ name, value, color, icon: '\u2026' }),
