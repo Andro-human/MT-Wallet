@@ -34,7 +34,7 @@ export const PALETTE = [
 
 export const LONG_TAIL_COLOR = '#8E8574';
 export const INCOME_COLOR = '#E9C46A';
-export const FOLD_LABEL = 'Everything else';
+export const FOLD_LABEL = 'Others';
 
 // Geometry, not colour count, is what limits a chart: a donut dies past ~8
 // slices because the slivers get too thin, a stacked bar past ~10 segments.

@@ -590,12 +590,14 @@ export default function InsightsPage() {
 
   const CustomTooltip = ({ active, payload }: any) => {
     if (active && payload && payload.length) {
-      // Spends sorted by this month's amount (desc); income pinned to the bottom.
+      // Segments sorted by this month's amount (desc); the OUT/IN totals are
+      // pinned below a rule so they read as sums, not as another segment.
       const income = payload.find((p: any) => p.dataKey === 'income' && p.value !== 0);
-      const spends = payload
-        .filter((p: any) => p.dataKey !== 'income' && p.value !== 0)
+      const rows = payload
+        .filter((p: any) => p.dataKey !== 'income' && p.dataKey !== 'expense' && p.value !== 0)
         .sort((a: any, b: any) => b.value - a.value);
-      const rows = income ? [...spends, income] : spends;
+      // expense is on the datum whether or not it is drawn as its own bar
+      const totalOut = payload[0].payload.expense;
 
       return (
         <div className="bg-background border border-border p-3 shadow-2xl">
@@ -622,6 +624,10 @@ export default function InsightsPage() {
               const c = categories.find(c => c.id === cId);
               label = c?.name || 'Uncategorized';
             }
+            else if (label === 'seg_other') {
+              label = FOLD_LABEL;
+              color = LONG_TAIL_COLOR;
+            }
             return (
               <div key={p.dataKey} className="flex justify-between gap-4 text-xs font-mono">
                 <span style={{ color }}>{label.toUpperCase()}</span>
@@ -629,6 +635,20 @@ export default function InsightsPage() {
               </div>
             );
           })}
+          <div className="mt-2 pt-2 border-t border-border/60 space-y-0.5">
+            {totalOut ? (
+              <div className="flex justify-between gap-4 text-xs font-mono">
+                <span className="text-muted-foreground">OUT</span>
+                <span className="text-foreground font-medium">{formatINR(totalOut)}</span>
+              </div>
+            ) : null}
+            {income ? (
+              <div className="flex justify-between gap-4 text-xs font-mono">
+                <span className="text-gold">IN</span>
+                <span className="text-gold font-medium">{formatINR(income.value)}</span>
+              </div>
+            ) : null}
+          </div>
         </div>
       );
     }
