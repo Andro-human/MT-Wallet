@@ -19,6 +19,10 @@ import { useProfile } from '@/hooks/useProfile';
 import { useDaySummaries } from '@/hooks/useDaySummaries';
 import { cn } from '@/lib/utils';
 
+// Wide figures sitting side by side need a rule between them, not just a gap:
+// Rs28,597.11 next to Rs6,402.89 reads as one number otherwise.
+const STAT = 'pl-6 pr-2 first:pl-0 border-l border-border/50 first:border-l-0';
+
 export default function HomePage() {
   const { user } = useAuth();
   const [openFold, setOpenFold] = useState(false);
@@ -70,9 +74,9 @@ export default function HomePage() {
         <motion.div
           initial={{ opacity: 0, y: -6 }}
           animate={{ opacity: 1, y: 0 }}
-          className="flex flex-wrap items-baseline gap-x-7 gap-y-3 mb-6 md:mb-8 pb-5 border-b border-border/60"
+          className="flex flex-wrap items-stretch gap-y-4 mb-6 md:mb-8 pb-5 border-b border-border/60"
         >
-          <div>
+          <div className={STAT}>
             <p className="text-2xs font-mono uppercase tracking-widest text-muted-foreground mb-1">
               Spent
             </p>
@@ -86,7 +90,7 @@ export default function HomePage() {
           </div>
 
           {budget > 0 && (
-            <div>
+            <div className={STAT}>
               <p className="text-2xs font-mono uppercase tracking-widest text-muted-foreground mb-1">
                 Left of {formatINRCompact(budget)}
               </p>
@@ -105,7 +109,7 @@ export default function HomePage() {
             </div>
           )}
 
-          <div>
+          <div className={STAT}>
             <p className="text-2xs font-mono uppercase tracking-widest text-muted-foreground mb-1">
               vs last month
             </p>
@@ -124,7 +128,7 @@ export default function HomePage() {
             )}
           </div>
 
-          <div className="ml-auto text-right">
+          <div className={cn(STAT, 'ml-auto text-right')}>
             <p className="text-2xs font-mono uppercase tracking-widest text-muted-foreground mb-1">
               In · Txns
             </p>
