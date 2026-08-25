@@ -1,6 +1,7 @@
+import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
-import { TrendingDown, TrendingUp, ChevronRight, ArrowUpRight, ArrowDownRight, Activity } from 'lucide-react';
+import { TrendingDown, TrendingUp, ChevronRight, ChevronDown, ArrowUpRight, ArrowDownRight, Activity } from 'lucide-react';
 import { format } from 'date-fns';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { SpendingDonut } from '@/components/dashboard/SpendingDonut';
@@ -13,9 +14,11 @@ import { netAmount as computeNetAmount, creditNet } from '@/lib/transactionMath'
 import { formatINR, formatINRCompact } from '@/lib/formatCurrency';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/hooks/useAuth';
+import { cn } from '@/lib/utils';
 
 export default function HomePage() {
   const { user } = useAuth();
+  const [openFold, setOpenFold] = useState(false);
   const bankDisplayMap = useBankDisplayMap();
   const {
     thisMonthSpent,
@@ -139,12 +142,37 @@ export default function HomePage() {
               )}
             </div>
 
-            <div className="w-full md:w-1/2 grid grid-cols-2 gap-3">
+            <div className="w-full md:w-1/2 grid grid-cols-2 gap-3 self-start">
               {chartData.map((item) => (
-                <div key={item.name} className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-none" style={{ backgroundColor: item.color }} />
-                  <span className="text-xs font-medium text-muted-foreground truncate">{item.name}</span>
-                  <span className="text-xs font-mono ml-auto">{((item.value / thisMonthSpent) * 100).toFixed(0)}%</span>
+                <div key={item.name} className={item.detail ? 'col-span-2' : undefined}>
+                  <button
+                    type="button"
+                    disabled={!item.detail}
+                    onClick={() => setOpenFold((v) => !v)}
+                    className={cn(
+                      'w-full flex items-center gap-2 text-left',
+                      item.detail && 'hover:opacity-80 transition-opacity',
+                    )}
+                  >
+                    <div className="w-2 h-2 rounded-none shrink-0" style={{ backgroundColor: item.color }} />
+                    <span className="text-xs font-medium text-muted-foreground truncate">{item.name}</span>
+                    {item.detail && (
+                      <ChevronDown
+                        className={cn('w-3 h-3 shrink-0 text-muted-foreground transition-transform', openFold && 'rotate-180')}
+                      />
+                    )}
+                    <span className="text-xs font-mono ml-auto">{((item.value / thisMonthSpent) * 100).toFixed(0)}%</span>
+                  </button>
+                  {item.detail && openFold && (
+                    <div className="mt-1.5 ml-4 pl-2 border-l border-border/60 space-y-1">
+                      {item.detail.map((d) => (
+                        <div key={d.name} className="flex items-center gap-2">
+                          <span className="text-2xs text-muted-foreground/80 truncate">{d.name}</span>
+                          <span className="text-2xs font-mono ml-auto text-muted-foreground">{formatINR(d.value)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

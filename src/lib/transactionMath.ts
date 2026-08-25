@@ -104,6 +104,8 @@ export interface CategoryChartSlice {
   value: number;
   color: string;
   icon: string;
+  // present only on the folded slice: what the fold swallowed, largest first
+  detail?: Array<{ name: string; value: number }>;
 }
 
 export function categoryChartData(
@@ -133,12 +135,23 @@ export function categoryChartData(
     color: colors.get(catId)!,
   }));
 
-  return foldTail(
+  const folded = foldTail(
     ranked,
     topN,
     (name, value, color) => ({ name, value, color, icon: '\u2026' }),
     (slice) => slice.value,
   );
+
+  // attach the tail's contents to the folded slice so the UI can open it up
+  if (folded.length < ranked.length) {
+    const tail = ranked.slice(topN);
+    folded[folded.length - 1] = {
+      ...folded[folded.length - 1],
+      detail: tail.map(({ name, value }) => ({ name, value })),
+    };
+  }
+
+  return folded;
 }
 
 export function filterOutDuplicates<T extends { id: string }>(
