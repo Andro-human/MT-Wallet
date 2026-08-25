@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { TrendingDown, TrendingUp, ChevronRight, ChevronDown, ArrowUpRight, ArrowDownRight, Activity } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, startOfMonth, endOfMonth } from 'date-fns';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { SpendingDonut } from '@/components/dashboard/SpendingDonut';
 import { DayLedger } from '@/components/dashboard/DayLedger';
@@ -16,6 +16,7 @@ import { formatINR, formatINRCompact } from '@/lib/formatCurrency';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useProfile';
+import { useDaySummaries } from '@/hooks/useDaySummaries';
 import { cn } from '@/lib/utils';
 
 export default function HomePage() {
@@ -33,6 +34,8 @@ export default function HomePage() {
     transactionCount,
     isLoading,
   } = useDashboardStats();
+
+  const { data: daySummaries } = useDaySummaries(startOfMonth(new Date()), endOfMonth(new Date()));
 
   const monthName = format(new Date(), 'MMMM');
   const year = format(new Date(), 'yyyy');
@@ -220,6 +223,7 @@ export default function HomePage() {
           ) : dayLedger.length > 0 ? (
             <DayLedger
               days={dayLedger}
+              summaries={daySummaries}
               bankDisplayMap={bankDisplayMap}
               netAmountFor={(id, direction) => {
                 if (!contextReady) return undefined;

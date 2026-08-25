@@ -12,9 +12,10 @@ interface DayLedgerProps {
   days: DayLedgerRow[];
   bankDisplayMap: Map<string, string>;
   netAmountFor: (txnId: string, direction: string) => number | undefined;
+  summaries?: Record<string, string>;
 }
 
-export function DayLedger({ days, bankDisplayMap, netAmountFor }: DayLedgerProps) {
+export function DayLedger({ days, bankDisplayMap, netAmountFor, summaries = {} }: DayLedgerProps) {
   const [open, setOpen] = useState<string | null>(null);
   // Bar length is a share of the heaviest day, so a fat weekend reads as fat
   // without any axis. Comparing days to each other is the whole point.
@@ -65,6 +66,12 @@ export function DayLedger({ days, bankDisplayMap, netAmountFor }: DayLedgerProps
                 {day.spent > 0 ? formatINR(day.spent) : '—'}
               </span>
             </button>
+
+            {summaries[day.key] && (
+              <p className="pl-[4.75rem] pr-1 -mt-1.5 pb-2.5 text-2xs text-muted-foreground/85 leading-relaxed">
+                {summaries[day.key]}
+              </p>
+            )}
 
             {isOpen && (
               <div className="pb-2">
