@@ -21,9 +21,10 @@ export function StatCard({
   icon,
   variant = 'default',
 }: StatCardProps) {
+  // Deltas stay quiet: spending direction is information, not alarm (DESIGN.md)
   const trendClasses = {
-    up: 'text-destructive',
-    down: 'text-primary', // Success is now typically lime/primary in this theme
+    up: 'text-muted-foreground',
+    down: 'text-muted-foreground',
     neutral: 'text-muted-foreground',
   };
 
@@ -34,15 +35,10 @@ export function StatCard({
       transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
       className={cn(
         'neo-card p-5 relative overflow-hidden group',
-        variant === 'primary' && 'border-primary/50 bg-primary/5',
-        variant === 'success' && 'border-primary/50 bg-primary/5'
+        variant === 'primary' && 'border-gold/40 bg-gold/5',
+        variant === 'success' && 'border-gold/40 bg-gold/5'
       )}
     >
-      {/* Background Grid Pattern for primary cards */}
-      {(variant === 'primary' || variant === 'success') && (
-        <div className="absolute inset-0 bg-grid-small opacity-30 pointer-events-none" />
-      )}
-
       <div className="flex items-start justify-between relative z-10">
         <span className="text-xs font-mono uppercase tracking-widest text-muted-foreground">
           {label}
@@ -50,7 +46,7 @@ export function StatCard({
         {icon && (
           <div className={cn(
             'p-1.5 rounded-none border',
-            variant === 'default' ? 'border-border text-muted-foreground bg-background' : 'border-primary/30 text-primary bg-primary/10'
+            variant === 'default' ? 'border-border text-muted-foreground bg-background' : 'border-gold/30 text-gold bg-gold/10'
           )}>
             {icon}
           </div>
@@ -59,8 +55,8 @@ export function StatCard({
 
       <div className="mt-4 relative z-10">
         <span className={cn(
-          'text-3xl font-heading font-bold tracking-tight',
-          variant === 'default' ? 'text-foreground' : 'text-primary'
+          'text-3xl font-bold tracking-tight currency-display',
+          variant === 'default' ? 'text-foreground' : 'text-gold'
         )}>
           {value}
         </span>

@@ -160,7 +160,7 @@ export default function DebtPage() {
                         </div>
                         <div className="flex items-center justify-between text-xs text-muted-foreground mt-0.5">
                           <span>{format(new Date(loan.txn.transacted_at), 'MMM d, yyyy')}</span>
-                          <span className="ml-2 shrink-0">
+                          <span className="ml-2 shrink-0 amount">
                             {loan.repaid > 0
                               ? `repaid ${formatINR(loan.repaid)} · due ${formatINR(loan.outstanding)}`
                               : 'nothing repaid yet'}

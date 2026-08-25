@@ -4,13 +4,13 @@ import { Sparkles } from 'lucide-react';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 import { useMonthlySummary, type SpendSlice } from '@/hooks/useMonthlySummary';
 import { formatINR, formatINRCompact } from '@/lib/formatCurrency';
+import { CATEGORY_PALETTE, LONG_TAIL_COLOR } from '@/lib/categoryColors';
 import { cn } from '@/lib/utils';
 
-// Categorical slots validated for CVD-safe adjacency (incl. the ring's wrap
-// pair) on the app's #0a0a0a card surface; gray is the de-emphasis fill for
-// the folded "Everything else" segment, not a sixth identity.
-const SLICE_COLORS = ['#3987e5', '#d95926', '#199e70', '#c98500', '#d55181'];
-const OTHER_COLOR = '#a8a7a0';
+// Gray is the de-emphasis fill for the folded "Everything else" segment,
+// not a sixth identity.
+const SLICE_COLORS = CATEGORY_PALETTE;
+const OTHER_COLOR = LONG_TAIL_COLOR;
 // A donut reads part-to-whole at a glance only up to ~6 segments; the tail
 // folds into "Everything else" while the list beside it still shows every slice.
 const MAX_SEGMENTS = 6;
@@ -79,7 +79,7 @@ function SpendDonut({ slices }: { slices: SpendSlice[] }) {
             </PieChart>
           </ResponsiveContainer>
           <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-            <span className="text-lg font-heading font-bold text-foreground">
+            <span className="text-lg font-bold text-foreground currency-display">
               {formatINRCompact(total)}
             </span>
             <span className="text-2xs font-mono text-muted-foreground uppercase tracking-wider">

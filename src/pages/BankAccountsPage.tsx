@@ -306,8 +306,8 @@ export default function BankAccountsPage() {
                 className="glass-card p-5"
               >
                 <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-xl bg-blue-500/10 flex items-center justify-center flex-shrink-0">
-                    <Building2 className="w-6 h-6 text-blue-400" />
+                  <div className="w-12 h-12 rounded-xl bg-info/10 flex items-center justify-center flex-shrink-0">
+                    <Building2 className="w-6 h-6 text-info" />
                   </div>
 
                   <button
@@ -402,7 +402,7 @@ export default function BankAccountsPage() {
                           </span>
                           <button
                             onClick={() => handleUnalias(alias.id)}
-                            className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-amber-400 hover:bg-amber-400/10 transition-colors"
+                            className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-warning hover:bg-warning/10 transition-colors"
                             title="Unlink this account"
                           >
                             <Unlink className="w-4 h-4" />
@@ -423,7 +423,7 @@ export default function BankAccountsPage() {
         <AlertDialogContent className="glass-elevated border-border/50">
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2 text-lg">
-              <AlertTriangle className="w-5 h-5 text-amber-400" />
+              <AlertTriangle className="w-5 h-5 text-warning" />
               Remove Bank Account
             </AlertDialogTitle>
             <AlertDialogDescription asChild>
@@ -437,7 +437,7 @@ export default function BankAccountsPage() {
                   </p>
                 ) : (
                   <>
-                    <p className="text-amber-400 font-medium text-base">
+                    <p className="text-warning font-medium text-base">
                       {removeDialog.count} transaction{removeDialog.count !== 1 ? 's' : ''} will be unlinked.
                     </p>
                     <p className="text-sm text-muted-foreground">
@@ -564,7 +564,7 @@ export default function BankAccountsPage() {
                       .map((a) => (
                         <SelectItem key={`${a.bankName}|${a.accountLast4}`} value={`${a.bankName}|${a.accountLast4}`}>
                           <span className="flex items-center gap-2">
-                            <Building2 className="w-4 h-4 text-blue-400" />
+                            <Building2 className="w-4 h-4 text-info" />
                             {a.display}
                             <span className="text-muted-foreground">({a.transactionCount})</span>
                           </span>
@@ -575,8 +575,8 @@ export default function BankAccountsPage() {
               </div>
 
               {mergeTarget && (
-                <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
-                  <p className="text-sm text-emerald-400">
+                <div className="p-3 rounded-xl bg-info/10 border border-info/20">
+                  <p className="text-sm text-info">
                     No data will be modified. Transactions from "{mergeDialog.source.display}" will
                     simply appear under the target account in the UI. You can unlink anytime.
                   </p>
@@ -651,8 +651,8 @@ export default function BankAccountsPage() {
               <div className="p-4 rounded-xl bg-muted/20 border border-border/30">
                 <p className="text-sm text-muted-foreground mb-2">Preview</p>
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center">
-                    <Building2 className="w-5 h-5 text-blue-400" />
+                  <div className="w-10 h-10 rounded-xl bg-info/10 flex items-center justify-center">
+                    <Building2 className="w-5 h-5 text-info" />
                   </div>
                   <div>
                     <p className="text-base font-semibold text-foreground">

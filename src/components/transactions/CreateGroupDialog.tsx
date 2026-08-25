@@ -16,8 +16,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { EmojiPicker } from '@/components/ui/EmojiPicker';
+import { CATEGORY_PALETTE, LONG_TAIL_COLOR } from '@/lib/categoryColors';
 
-const COLOR_OPTIONS = ['#8B5CF6', '#EC4899', '#F59E0B', '#10B981', '#3B82F6', '#EF4444', '#6366F1', '#14B8A6'];
+const COLOR_OPTIONS = [...CATEGORY_PALETTE, LONG_TAIL_COLOR];
 
 interface CreateGroupDialogProps {
   open: boolean;
@@ -42,7 +43,7 @@ export function CreateGroupDialog({
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [icon, setIcon] = useState('📁');
-  const [color, setColor] = useState('#8B5CF6');
+  const [color, setColor] = useState<string>(CATEGORY_PALETTE[0]);
 
   useEffect(() => {
     if (!open) return;
@@ -55,7 +56,7 @@ export function CreateGroupDialog({
       setName('');
       setDescription('');
       setIcon('📁');
-      setColor('#8B5CF6');
+      setColor(CATEGORY_PALETTE[0]);
     }
   }, [open, initialGroup]);
 

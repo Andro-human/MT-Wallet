@@ -47,6 +47,24 @@ export default {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        gold: {
+          DEFAULT: "hsl(var(--gold))",
+          foreground: "hsl(var(--gold-foreground))",
+        },
+        success: "hsl(var(--success))",
+        warning: "hsl(var(--warning))",
+        info: "hsl(var(--info))",
+        cat: {
+          food: "var(--cat-food)",
+          groceries: "var(--cat-groceries)",
+          transport: "var(--cat-transport)",
+          shopping: "var(--cat-shopping)",
+          subs: "var(--cat-subs)",
+          bills: "var(--cat-bills)",
+          entertainment: "var(--cat-entertainment)",
+          health: "var(--cat-health)",
+          tail: "var(--cat-tail)",
+        },
       },
       borderRadius: {
         lg: "var(--radius)",
@@ -54,8 +72,9 @@ export default {
         sm: "calc(var(--radius) - 4px)",
       },
       fontFamily: {
-        sans: ["Inter", "sans-serif"],
-        heading: ["Syne", "sans-serif"],
+        sans: ["Satoshi", "sans-serif"],
+        heading: ["Fraunces", "serif"],
+        mono: ["IBM Plex Mono", "monospace"],
       },
       keyframes: {
         "accordion-down": {

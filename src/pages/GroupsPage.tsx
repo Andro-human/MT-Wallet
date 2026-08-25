@@ -248,7 +248,7 @@ export default function GroupsPage() {
         <AlertDialogContent className="glass-elevated border-border/50">
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2 text-lg">
-              <AlertTriangle className="w-5 h-5 text-amber-400" />
+              <AlertTriangle className="w-5 h-5 text-warning" />
               Delete Group
             </AlertDialogTitle>
             <AlertDialogDescription asChild>
@@ -258,7 +258,7 @@ export default function GroupsPage() {
                   <strong className="text-foreground">{deleteDialog.groupName}</strong>?
                 </p>
                 {deleteDialog.count > 0 && (
-                  <p className="text-amber-400 font-medium text-base">
+                  <p className="text-warning font-medium text-base">
                     {deleteDialog.count} transaction
                     {deleteDialog.count !== 1 ? 's' : ''} will become ungrouped.
                   </p>

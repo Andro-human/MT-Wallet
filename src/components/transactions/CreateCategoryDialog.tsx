@@ -11,8 +11,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { EmojiPicker } from '@/components/ui/EmojiPicker';
+import { CATEGORY_PALETTE, LONG_TAIL_COLOR } from '@/lib/categoryColors';
 
-const COLOR_OPTIONS = ['#8B5CF6', '#EC4899', '#F59E0B', '#10B981', '#3B82F6', '#EF4444', '#6366F1', '#14B8A6'];
+const COLOR_OPTIONS = [...CATEGORY_PALETTE, LONG_TAIL_COLOR];
 
 interface CreateCategoryDialogProps {
   open: boolean;
@@ -26,7 +27,7 @@ export function CreateCategoryDialog({ open, onOpenChange, onCreated }: CreateCa
 
   const [name, setName] = useState('');
   const [icon, setIcon] = useState('📁');
-  const [color, setColor] = useState('#8B5CF6');
+  const [color, setColor] = useState<string>(CATEGORY_PALETTE[0]);
 
   const handleCreate = async () => {
     if (!name.trim()) {
@@ -48,7 +49,7 @@ export function CreateCategoryDialog({ open, onOpenChange, onCreated }: CreateCa
       onOpenChange(false);
       setName('');
       setIcon('📁');
-      setColor('#8B5CF6');
+      setColor(CATEGORY_PALETTE[0]);
     } catch {
       toast({ title: 'Failed to create category', variant: 'destructive' });
     }

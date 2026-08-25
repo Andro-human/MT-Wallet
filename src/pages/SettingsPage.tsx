@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
     User, Key, Copy, RefreshCw, LogOut, Check, Loader2,
     History, ChevronRight, Building2, Tag, Lock, Bell, BellOff, Wand2, FileCheck, FolderKanban,
+    Sun, Moon,
 } from 'lucide-react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { useAuth } from '@/hooks/useAuth';
@@ -17,6 +18,8 @@ import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
+import { useTheme } from '@/hooks/useTheme';
+import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 import { z } from 'zod';
 
@@ -37,6 +40,7 @@ export default function SettingsPage() {
     const { data: categories = [] } = useCategories();
     const { data: transactionGroups = [] } = useTransactionGroups();
     const { toast } = useToast();
+    const { theme, setTheme } = useTheme();
     const { isSupported: pushSupported, permissionState, isSubscribed: pushSubscribed, isLoading: pushLoading, subscribe: pushSubscribe, unsubscribe: pushUnsubscribe } = usePushNotifications();
 
     const navigate = useNavigate();
@@ -149,6 +153,31 @@ export default function SettingsPage() {
                 </motion.div>
 
                 <div className="space-y-3">
+                    {/* Day / Night ledger */}
+                    <motion.div
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: 0.18 }}
+                    >
+                        <div className="w-full neo-card p-4 flex items-center gap-4">
+                            <div className="w-10 h-10 border border-border flex items-center justify-center">
+                                {theme === 'day'
+                                    ? <Sun className="w-5 h-5 text-gold" />
+                                    : <Moon className="w-5 h-5 text-muted-foreground" />}
+                            </div>
+                            <div className="flex-1 text-left">
+                                <h3 className="font-bold text-sm text-foreground">Day Ledger</h3>
+                                <p className="text-xs font-mono text-muted-foreground mt-0.5">
+                                    {theme === 'day' ? 'PAPER & INK' : 'MIDNIGHT SOOT'}
+                                </p>
+                            </div>
+                            <Switch
+                                checked={theme === 'day'}
+                                onCheckedChange={(on) => setTheme(on ? 'day' : 'night')}
+                            />
+                        </div>
+                    </motion.div>
+
                     {/* Bank Accounts */}
                     <motion.div
                         initial={{ opacity: 0, x: -10 }}
@@ -264,7 +293,7 @@ export default function SettingsPage() {
                             <Skeleton className="h-10 w-full bg-muted/20" />
                         ) : (
                             <div className="space-y-3">
-                                <div className="flex items-center gap-2 p-3 border border-border bg-black/20">
+                                <div className="flex items-center gap-2 p-3 border border-border bg-muted/40">
                                     <code className="flex-1 text-xs text-primary font-mono truncate">
                                         {showApiKey ? profile?.api_key : '•'.repeat(32)}
                                     </code>
@@ -468,8 +497,8 @@ export default function SettingsPage() {
                         transition={{ delay: 0.45 }}
                     >
                         <div className="w-full neo-card p-4 flex items-center gap-4 hover:bg-muted/5 transition-colors">
-                            <div className="w-10 h-10 rounded-xl bg-orange-500/10 flex items-center justify-center flex-shrink-0">
-                                <FileCheck className="w-4 h-4 text-orange-400" />
+                            <div className="w-10 h-10 rounded-xl bg-warning/10 flex items-center justify-center flex-shrink-0">
+                                <FileCheck className="w-4 h-4 text-warning" />
                             </div>
                             <div className="flex-1 min-w-0">
                                 <h3 className="font-bold text-sm text-foreground">Transaction Inbox</h3>

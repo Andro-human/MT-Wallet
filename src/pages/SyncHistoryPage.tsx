@@ -9,9 +9,9 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 
 const statusConfig: Record<string, { icon: typeof CheckCircle2; color: string; label: string }> = {
-  success: { icon: CheckCircle2, color: 'text-green-400', label: 'Success' },
-  partial: { icon: AlertTriangle, color: 'text-yellow-400', label: 'Partial' },
-  failed: { icon: XCircle, color: 'text-red-400', label: 'Failed' },
+  success: { icon: CheckCircle2, color: 'text-success', label: 'Success' },
+  partial: { icon: AlertTriangle, color: 'text-warning', label: 'Partial' },
+  failed: { icon: XCircle, color: 'text-destructive', label: 'Failed' },
   no_messages: { icon: Inbox, color: 'text-muted-foreground', label: 'No Messages' },
 };
 
@@ -52,7 +52,7 @@ function SyncRunCard({ run, onClick }: { run: SyncRun; onClick: () => void }) {
               {run.total_messages} msgs
             </span>
             {run.inserted > 0 && (
-              <span className="flex items-center gap-1.5 text-sm text-green-400">
+              <span className="flex items-center gap-1.5 text-sm text-success">
                 <ArrowDownCircle className="w-3.5 h-3.5" />
                 {run.inserted} inserted
               </span>
@@ -64,7 +64,7 @@ function SyncRunCard({ run, onClick }: { run: SyncRun; onClick: () => void }) {
               </span>
             )}
             {run.errors > 0 && (
-              <span className="flex items-center gap-1.5 text-sm text-red-400">
+              <span className="flex items-center gap-1.5 text-sm text-destructive">
                 <AlertCircle className="w-3.5 h-3.5" />
                 {run.errors} errors
               </span>
@@ -83,7 +83,7 @@ function SyncRunCard({ run, onClick }: { run: SyncRun; onClick: () => void }) {
 
           {/* Error message preview */}
           {run.error_message && (
-            <p className="mt-1.5 text-sm text-red-400/80 line-clamp-1">
+            <p className="mt-1.5 text-sm text-destructive/80 line-clamp-1">
               {run.error_message}
             </p>
           )}
@@ -170,7 +170,7 @@ export default function SyncHistoryPage() {
 
                 {([
                   { key: 'encountered', label: 'Encountered', color: 'text-foreground' },
-                  { key: 'inserted', label: 'Inserted', color: 'text-green-400' },
+                  { key: 'inserted', label: 'Inserted', color: 'text-success' },
                   { key: 'notInserted', label: 'Not inserted', color: 'text-muted-foreground' },
                 ] as const).map(({ key, label, color }) => (
                   <Fragment key={key}>

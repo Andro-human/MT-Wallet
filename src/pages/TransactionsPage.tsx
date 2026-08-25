@@ -695,7 +695,7 @@ export default function TransactionsPage() {
                       size="sm"
                       disabled={selectedIds.size === 0}
                       onClick={handleMarkSelectedForReview}
-                      className="gap-1.5 rounded-xl border-orange-500/40 text-orange-400 hover:bg-orange-500/10"
+                      className="gap-1.5 rounded-xl border-warning/40 text-warning hover:bg-warning/10"
                     >
                       <RotateCcw className="w-3.5 h-3.5" />
                       Review
@@ -767,8 +767,8 @@ export default function TransactionsPage() {
             ) : isBankFiltered ? (
               <>
                 <div className="flex items-center gap-3 mb-1">
-                  <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center">
-                    <Building2 className="w-5 h-5 text-blue-400" />
+                  <div className="w-10 h-10 rounded-xl bg-info/10 flex items-center justify-center">
+                    <Building2 className="w-5 h-5 text-info" />
                   </div>
                   <div>
                     <h1 className="text-2xl font-bold text-foreground">
@@ -919,7 +919,7 @@ export default function TransactionsPage() {
               onClick={() => setReviewMode(isInboxMode ? 'false' : 'true')}
               className={cn(
                 'gap-1.5 rounded-xl border-border/50 flex-shrink-0',
-                isInboxMode && 'bg-orange-500 hover:bg-orange-600 border-orange-600'
+                isInboxMode && 'bg-warning hover:bg-warning border-warning'
               )}
             >
               <Inbox className="w-3.5 h-3.5" />
@@ -937,7 +937,7 @@ export default function TransactionsPage() {
             <Button
               variant="outline"
               size="sm"
-              className="gap-1.5 rounded-xl border-green-500/40 text-green-400 hover:bg-green-500/10 flex-shrink-0"
+              className="gap-1.5 rounded-xl border-success/40 text-success hover:bg-success/10 flex-shrink-0"
               onClick={handleApproveAll}
             >
               <CheckCheck className="w-3.5 h-3.5" />
@@ -953,7 +953,7 @@ export default function TransactionsPage() {
                 <Button
                   variant="outline"
                   size="sm"
-                  className="gap-1.5 rounded-xl border-orange-500/40 text-orange-400 hover:bg-orange-500/10 flex-shrink-0"
+                  className="gap-1.5 rounded-xl border-warning/40 text-warning hover:bg-warning/10 flex-shrink-0"
                 >
                   <RotateCcw className="w-3.5 h-3.5" />
                   Review All
@@ -1444,7 +1444,7 @@ function FilteredViewSummary({
           <p className="text-2xs text-muted-foreground uppercase tracking-wider font-medium mb-1">
             Received
           </p>
-          <p className="text-sm font-bold text-success currency-display">
+          <p className="text-sm font-bold text-gold currency-display">
             {formatINR(stats.totalIncome)}
           </p>
         </div>

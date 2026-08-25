@@ -95,7 +95,7 @@ export function CombinedTransactionCard({ members, index = 0, onUngroup }: Combi
           <span
             className={cn(
               'font-mono font-medium text-sm',
-              isCredit ? 'text-primary' : 'text-foreground'
+              isCredit ? 'text-gold' : 'text-foreground'
             )}
           >
             {isCredit ? '+' : ''}
@@ -141,7 +141,7 @@ export function CombinedTransactionCard({ members, index = 0, onUngroup }: Combi
                     <span
                       className={cn(
                         'font-mono font-medium text-sm',
-                        memberCredit ? 'text-primary' : 'text-foreground'
+                        memberCredit ? 'text-gold' : 'text-foreground'
                       )}
                     >
                       {memberCredit ? '+' : ''}

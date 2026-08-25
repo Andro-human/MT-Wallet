@@ -486,10 +486,10 @@ export default function TransactionDetailPage() {
           {/* Refund indicator */}
           {/* Duplicate indicator */}
           {linkedDuplicates.length > 0 && (
-            <div className="mt-4 p-3 rounded-xl bg-amber-500/10 border border-amber-500/20">
+            <div className="mt-4 p-3 rounded-xl bg-warning/10 border border-warning/20">
               <div className="flex items-center gap-2 mb-2">
-                <Copy className="w-4 h-4 text-amber-500" />
-                <span className="text-sm font-medium text-amber-600 dark:text-amber-400">
+                <Copy className="w-4 h-4 text-warning" />
+                <span className="text-sm font-medium text-warning">
                   {linkedDuplicates.length} duplicate{linkedDuplicates.length > 1 ? 's' : ''} linked
                 </span>
               </div>
@@ -498,7 +498,7 @@ export default function TransactionDetailPage() {
                   <span className="text-muted-foreground truncate">
                     {dup.merchant || 'Unknown'} · {format(new Date(dup.transacted_at), 'MMM d, h:mm a')}
                   </span>
-                  <span className="font-medium text-amber-500">
+                  <span className="font-medium text-warning amount">
                     ₹{formatINR(Number(dup.amount)).replace('₹', '')}
                   </span>
                 </div>
@@ -509,10 +509,10 @@ export default function TransactionDetailPage() {
 
           {/* Potential duplicates suggestion */}
           {potentialDuplicates.length > 0 && (
-            <div className="mt-4 p-3 rounded-xl bg-orange-500/10 border border-orange-500/20">
+            <div className="mt-4 p-3 rounded-xl bg-warning/10 border border-warning/20">
               <div className="flex items-center gap-2 mb-2">
-                <AlertTriangle className="w-4 h-4 text-orange-500" />
-                <span className="text-sm font-medium text-orange-600 dark:text-orange-400">
+                <AlertTriangle className="w-4 h-4 text-warning" />
+                <span className="text-sm font-medium text-warning ">
                   Possible duplicate{potentialDuplicates.length > 1 ? 's' : ''} found
                 </span>
               </div>
@@ -534,7 +534,7 @@ export default function TransactionDetailPage() {
                       }
                     }}
                     disabled={createDuplicateLink.isPending}
-                    className="ml-2 flex items-center gap-1 text-xs font-medium text-orange-600 dark:text-orange-400 hover:text-orange-700 dark:hover:text-orange-300 transition-colors px-2 py-1 rounded-lg hover:bg-orange-500/10"
+                    className="ml-2 flex items-center gap-1 text-xs font-medium text-warning hover:text-warning transition-colors px-2 py-1 rounded-lg hover:bg-warning/10"
                   >
                     <Link2 className="w-3.5 h-3.5" />
                     Link
@@ -546,10 +546,10 @@ export default function TransactionDetailPage() {
 
           {/* AI category suggestion */}
           {suggestedCategory && (
-            <div className="mt-4 p-3 rounded-xl bg-blue-500/10 border border-blue-500/20">
+            <div className="mt-4 p-3 rounded-xl bg-info/10 border border-info/20">
               <div className="flex items-center gap-2 mb-2">
-                <Sparkles className="w-4 h-4 text-blue-500" />
-                <span className="text-sm font-medium text-blue-600 dark:text-blue-400">
+                <Sparkles className="w-4 h-4 text-info" />
+                <span className="text-sm font-medium text-info ">
                   Is this category right?
                 </span>
               </div>
@@ -569,7 +569,7 @@ export default function TransactionDetailPage() {
                       }
                     }}
                     disabled={updateEnrichment.isPending}
-                    className="text-xs font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors px-2 py-1 rounded-lg hover:bg-blue-500/10"
+                    className="text-xs font-medium text-info hover:text-info transition-colors px-2 py-1 rounded-lg hover:bg-info/10"
                   >
                     Apply
                   </button>
@@ -596,14 +596,14 @@ export default function TransactionDetailPage() {
             <div className="mt-4 p-3 rounded-xl bg-success/10 border border-success/20">
               <div className="flex items-center justify-between text-sm">
                 <span className="text-muted-foreground">Refunded</span>
-                <span className="font-medium text-success">
+                <span className="font-medium text-gold amount">
                   ₹{formatINR(totalRefunded).replace('₹', '')}
                 </span>
               </div>
               <div className="flex items-center justify-between mt-1">
                 <span className="text-sm font-medium">Net Contribution</span>
                 <span className={cn(
-                  "font-bold",
+                  "font-bold amount",
                   netAmount === 0 ? "text-muted-foreground line-through" : "text-foreground"
                 )}>
                   {netAmount === 0 ? '₹0' : `₹${formatINR(netAmount).replace('₹', '')}`}

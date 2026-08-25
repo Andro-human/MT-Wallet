@@ -16,20 +16,20 @@ export function BudgetCircle({ spent, budget }: BudgetCircleProps) {
     const clamped = Math.min(pct, 100);
     const offset = circumference - (clamped / 100) * circumference;
 
-    // Color transitions: green → teal → blue → amber → orange → red (only when over budget)
+    // Color transitions: green → teal → blue → marigold → orange → vermilion (only when over budget)
     let c: string;
     if (pct <= 40) {
-      c = 'hsl(160, 84%, 39%)'; // green — comfortable
+      c = 'hsl(108, 51%, 62%)'; // mandi green — comfortable
     } else if (pct <= 60) {
-      c = 'hsl(172, 66%, 40%)'; // teal — still good
+      c = 'hsl(176, 61%, 52%)'; // teal — still good
     } else if (pct <= 75) {
-      c = 'hsl(210, 70%, 50%)'; // blue — halfway mark
+      c = 'hsl(210, 100%, 67%)'; // rickshaw blue — halfway mark
     } else if (pct <= 90) {
-      c = 'hsl(45, 93%, 47%)';  // amber — getting close
+      c = 'hsl(36, 100%, 60%)'; // marigold — getting close
     } else if (pct <= 100) {
-      c = 'hsl(25, 95%, 53%)';  // orange — nearing limit
+      c = 'hsl(20, 100%, 60%)'; // orange — nearing limit
     } else {
-      c = 'hsl(0, 72%, 51%)';   // red — over budget
+      c = 'hsl(7, 100%, 60%)';  // vermilion — over budget
     }
 
     return {

@@ -134,7 +134,6 @@ export default function AuthPage() {
     <div className="min-h-screen bg-background flex text-foreground font-sans">
       {/* Left Side - Visual */}
       <div className="hidden lg:flex w-1/2 bg-secondary/20 relative flex-col justify-between p-12 overflow-hidden border-r border-border">
-        <div className="absolute inset-0 bg-grid opacity-20 pointer-events-none" />
 
         <div className="relative z-10">
           <h1 className="text-4xl font-heading font-bold tracking-tighter">MT.WALLET</h1>

@@ -27,16 +27,16 @@ import {
 import { useToast } from '@/components/ui/use-toast';
 
 const statusConfig: Record<string, { color: string; bg: string; label: string }> = {
-  success: { color: 'text-green-400', bg: 'bg-green-400/10', label: 'Success' },
-  partial: { color: 'text-yellow-400', bg: 'bg-yellow-400/10', label: 'Partial' },
-  failed: { color: 'text-red-400', bg: 'bg-red-400/10', label: 'Failed' },
+  success: { color: 'text-success', bg: 'bg-success/10', label: 'Success' },
+  partial: { color: 'text-warning', bg: 'bg-warning/10', label: 'Partial' },
+  failed: { color: 'text-destructive', bg: 'bg-destructive/10', label: 'Failed' },
   no_messages: { color: 'text-muted-foreground', bg: 'bg-muted/30', label: 'No Messages' },
 };
 
 const detailStatusConfig: Record<string, { icon: typeof CheckCircle2; color: string; label: string }> = {
-  inserted: { icon: ArrowDownCircle, color: 'text-green-400', label: 'Inserted' },
+  inserted: { icon: ArrowDownCircle, color: 'text-success', label: 'Inserted' },
   skipped: { icon: SkipForward, color: 'text-muted-foreground', label: 'Skipped' },
-  error: { icon: XCircle, color: 'text-red-400', label: 'Error' },
+  error: { icon: XCircle, color: 'text-destructive', label: 'Error' },
 };
 
 const sourceLabels: Record<string, string> = {
@@ -123,9 +123,9 @@ function MessageCard({
               {detail?.status && (
                 <span className={cn(
                   "text-xs font-medium px-2 py-0.5 rounded-full",
-                  detail.status === 'inserted' && 'bg-green-400/10 text-green-400',
+                  detail.status === 'inserted' && 'bg-success/10 text-success',
                   detail.status === 'skipped' && 'bg-muted/50 text-muted-foreground',
-                  detail.status === 'error' && 'bg-red-400/10 text-red-400',
+                  detail.status === 'error' && 'bg-destructive/10 text-destructive',
                 )}>
                   {detailConfig?.label}
                 </span>
@@ -142,8 +142,8 @@ function MessageCard({
           {detail?.transaction && (
             <div className="flex items-center gap-2.5 mt-1.5">
               <span className={cn(
-                "text-base font-bold",
-                detail.transaction.direction === 'debit' ? 'text-red-400' : 'text-green-400'
+                "text-base font-bold amount",
+                detail.transaction.direction === 'debit' ? 'text-foreground' : 'text-gold'
               )}>
                 {detail.transaction.direction === 'debit' ? '−' : '+'}{formatINR(detail.transaction.amount)}
               </span>
@@ -253,9 +253,9 @@ function MessageCard({
                   </p>
                   <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm">
                     <span className="text-muted-foreground">Amount</span>
-                    <span className="text-foreground font-medium">{formatINR(detail.transaction.amount)}</span>
+                    <span className="text-foreground font-medium amount">{formatINR(detail.transaction.amount)}</span>
                     <span className="text-muted-foreground">Direction</span>
-                    <span className={cn("font-medium", detail.transaction.direction === 'debit' ? 'text-red-400' : 'text-green-400')}>
+                    <span className={cn("font-medium", detail.transaction.direction === 'debit' ? 'text-foreground' : 'text-gold')}>
                       {detail.transaction.direction}
                     </span>
                     {detail.transaction.merchant && (
@@ -290,7 +290,7 @@ function MessageCard({
                     <button
                       onClick={(e) => { e.stopPropagation(); setConfirmRemoveOpen(true); }}
                       disabled={markNotTxn.isPending}
-                      className="w-full flex items-center justify-center gap-2 text-sm font-medium py-2.5 px-3 rounded-lg bg-red-400/10 text-red-400 hover:bg-red-400/15 transition-colors disabled:opacity-50"
+                      className="w-full flex items-center justify-center gap-2 text-sm font-medium py-2.5 px-3 rounded-lg bg-destructive/10 text-destructive hover:bg-destructive/15 transition-colors disabled:opacity-50"
                     >
                       {markNotTxn.isPending ? (
                         <Loader2 className="w-4 h-4 animate-spin" />
@@ -334,7 +334,7 @@ function MessageCard({
             <AlertDialogAction
               onClick={(e) => { e.preventDefault(); handleRemove(); }}
               disabled={markNotTxn.isPending}
-              className="bg-red-500 hover:bg-red-600"
+              className="bg-destructive hover:bg-destructive/90"
             >
               Remove
             </AlertDialogAction>
@@ -479,10 +479,10 @@ export default function SyncRunDetailPage() {
                 </div>
                 <div className="glass-card p-4">
                   <div className="flex items-center gap-2 mb-1">
-                    <ArrowDownCircle className="w-4 h-4 text-green-400" />
+                    <ArrowDownCircle className="w-4 h-4 text-success" />
                     <span className="text-sm text-muted-foreground">Inserted</span>
                   </div>
-                  <p className="text-2xl font-bold text-green-400">{run.inserted}</p>
+                  <p className="text-2xl font-bold text-success">{run.inserted}</p>
                 </div>
                 <div className="glass-card p-4">
                   <div className="flex items-center gap-2 mb-1">
@@ -493,10 +493,10 @@ export default function SyncRunDetailPage() {
                 </div>
                 <div className="glass-card p-4">
                   <div className="flex items-center gap-2 mb-1">
-                    <AlertCircle className="w-4 h-4 text-red-400" />
+                    <AlertCircle className="w-4 h-4 text-destructive" />
                     <span className="text-sm text-muted-foreground">Errors</span>
                   </div>
-                  <p className="text-2xl font-bold text-red-400">{run.errors}</p>
+                  <p className="text-2xl font-bold text-destructive">{run.errors}</p>
                 </div>
               </motion.div>
 
@@ -584,13 +584,13 @@ export default function SyncRunDetailPage() {
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.1 }}
-                  className="glass-card p-4 border-red-400/20"
+                  className="glass-card p-4 border-destructive/20"
                 >
                   <div className="flex items-center gap-2 mb-2">
-                    <XCircle className="w-5 h-5 text-red-400" />
-                    <span className="text-sm font-semibold text-red-400">Error</span>
+                    <XCircle className="w-5 h-5 text-destructive" />
+                    <span className="text-sm font-semibold text-destructive">Error</span>
                   </div>
-                  <p className="text-sm text-red-400/80 font-mono leading-relaxed">{run.error_message}</p>
+                  <p className="text-sm text-destructive/80 font-mono leading-relaxed">{run.error_message}</p>
                 </motion.div>
               )}
             </>

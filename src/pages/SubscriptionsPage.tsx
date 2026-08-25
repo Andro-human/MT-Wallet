@@ -120,7 +120,7 @@ export default function SubscriptionsPage() {
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <div className="font-bold truncate">{d.label}</div>
-                        <div className="text-xs text-muted-foreground mt-0.5">
+                        <div className="text-xs text-muted-foreground mt-0.5 amount">
                           {formatINR(d.amount)} · {d.cadence} · next ~{format(new Date(`${d.nextExpected}T12:00:00`), 'MMM d')}
                         </div>
                       </div>
@@ -194,7 +194,7 @@ export default function SubscriptionsPage() {
                               </span>
                             )}
                             {overdue && (
-                              <span className="text-[9px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded-full border border-orange-500/40 text-orange-500">
+                              <span className="text-[9px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded-full border border-warning/40 text-warning">
                                 overdue
                               </span>
                             )}

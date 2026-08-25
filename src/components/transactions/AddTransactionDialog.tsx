@@ -347,7 +347,7 @@ export function AddTransactionDialog({ open, onOpenChange, smsContext }: AddTran
                   </div>
                 )}
                 {previewWarning && (
-                  <div className="flex items-start gap-2 p-2.5 rounded-lg bg-yellow-400/10 border border-yellow-400/30 text-xs text-yellow-200">
+                  <div className="flex items-start gap-2 p-2.5 rounded-lg bg-warning/10 border border-warning/30 text-xs text-warning">
                     <AlertTriangle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
                     <span>{previewWarning}</span>
                   </div>

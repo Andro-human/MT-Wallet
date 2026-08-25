@@ -76,7 +76,7 @@ export function TransactionCard({ transaction, onClick, index = 0, netAmount, on
 
       {needsReview && (
         <div className="relative flex-shrink-0">
-          <div className="w-2.5 h-2.5 rounded-full bg-orange-400 animate-pulse" />
+          <div className="w-2.5 h-2.5 rounded-full bg-warning animate-pulse" />
         </div>
       )}
 
@@ -104,7 +104,7 @@ export function TransactionCard({ transaction, onClick, index = 0, netAmount, on
               'font-mono font-medium text-sm',
               isNotCounted
                 ? 'text-muted-foreground line-through'
-                : isCredit ? 'text-primary' : 'text-foreground'
+                : isCredit ? 'text-gold' : 'text-foreground'
             )}
           >
             {isCredit ? '+' : ''}
@@ -135,11 +135,11 @@ export function TransactionCard({ transaction, onClick, index = 0, netAmount, on
           className="absolute inset-0 flex items-center justify-between px-6"
           style={{ opacity: bgOpacity }}
         >
-          <div className="flex items-center gap-2 text-green-500">
+          <div className="flex items-center gap-2 text-success">
             <Check className="w-5 h-5" />
             <span className="text-xs font-semibold">Approve</span>
           </div>
-          <div className="flex items-center gap-2 text-green-500">
+          <div className="flex items-center gap-2 text-success">
             <span className="text-xs font-semibold">Approve</span>
             <Check className="w-5 h-5" />
           </div>

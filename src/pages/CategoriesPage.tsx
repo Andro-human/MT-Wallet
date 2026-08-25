@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { EmojiPicker } from '@/components/ui/EmojiPicker';
 import { CreateCategoryDialog } from '@/components/transactions/CreateCategoryDialog';
+import { CATEGORY_PALETTE, LONG_TAIL_COLOR } from '@/lib/categoryColors';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -28,7 +29,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 
-const COLOR_OPTIONS = ['#8B5CF6', '#EC4899', '#F59E0B', '#10B981', '#3B82F6', '#EF4444', '#6366F1', '#14B8A6', '#F97316', '#06B6D4'];
+const COLOR_OPTIONS = [...CATEGORY_PALETTE, LONG_TAIL_COLOR];
 
 export default function CategoriesPage() {
   const navigate = useNavigate();
@@ -250,7 +251,7 @@ export default function CategoriesPage() {
         <AlertDialogContent className="glass-elevated border-border/50">
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2 text-lg">
-              <AlertTriangle className="w-5 h-5 text-amber-400" />
+              <AlertTriangle className="w-5 h-5 text-warning" />
               Delete Category
             </AlertDialogTitle>
             <AlertDialogDescription asChild>
@@ -259,7 +260,7 @@ export default function CategoriesPage() {
                   Are you sure you want to delete <strong className="text-foreground">{deleteDialog.categoryName}</strong>?
                 </p>
                 {deleteDialog.count > 0 && (
-                  <p className="text-amber-400 font-medium text-base">
+                  <p className="text-warning font-medium text-base">
                     {deleteDialog.count} transaction{deleteDialog.count !== 1 ? 's' : ''} will be unlinked.
                   </p>
                 )}

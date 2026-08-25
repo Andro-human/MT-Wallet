@@ -88,7 +88,7 @@ export function ActivitySummary({ transactions, dateRange, isLoading, refundTota
         {/* Income */}
         <div className="text-center py-3 border-r border-border/30">
           <div className="flex items-center justify-center gap-1.5 mb-1">
-            <ArrowDownRight className="w-3.5 h-3.5 text-success flex-shrink-0" />
+            <ArrowDownRight className="w-3.5 h-3.5 text-gold flex-shrink-0" />
             <span className="text-2xs text-muted-foreground uppercase tracking-wider font-medium truncate">
               Income
             </span>
@@ -112,7 +112,7 @@ export function ActivitySummary({ transactions, dateRange, isLoading, refundTota
             const daysLeft = Math.max(differenceInDays(monthEnd, today) + 1, 1);
             const perDay = remaining / daysLeft;
             return (
-              <p className={`text-xs sm:text-sm font-bold currency-display truncate px-1 ${remaining > 0 ? 'text-success' : 'text-destructive'}`}>
+              <p className={`text-xs sm:text-sm font-bold currency-display truncate px-1 ${remaining > 0 ? 'text-gold' : 'text-warning'}`}>
                 {formatINR(Math.round(perDay))}
               </p>
             );
@@ -140,7 +140,7 @@ export function ActivitySummary({ transactions, dateRange, isLoading, refundTota
 
             return (
               <div className="flex flex-col items-center">
-                <p className={`text-xs sm:text-sm font-bold currency-display truncate px-1 ${isAhead ? 'text-success' : 'text-destructive'}`}>
+                <p className={`text-xs sm:text-sm font-bold currency-display truncate px-1 ${isAhead ? 'text-gold' : 'text-warning'}`}>
                   {isAhead ? '+' : '-'}{formatINR(Math.abs(difference))}
                 </p>
               </div>

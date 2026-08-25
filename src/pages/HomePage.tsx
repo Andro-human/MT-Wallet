@@ -51,7 +51,7 @@ export default function HomePage() {
             </h1>
           </div>
           <div className="text-right">
-            <p className="text-sm font-bold text-primary">{monthName}</p>
+            <p className="text-sm font-bold text-gold">{monthName}</p>
             <p className="text-xs text-muted-foreground font-mono">{year}</p>
           </div>
         </motion.div>
@@ -78,15 +78,15 @@ export default function HomePage() {
                 <Skeleton className="h-12 w-48 bg-muted/20" />
               ) : (
                 <div className="relative z-10">
-                  <h2 className="text-5xl font-heading font-bold text-foreground tracking-tighter">
+                  <h2 className="text-5xl font-bold text-foreground tracking-tight currency-display">
                     <span className="text-2xl text-muted-foreground align-top mr-1">₹</span>
                     {formatINR(thisMonthSpent).replace('₹', '')}
                   </h2>
 
                   <div className="flex items-center gap-3 mt-4">
                     <div className={`flex items-center gap-1.5 px-2 py-1 border text-xs font-mono font-medium ${monthChange > 0
-                      ? 'border-destructive/30 text-destructive bg-destructive/5'
-                      : 'border-primary/30 text-primary bg-primary/5'
+                      ? 'border-warning/30 text-warning bg-warning/5'
+                      : 'border-gold/30 text-gold bg-gold/5'
                       }`}>
                       {monthChange > 0 ? '▲' : '▼'} {Math.abs(monthChange).toFixed(0)}%
                     </div>

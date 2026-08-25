@@ -19,6 +19,7 @@ import {
   filterOutDuplicates,
 } from '@/lib/transactionMath';
 import { formatINR, formatINRCompact } from '@/lib/formatCurrency';
+import { CATEGORY_PALETTE, LONG_TAIL_COLOR } from '@/lib/categoryColors';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -165,7 +166,7 @@ export default function InsightsPage() {
       return {
         id,
         name: c?.name || 'Uncategorized',
-        color: c?.color || '#6B7280',
+        color: c?.color || LONG_TAIL_COLOR,
         icon: c?.icon || '📦',
       };
     });
@@ -243,7 +244,7 @@ export default function InsightsPage() {
         linkId: groupId,
         name: group?.name || 'Unknown Group',
         icon: group?.icon || '📁',
-        color: group?.color || '#8B5CF6',
+        color: group?.color || LONG_TAIL_COLOR,
         amount,
         type: 'group',
       });
@@ -263,7 +264,7 @@ export default function InsightsPage() {
         linkId: catId,
         name: category?.name || 'Uncategorized',
         icon: category?.icon || '📦',
-        color: category?.color || '#6B7280',
+        color: category?.color || LONG_TAIL_COLOR,
         amount,
         type: 'category',
       });
@@ -290,7 +291,7 @@ export default function InsightsPage() {
           linkId: catId,
           name: c?.name || 'Uncategorized',
           icon: c?.icon || '📦',
-          color: c?.color || '#6B7280',
+          color: c?.color || LONG_TAIL_COLOR,
           amount,
           type: 'category' as const,
         };
@@ -314,7 +315,7 @@ export default function InsightsPage() {
           linkId: gid,
           name: g?.name || 'Unknown Group',
           icon: g?.icon || '📁',
-          color: g?.color || '#8B5CF6',
+          color: g?.color || LONG_TAIL_COLOR,
           amount,
           type: 'group' as const,
         };
@@ -565,18 +566,7 @@ export default function InsightsPage() {
     }
   }, [timeRange, customStart, customEnd, dateRange]);
 
-  // Group bar colors - Neo-Modernist Palette (Lime, White, Greys)
-  const GROUP_COLORS = [
-    '#D4FF32', // Acid Lime
-    '#FFFFFF', // White
-    '#A3A3A3', // Neutral 400
-    '#525252', // Neutral 600
-    '#Fefce8', // Yellow 50 (Subtle)
-    '#d9f99d', // Lime 200
-    '#262626', // Neutral 800
-    '#e5e5e5', // Neutral 200
-    '#facc15', // Yellow 400
-  ];
+  const GROUP_COLORS = [...CATEGORY_PALETTE, LONG_TAIL_COLOR];
 
   const CustomTooltip = ({ active, payload }: any) => {
     if (active && payload && payload.length) {
@@ -728,7 +718,7 @@ export default function InsightsPage() {
         >
           <div className="neo-card p-5 border-l-2 border-l-primary">
             <p className="text-2xs font-mono text-muted-foreground uppercase tracking-wider mb-1">Total Spent</p>
-            <p className="text-2xl font-bold font-heading text-foreground currency-display">
+            <p className="text-2xl font-bold text-foreground currency-display">
               {isLoading ? '...' : formatINRCompact(totalSpent)}
             </p>
             {!isLoading && totalSpent > 0 && (
@@ -739,7 +729,7 @@ export default function InsightsPage() {
           </div>
           <div className="neo-card p-5 border-l-2 border-l-foreground">
             <p className="text-2xs font-mono text-muted-foreground uppercase tracking-wider mb-1">Total Income</p>
-            <p className="text-2xl font-bold font-heading text-foreground currency-display">
+            <p className="text-2xl font-bold text-foreground currency-display">
               {isLoading ? '...' : formatINRCompact(totalIncome)}
             </p>
             {!isLoading && totalIncome > 0 && (
