@@ -562,7 +562,6 @@ export default function InsightsPage() {
   // contradict the tile's number.
   const categoryDetail = useCallback(
     (item: { type: 'group' | 'category'; linkId: string }): {
-      oneLiner: string | null;
       lines: { label: string; amount: number; count: number }[];
       txns: { id: string; label: string; date: string; amount: number }[];
       note: string | null;
@@ -570,7 +569,6 @@ export default function InsightsPage() {
       if (monthsInRange.length > 1) {
         const txns = topTxnsFor(item, null);
         return {
-          oneLiner: null,
           lines: [],
           txns,
           note: txns.length === 0 ? 'No spend here in this period.' : 'Biggest transactions in this period:',
@@ -584,7 +582,7 @@ export default function InsightsPage() {
             : categories.find((c) => c.id === item.linkId)?.slug;
       const b = key ? breakdownByKey.get(key) : undefined;
       if (b) {
-        return { oneLiner: b.one_liner, lines: b.groups, txns: [], note: null };
+        return { lines: b.groups, txns: [], note: null };
       }
       const txns = topTxnsFor(item, selectedReviewMonth);
       const note =
@@ -593,7 +591,7 @@ export default function InsightsPage() {
           : reviewSummary
             ? 'No AI grouping this month — biggest transactions:'
             : `No ${monthLabelOf(selectedReviewMonth)} review yet (written nightly) — biggest transactions:`;
-      return { oneLiner: null, lines: [], txns, note };
+      return { lines: [], txns, note };
     },
     [categories, breakdownByKey, monthsInRange, selectedReviewMonth, reviewSummary, topTxnsFor],
   );
@@ -1142,9 +1140,6 @@ export default function InsightsPage() {
                           className="overflow-hidden"
                         >
                           <div className="pt-1 pb-2 pl-10 pr-1 space-y-1.5">
-                            {detail?.oneLiner && (
-                              <p className="text-xs text-muted-foreground/90 italic">{detail.oneLiner}</p>
-                            )}
                             {(detail?.lines ?? []).map((s) => (
                               <div key={s.label} className="flex items-center justify-between text-xs">
                                 <span className="text-muted-foreground">
