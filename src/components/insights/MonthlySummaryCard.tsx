@@ -1,6 +1,7 @@
+import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { format } from 'date-fns';
-import { Sparkles } from 'lucide-react';
+import { Sparkles, ChevronRight } from 'lucide-react';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 import { useMonthlySummary, type SpendSlice } from '@/hooks/useMonthlySummary';
 import { formatINR, formatINRCompact } from '@/lib/formatCurrency';
@@ -138,6 +139,14 @@ export function MonthlySummaryCard({ month }: { month: string | null }) {
         <h3 className="font-heading font-bold text-foreground flex items-center gap-2">
           <Sparkles className="w-4 h-4" /> {format(new Date(`${month}-01`), 'MMMM yyyy')} in review
         </h3>
+        {cached && (
+          <Link
+            to={`/review/${month}`}
+            className="shrink-0 inline-flex items-center gap-1 text-2xs font-mono uppercase tracking-widest text-primary hover:underline underline-offset-4"
+          >
+            Read it <ChevronRight className="w-3 h-3" />
+          </Link>
+        )}
       </div>
 
       {cached ? (
