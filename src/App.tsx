@@ -12,7 +12,6 @@ import HomePage from "./pages/HomePage";
 import TransactionsPage from "./pages/TransactionsPage";
 import TransactionDetailPage from "./pages/TransactionDetailPage";
 import InsightsPage from "./pages/InsightsPage";
-import MonthlyReviewPage from "./pages/MonthlyReviewPage";
 import DebtPage from "./pages/DebtPage";
 import SettingsPage from "./pages/SettingsPage";
 import SyncHistoryPage from "./pages/SyncHistoryPage";
@@ -132,12 +131,6 @@ const App = () => (
             <Route path="/insights" element={
               <ProtectedRoute>
                 <InsightsPage />
-              </ProtectedRoute>
-            } />
-
-            <Route path="/review/:month" element={
-              <ProtectedRoute>
-                <MonthlyReviewPage />
               </ProtectedRoute>
             } />
 
