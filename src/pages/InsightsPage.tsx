@@ -510,6 +510,24 @@ export default function InsightsPage() {
 
   const monthLabelOf = (key: string | null) => (key ? format(new Date(`${key}-01`), "MMM ''yy") : '');
 
+  // The review's own sentence for a bucket. Shown on the row rather than behind
+  // the chevron: it is the substance, and a row that explains itself needs no
+  // interaction. Only meaningful for a single month, since a breakdown belongs
+  // to one review.
+  const oneLinerFor = useCallback(
+    (item: { type: 'group' | 'category'; linkId: string }): string | null => {
+      if (monthsInRange.length > 1) return null;
+      const key =
+        item.type === 'group'
+          ? `group:${item.linkId}`
+          : item.linkId === 'uncategorized'
+            ? 'uncategorized'
+            : categories.find((c) => c.id === item.linkId)?.slug;
+      return (key ? breakdownByKey.get(key)?.one_liner : null) ?? null;
+    },
+    [categories, breakdownByKey, monthsInRange],
+  );
+
   // Biggest transactions of the tile, effective amounts, descending. Scoped to
   // a month when one is given, else the whole selected range. Membership
   // matches the tile's number (combined view excludes grouped txns from
@@ -1054,26 +1072,29 @@ export default function InsightsPage() {
                   <div key={item.id}>
                     <Link to={allocationLinkFor(item)}>
                       <div className="group cursor-pointer">
-                        <div className="flex items-center justify-between text-sm mb-3">
-                          <span className="flex items-center gap-3">
-                            <span className="font-mono text-muted-foreground bg-muted/20 p-1 rounded">{item.icon}</span>
-                            <span className="font-bold text-foreground group-hover:text-primary transition-colors uppercase tracking-wide flex items-center gap-1.5">
+                        <div className="flex items-baseline justify-between gap-4 mb-1.5">
+                          <span className="flex items-baseline gap-2.5 min-w-0">
+                            <span className="text-base leading-none shrink-0">{item.icon}</span>
+                            <span className="font-heading text-lg font-normal text-foreground group-hover:text-primary transition-colors truncate">
                               {item.name}
-                              {allocTab === 'combined' && item.type === 'group' && (
-                                <Layers className="w-3 h-3 text-muted-foreground" />
-                              )}
                             </span>
+                            {allocTab === 'combined' && item.type === 'group' && (
+                              <Layers className="w-3 h-3 text-muted-foreground shrink-0" />
+                            )}
                           </span>
-                          <span className="font-mono text-foreground font-medium flex items-center gap-1.5">
+                          <span className="flex items-baseline gap-2 shrink-0">
                             {(() => {
                               const d = deltaFor(item);
                               return d ? (
-                                <span className="text-2xs text-muted-foreground/60 mr-1.5 normal-case tracking-normal">
-                                  {d}
-                                </span>
+                                <span className="text-2xs amount text-muted-foreground/60">{d}</span>
                               ) : null;
                             })()}
-                            {percentage.toFixed(0)}% <span className="text-muted-foreground mx-1">/</span> {formatINRCompact(item.amount)}
+                            <span className="text-2xs amount text-muted-foreground/60">
+                              {percentage.toFixed(0)}%
+                            </span>
+                            <span className="amount text-sm text-foreground">
+                              {formatINRCompact(item.amount)}
+                            </span>
                             <button
                               onClick={(e) => {
                                 e.preventDefault();
@@ -1082,7 +1103,7 @@ export default function InsightsPage() {
                                 setTxnLimit(TOP_TXNS_PAGE);
                               }}
                               aria-label={isExpanded ? 'Hide sub-themes' : 'Show sub-themes'}
-                              className="p-1 -m-1 ml-0.5 rounded hover:bg-muted/30 transition-colors"
+                              className="p-1 -m-1 rounded hover:bg-muted/30 transition-colors"
                             >
                               <ChevronDown
                                 className={cn(
@@ -1093,6 +1114,13 @@ export default function InsightsPage() {
                             </button>
                           </span>
                         </div>
+
+                        {(() => {
+                          const line = oneLinerFor(item);
+                          return line ? (
+                            <p className="text-xs leading-relaxed text-muted-foreground mb-2 pr-8">{line}</p>
+                          ) : null;
+                        })()}
                         <div className="h-1.5 bg-muted/20 w-full overflow-hidden rounded-full mb-2">
                           <motion.div
                             initial={{ width: 0 }}
