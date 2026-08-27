@@ -27,14 +27,14 @@ import {
 import { useToast } from '@/components/ui/use-toast';
 
 const statusConfig: Record<string, { color: string; bg: string; label: string }> = {
-  success: { color: 'text-success', bg: 'bg-success/10', label: 'Success' },
+  success: { color: 'text-foreground/80', bg: 'bg-muted/30', label: 'Success' },
   partial: { color: 'text-warning', bg: 'bg-warning/10', label: 'Partial' },
   failed: { color: 'text-destructive', bg: 'bg-destructive/10', label: 'Failed' },
   no_messages: { color: 'text-muted-foreground', bg: 'bg-muted/30', label: 'No Messages' },
 };
 
 const detailStatusConfig: Record<string, { icon: typeof CheckCircle2; color: string; label: string }> = {
-  inserted: { icon: ArrowDownCircle, color: 'text-success', label: 'Inserted' },
+  inserted: { icon: ArrowDownCircle, color: 'text-foreground', label: 'Inserted' },
   skipped: { icon: SkipForward, color: 'text-muted-foreground', label: 'Skipped' },
   error: { icon: XCircle, color: 'text-destructive', label: 'Error' },
 };
@@ -123,7 +123,7 @@ function MessageCard({
               {detail?.status && (
                 <span className={cn(
                   "text-xs font-medium px-2 py-0.5 rounded-full",
-                  detail.status === 'inserted' && 'bg-success/10 text-success',
+                  detail.status === 'inserted' && 'bg-muted/40 text-foreground',
                   detail.status === 'skipped' && 'bg-muted/50 text-muted-foreground',
                   detail.status === 'error' && 'bg-destructive/10 text-destructive',
                 )}>
@@ -479,10 +479,10 @@ export default function SyncRunDetailPage() {
                 </div>
                 <div className="glass-card p-4">
                   <div className="flex items-center gap-2 mb-1">
-                    <ArrowDownCircle className="w-4 h-4 text-success" />
+                    <ArrowDownCircle className="w-4 h-4 text-muted-foreground" />
                     <span className="text-sm text-muted-foreground">Inserted</span>
                   </div>
-                  <p className="text-2xl font-bold text-success">{run.inserted}</p>
+                  <p className="text-2xl font-bold">{run.inserted}</p>
                 </div>
                 <div className="glass-card p-4">
                   <div className="flex items-center gap-2 mb-1">

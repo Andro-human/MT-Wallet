@@ -386,7 +386,7 @@ export default function SettingsPage() {
                                         </div>
 
                                         {/* Requirements */}
-                                        <div className="grid grid-cols-2 gap-2 text-[10px] font-mono text-muted-foreground">
+                                        <div className="grid grid-cols-2 gap-2 text-2xs font-mono text-muted-foreground">
                                             <span className={cn(newPassword.length >= 8 && "text-primary")}>MIN 8 CHARS</span>
                                             <span className={cn(/[A-Z]/.test(newPassword) && "text-primary")}>UPPERCASE</span>
                                             <span className={cn(/[a-z]/.test(newPassword) && "text-primary")}>LOWERCASE</span>
