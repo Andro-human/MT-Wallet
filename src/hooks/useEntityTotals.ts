@@ -14,6 +14,9 @@ export interface EntityTotal {
 export interface EntityTotals {
   byCategory: Record<string, EntityTotal>;
   byGroup: Record<string, EntityTotal>;
+  /** Keyed by `${bank_name}|${account_last4}` on the RAW transaction rows, so a
+   *  caller holding BankAccountInfo.rawAccounts can fold aliases itself. */
+  byRawAccount: Record<string, EntityTotal>;
   maxCategorySpent: number;
   maxGroupSpent: number;
   isLoading: boolean;
@@ -43,10 +46,11 @@ export function useEntityTotals(): EntityTotals {
   return useMemo(() => {
     const byCategory: Record<string, EntityTotal> = {};
     const byGroup: Record<string, EntityTotal> = {};
+    const byRawAccount: Record<string, EntityTotal> = {};
     const isLoading = txnsLoading || !isReady;
 
     if (isLoading) {
-      return { byCategory, byGroup, maxCategorySpent: 0, maxGroupSpent: 0, isLoading };
+      return { byCategory, byGroup, byRawAccount, maxCategorySpent: 0, maxGroupSpent: 0, isLoading };
     }
 
     for (const t of txns) {
@@ -62,6 +66,9 @@ export function useEntityTotals(): EntityTotals {
 
       if (t.category_id) bump(byCategory, t.category_id, spent);
       if (t.group_id) bump(byGroup, t.group_id, spent);
+
+      const row = t as { bank_name?: string | null; account_last4?: string | null };
+      bump(byRawAccount, `${row.bank_name ?? ''}|${row.account_last4 ?? ''}`, spent);
     }
 
     const max = (r: Record<string, EntityTotal>) =>
@@ -70,6 +77,7 @@ export function useEntityTotals(): EntityTotals {
     return {
       byCategory,
       byGroup,
+      byRawAccount,
       maxCategorySpent: max(byCategory),
       maxGroupSpent: max(byGroup),
       isLoading,

@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ArrowLeft, Building2, ChevronRight, Trash2, Merge, Loader2, AlertTriangle, Unlink, Pencil, Plus } from 'lucide-react';
+import { ArrowLeft, Building2, Trash2, Merge, Loader2, AlertTriangle, Unlink, Pencil, Plus } from 'lucide-react';
 import {
   useBankAccounts,
   useRemoveBankAccount,
@@ -19,6 +19,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
+import { toTechnicalDisplay } from '@/lib/bankDisplay';
+import { useEntityTotals } from '@/hooks/useEntityTotals';
+import { formatINRCompact } from '@/lib/formatCurrency';
+import { entityColor } from '@/lib/categoryColors';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -47,6 +51,36 @@ export default function BankAccountsPage() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { data: bankAccounts = [], isLoading } = useBankAccounts();
+  const { byRawAccount } = useEntityTotals();
+
+  // An account's spend is the sum over every raw account aliased into it, or
+  // the merged rows would report zero against a real balance.
+  type Aliased = { rawAccounts: { bankName: string; accountLast4: string }[] };
+  const foldRaw = useCallback(
+    (account: Aliased, field: 'spent' | 'counted') =>
+      account.rawAccounts.reduce(
+        (sum, r) => sum + (byRawAccount[`${r.bankName}|${r.accountLast4}`]?.[field] ?? 0),
+        0,
+      ),
+    [byRawAccount],
+  );
+  const spendFor = useCallback((a: Aliased) => foldRaw(a, 'spent'), [foldRaw]);
+  // Not BankAccountInfo.transactionCount: that is the raw view count, which
+  // ignores duplicates and refunds and so disagrees with every other page.
+  const countedFor = useCallback((a: Aliased) => foldRaw(a, 'counted'), [foldRaw]);
+
+  const ranked = useMemo(
+    () =>
+      [...bankAccounts].sort((a, b) => {
+        const d = spendFor(b) - spendFor(a);
+        return d !== 0 ? d : a.display.localeCompare(b.display);
+      }),
+    [bankAccounts, spendFor],
+  );
+  const maxAccountSpent = useMemo(
+    () => ranked.reduce((m, a) => Math.max(m, spendFor(a)), 0),
+    [ranked, spendFor],
+  );
   const { data: aliases = [] } = useBankAccountAliases();
   const removeBankAccount = useRemoveBankAccount();
   const createAlias = useCreateBankAccountAlias();
@@ -223,7 +257,7 @@ export default function BankAccountsPage() {
 
       {/* Header */}
       <div className="sticky top-0 z-10 backdrop-blur-xl bg-background/80 border-b border-border/30 safe-area-top">
-        <div className="flex items-center gap-3 px-5 py-3">
+        <div className="flex items-center gap-3 px-5 py-3 page-shell">
           <button
             onClick={() => navigate(-1)}
             className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-muted/50 transition-colors -ml-1"
@@ -247,7 +281,7 @@ export default function BankAccountsPage() {
         </div>
       </div>
 
-      <div className="px-5 py-6 space-y-3 relative">
+      <div className="px-5 py-6 relative page-shell">
         {/* Summary */}
         <motion.div
           initial={{ opacity: 0, y: -12 }}
@@ -292,120 +326,111 @@ export default function BankAccountsPage() {
             </Button>
           </motion.div>
         ) : (
-          bankAccounts.map((account, i) => {
+          <div>
+            {ranked.map((account, i) => {
             const key = `${account.bankName}|${account.accountLast4}`;
             const accountAliases = getAliasesForTarget(account.bankName, account.accountLast4);
             const hasAliases = accountAliases.length > 0;
+            const spent = spendFor(account);
+            const counted = countedFor(account);
+            const barWidth = maxAccountSpent > 0 ? (spent / maxAccountSpent) * 100 : 0;
+            const txnHref = `/transactions?bank=${encodeURIComponent(account.bankName)}&account=${encodeURIComponent(account.accountLast4)}`;
 
             return (
               <motion.div
                 key={key}
-                initial={{ opacity: 0, y: 12 }}
+                initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.04, duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-                className="glass-card p-5"
+                transition={{ delay: Math.min(i, 12) * 0.02, duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+                className="group border-b border-border/50 last:border-b-0 py-3.5"
               >
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-xl bg-info/10 flex items-center justify-center flex-shrink-0">
-                    <Building2 className="w-6 h-6 text-info" />
-                  </div>
-
+                <div className="flex items-baseline justify-between gap-3">
                   <button
-                    onClick={() =>
-                      navigate(
-                        `/transactions?bank=${encodeURIComponent(account.bankName)}&account=${encodeURIComponent(account.accountLast4)}`
-                      )
-                    }
-                    className="flex-1 min-w-0 text-left"
+                    onClick={() => navigate(txnHref)}
+                    className="flex items-baseline gap-2 min-w-0 text-left"
                   >
-                    <p className="text-base font-semibold text-foreground truncate">
+                    <span className="font-heading text-lg font-normal truncate group-hover:text-primary transition-colors">
                       {account.display}
-                    </p>
+                    </span>
                     {account.nickname && (
-                      <p className="text-sm text-muted-foreground/70 truncate">
+                      <span className="hidden sm:inline text-2xs font-mono text-muted-foreground/50 shrink-0">
                         {account.technicalDisplay}
-                      </p>
+                      </span>
                     )}
-                    <p className="text-sm text-muted-foreground mt-0.5">
-                      {account.transactionCount} transaction{account.transactionCount !== 1 ? 's' : ''}
-                    </p>
                   </button>
 
-                  <div className="flex items-center gap-1">
-                    {/* Rename */}
-                    <button
-                      onClick={() => openNicknameDialog(account)}
-                      className="w-9 h-9 rounded-xl flex items-center justify-center text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
-                      title="Rename account"
-                    >
-                      <Pencil className="w-4 h-4" />
-                    </button>
-                    {/* Link */}
-                    <button
-                      onClick={() => {
-                        setMergeDialog({ open: true, source: account });
-                        setMergeTarget('');
-                      }}
-                      className="w-9 h-9 rounded-xl flex items-center justify-center text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
-                      title="Link to another account"
-                    >
-                      <Merge className="w-4 h-4" />
-                    </button>
-                    {/* Delete */}
-                    <button
-                      onClick={() =>
-                        setRemoveDialog({
-                          open: true,
-                          bankName: account.bankName,
-                          accountLast4: account.accountLast4,
-                          display: account.display,
-                          count: account.transactionCount,
-                          savedAccountId: account.savedAccountId,
-                        })
-                      }
-                      className="w-9 h-9 rounded-xl flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
-                      title="Remove bank account"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                    {/* View transactions */}
-                    <button
-                      onClick={() =>
-                        navigate(
-                          `/transactions?bank=${encodeURIComponent(account.bankName)}&account=${encodeURIComponent(account.accountLast4)}`
-                        )
-                      }
-                      className="w-9 h-9 rounded-xl flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
-                    >
-                      <ChevronRight className="w-5 h-5" />
-                    </button>
-                  </div>
+                  <span className="flex items-baseline gap-2.5 shrink-0">
+                    <span className="hidden sm:inline text-2xs text-muted-foreground/70">
+                      {counted} txn{counted !== 1 ? 's' : ''}
+                    </span>
+                    <span className="amount text-sm">{formatINRCompact(spent)}</span>
+                    <span className="flex items-center justify-end gap-0.5 w-[4.75rem]">
+                      <button
+                        onClick={() => openNicknameDialog(account)}
+                        className="p-1 rounded text-muted-foreground/50 hover:text-primary hover:bg-primary/10 transition-colors"
+                        title="Rename account"
+                      >
+                        <Pencil className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        onClick={() => {
+                          setMergeDialog({ open: true, source: account });
+                          setMergeTarget('');
+                        }}
+                        className="p-1 rounded text-muted-foreground/50 hover:text-primary hover:bg-primary/10 transition-colors"
+                        title="Link to another account"
+                      >
+                        <Merge className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        onClick={() =>
+                          setRemoveDialog({
+                            open: true,
+                            bankName: account.bankName,
+                            accountLast4: account.accountLast4,
+                            display: account.display,
+                            count: account.transactionCount,
+                            savedAccountId: account.savedAccountId,
+                          })
+                        }
+                        className="p-1 rounded text-muted-foreground/50 hover:text-destructive hover:bg-destructive/10 transition-colors"
+                        title="Remove bank account"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </span>
+                  </span>
                 </div>
+
+                {spent > 0 && (
+                  <div className="mt-2 h-1 w-full rounded-full bg-muted/25 overflow-hidden">
+                    <div
+                      className="h-full rounded-full"
+                      style={{ width: `${Math.max(barWidth, 0.6)}%`, background: entityColor(key) }}
+                    />
+                  </div>
+                )}
 
                 {/* Show aliased accounts under this one */}
                 {hasAliases && (
-                  <div className="mt-3 pt-3 border-t border-border/30 space-y-2">
-                    <p className="text-sm text-muted-foreground">Linked accounts:</p>
+                  <div className="mt-2.5 pl-4 border-l border-border/40 max-w-xs">
+                    <p className="text-2xs font-mono uppercase tracking-wider text-muted-foreground/60 mb-1">
+                      merged in
+                    </p>
                     {accountAliases.map((alias) => {
-                      const srcDisplay =
-                        alias.source_bank_name && alias.source_account_last4
-                          ? `${alias.source_bank_name} ••${alias.source_account_last4}`
-                          : alias.source_bank_name || `••${alias.source_account_last4}`;
+                      const srcDisplay = toTechnicalDisplay(alias.source_bank_name, alias.source_account_last4);
                       return (
-                        <div
-                          key={alias.id}
-                          className="flex items-center gap-3 p-3 rounded-xl bg-muted/20"
-                        >
-                          <Building2 className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                          <span className="flex-1 text-sm text-foreground truncate">
-                            {srcDisplay}
+                        <div key={alias.id} className="flex items-baseline justify-between gap-3 py-1">
+                          <span className="text-2xs font-mono text-muted-foreground/80 truncate">
+                            {srcDisplay || 'unnamed account'}
                           </span>
                           <button
                             onClick={() => handleUnalias(alias.id)}
-                            className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-warning hover:bg-warning/10 transition-colors"
+                            className="p-1 -mr-1 rounded text-muted-foreground/40 hover:text-warning hover:bg-warning/10 transition-colors shrink-0"
                             title="Unlink this account"
+                            aria-label={`Unlink ${srcDisplay}`}
                           >
-                            <Unlink className="w-4 h-4" />
+                            <Unlink className="w-3 h-3" />
                           </button>
                         </div>
                       );
@@ -414,7 +439,8 @@ export default function BankAccountsPage() {
                 )}
               </motion.div>
             );
-          })
+            })}
+          </div>
         )}
       </div>
 
