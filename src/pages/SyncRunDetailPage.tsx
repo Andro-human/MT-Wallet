@@ -448,7 +448,7 @@ export default function SyncRunDetailPage() {
               className={cn(
                 "flex-1 text-sm font-medium py-2.5 px-3 rounded-lg transition-colors",
                 activeTab === tab.key
-                  ? "bg-primary text-primary-foreground"
+                  ? "bg-muted/60 text-foreground"
                   : "text-muted-foreground hover:text-foreground"
               )}
             >
@@ -468,7 +468,7 @@ export default function SyncRunDetailPage() {
               <motion.div
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="grid grid-cols-2 gap-3"
+                className="grid grid-cols-2 sm:grid-cols-4 gap-3"
               >
                 <div className="glass-card p-4">
                   <div className="flex items-center gap-2 mb-1">
@@ -493,10 +493,14 @@ export default function SyncRunDetailPage() {
                 </div>
                 <div className="glass-card p-4">
                   <div className="flex items-center gap-2 mb-1">
-                    <AlertCircle className="w-4 h-4 text-destructive" />
+                    <AlertCircle className={cn('w-4 h-4', run.errors > 0 ? 'text-destructive' : 'text-muted-foreground')} />
                     <span className="text-sm text-muted-foreground">Errors</span>
                   </div>
-                  <p className="text-2xl font-bold text-destructive">{run.errors}</p>
+                  {/* Zero errors is the normal case; shouting it in vermilion
+                      reads as an alarm about the absence of a problem. */}
+                  <p className={cn('text-2xl font-bold', run.errors > 0 && 'text-destructive')}>
+                    {run.errors}
+                  </p>
                 </div>
               </motion.div>
 
@@ -505,7 +509,7 @@ export default function SyncRunDetailPage() {
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.05 }}
-                className="glass-card p-4 space-y-3.5"
+                className="glass-card p-4 space-y-3.5 max-w-xl"
               >
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-muted-foreground">Duration</span>
@@ -612,7 +616,7 @@ export default function SyncRunDetailPage() {
                     className={cn(
                       "text-sm px-3.5 py-1.5 rounded-full transition-colors",
                       filterStatus === chip.key
-                        ? "bg-primary text-primary-foreground"
+                        ? "bg-muted/60 text-foreground"
                         : "bg-card/60 text-muted-foreground"
                     )}
                   >
