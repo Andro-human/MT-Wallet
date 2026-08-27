@@ -2,18 +2,29 @@ import { useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { format } from 'date-fns';
-import { ArrowLeft, HandCoins, X, Plus } from 'lucide-react';
+import { ArrowLeft, HandCoins, X, Plus, Pencil } from 'lucide-react';
 import { RecordDebtDialog } from '@/components/debt/RecordDebtDialog';
 import { useQuery } from '@tanstack/react-query';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { useEnrichmentMap, useUpdateEnrichment, type TxnEnrichment } from '@/hooks/useTxnEnrichment';
+import { useEnrichmentMap, useUpdateEnrichment, useMarkLentBulk, type TxnEnrichment } from '@/hooks/useTxnEnrichment';
 import { useRefundTotals } from '@/hooks/useRefundLinks';
 import { formatINR } from '@/lib/formatCurrency';
 import { repaymentProgress } from '@/lib/repaymentProgress';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 
 interface LoanTxn {
@@ -32,6 +43,13 @@ export default function DebtPage() {
   const { data: refundTotals = {} } = useRefundTotals();
   const updateEnrichment = useUpdateEnrichment();
   const [recordOpen, setRecordOpen] = useState(false);
+  const markLent = useMarkLentBulk();
+  // Renaming a counterparty is re-marking every loan filed under it, which is
+  // exactly what the bulk mark already does.
+  const [renaming, setRenaming] = useState<
+    { from: string; loans: { txn: LoanTxn; enrichment: TxnEnrichment }[] } | null
+  >(null);
+  const [renameTo, setRenameTo] = useState('');
 
   const loanRows = useMemo(() => {
     if (!enrichmentMap) return [] as TxnEnrichment[];
@@ -149,7 +167,19 @@ export default function DebtPage() {
                   className="border-b border-border/50 last:border-b-0 py-4"
                 >
                   <div className="flex items-baseline justify-between gap-3">
-                    <span className="font-heading text-lg font-normal capitalize">{key}</span>
+                    <span className="flex items-baseline gap-1.5 min-w-0">
+                      <span className="font-heading text-lg font-normal capitalize truncate">{key}</span>
+                      <button
+                        onClick={() => {
+                          setRenaming({ from: key, loans: group.loans });
+                          setRenameTo(key);
+                        }}
+                        className="p-1 rounded text-muted-foreground/60 hover:text-primary hover:bg-primary/10 transition-colors shrink-0"
+                        aria-label={`Rename ${key}`}
+                      >
+                        <Pencil className="w-3.5 h-3.5" />
+                      </button>
+                    </span>
                     <span className="flex items-baseline gap-2 shrink-0">
                       <span className="text-2xs text-muted-foreground uppercase tracking-wider">
                         outstanding
@@ -209,6 +239,56 @@ export default function DebtPage() {
           </>
         )}
       </div>
+
+      <Dialog open={!!renaming} onOpenChange={(o) => !o && setRenaming(null)}>
+        <DialogContent className="glass-elevated border-border/50">
+          <DialogHeader>
+            <DialogTitle className="font-heading font-normal text-2xl">Rename counterparty</DialogTitle>
+            <DialogDescription>
+              Applies to {renaming?.loans.length ?? 0} loan
+              {(renaming?.loans.length ?? 0) === 1 ? '' : 's'} filed under this name.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-2">
+            <Label htmlFor="debt-name" className="text-2xs font-mono uppercase tracking-wider text-muted-foreground">
+              Name
+            </Label>
+            <Input
+              id="debt-name"
+              value={renameTo}
+              onChange={(e) => setRenameTo(e.target.value)}
+              autoFocus
+            />
+          </div>
+
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setRenaming(null)}>Cancel</Button>
+            <Button
+              disabled={!renameTo.trim() || markLent.isPending}
+              onClick={async () => {
+                if (!renaming) return;
+                try {
+                  await markLent.mutateAsync({
+                    counterparty: renameTo.trim(),
+                    transactions: renaming.loans.map((l) => ({
+                      id: l.txn.id,
+                      notes: l.txn.notes,
+                      existing: l.enrichment,
+                    })),
+                  });
+                  setRenaming(null);
+                  toast({ title: 'Counterparty renamed' });
+                } catch {
+                  toast({ title: 'Could not rename', variant: 'destructive' });
+                }
+              }}
+            >
+              {markLent.isPending ? 'Saving...' : 'Save'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <RecordDebtDialog open={recordOpen} onOpenChange={setRecordOpen} />
     </AppLayout>

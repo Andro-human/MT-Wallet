@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 
+/** What the user picked. 'system' follows the OS and keeps following it. */
+export type ThemePreference = 'night' | 'day' | 'system';
+/** What is actually painted. 'system' always resolves to one of these. */
 export type LedgerTheme = 'night' | 'day';
 
 const STORAGE_KEY = 'mtwallet-theme';
@@ -8,8 +11,19 @@ const THEME_COLOR: Record<LedgerTheme, string> = {
   day: '#F6F0E4',
 };
 
-function readStoredTheme(): LedgerTheme {
-  return localStorage.getItem(STORAGE_KEY) === 'day' ? 'day' : 'night';
+const prefersLight = () =>
+  typeof window !== 'undefined' && window.matchMedia?.('(prefers-color-scheme: light)').matches;
+
+export function resolveTheme(pref: ThemePreference): LedgerTheme {
+  if (pref === 'system') return prefersLight() ? 'day' : 'night';
+  return pref;
+}
+
+export function readStoredPreference(): ThemePreference {
+  const raw = localStorage.getItem(STORAGE_KEY);
+  // 'night' and 'day' are the values written before 'system' existed, so an
+  // upgrading install keeps whatever it had rather than silently switching.
+  return raw === 'day' || raw === 'night' || raw === 'system' ? raw : 'night';
 }
 
 export function applyTheme(theme: LedgerTheme) {
@@ -20,20 +34,35 @@ export function applyTheme(theme: LedgerTheme) {
 }
 
 export function initTheme() {
-  applyTheme(readStoredTheme());
+  applyTheme(resolveTheme(readStoredPreference()));
 }
 
 export function useTheme() {
-  const [theme, setThemeState] = useState<LedgerTheme>(readStoredTheme);
+  const [preference, setPreferenceState] = useState<ThemePreference>(readStoredPreference);
+  const [theme, setResolved] = useState<LedgerTheme>(() => resolveTheme(readStoredPreference()));
 
   useEffect(() => {
-    applyTheme(theme);
-  }, [theme]);
+    const resolved = resolveTheme(preference);
+    setResolved(resolved);
+    applyTheme(resolved);
 
-  const setTheme = useCallback((next: LedgerTheme) => {
+    if (preference !== 'system') return;
+    // Follow the OS while 'system' is selected, so flipping the phone to dark
+    // at sunset repaints without reopening the app.
+    const mq = window.matchMedia('(prefers-color-scheme: light)');
+    const onChange = () => {
+      const next = resolveTheme('system');
+      setResolved(next);
+      applyTheme(next);
+    };
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, [preference]);
+
+  const setPreference = useCallback((next: ThemePreference) => {
     localStorage.setItem(STORAGE_KEY, next);
-    setThemeState(next);
+    setPreferenceState(next);
   }, []);
 
-  return { theme, setTheme } as const;
+  return { theme, preference, setPreference } as const;
 }

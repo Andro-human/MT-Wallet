@@ -19,7 +19,6 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { useTheme } from '@/hooks/useTheme';
-import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 import { z } from 'zod';
 
@@ -40,7 +39,7 @@ export default function SettingsPage() {
     const { data: categories = [] } = useCategories();
     const { data: transactionGroups = [] } = useTransactionGroups();
     const { toast } = useToast();
-    const { theme, setTheme } = useTheme();
+    const { theme, preference, setPreference } = useTheme();
     const { isSupported: pushSupported, permissionState, isSubscribed: pushSubscribed, isLoading: pushLoading, subscribe: pushSubscribe, unsubscribe: pushUnsubscribe } = usePushNotifications();
 
     const navigate = useNavigate();
@@ -159,22 +158,43 @@ export default function SettingsPage() {
                         animate={{ opacity: 1, x: 0 }}
                         transition={{ delay: 0.18 }}
                     >
-                        <div className="w-full neo-card p-4 flex items-center gap-4">
-                            <div className="w-10 h-10 border border-border flex items-center justify-center">
-                                {theme === 'day'
-                                    ? <Sun className="w-5 h-5 text-gold" />
-                                    : <Moon className="w-5 h-5 text-muted-foreground" />}
+                        <div className="w-full neo-card p-4">
+                            <div className="flex items-center gap-4">
+                                <div className="w-10 h-10 border border-border flex items-center justify-center">
+                                    {theme === 'day'
+                                        ? <Sun className="w-5 h-5 text-gold" />
+                                        : <Moon className="w-5 h-5 text-muted-foreground" />}
+                                </div>
+                                <div className="flex-1 text-left">
+                                    <h3 className="font-bold text-sm text-foreground">Theme</h3>
+                                    <p className="text-xs font-mono text-muted-foreground mt-0.5 uppercase">
+                                        {preference === 'system'
+                                            ? `System · ${theme === 'day' ? 'paper & ink' : 'midnight soot'}`
+                                            : preference === 'day' ? 'Paper & ink' : 'Midnight soot'}
+                                    </p>
+                                </div>
                             </div>
-                            <div className="flex-1 text-left">
-                                <h3 className="font-bold text-sm text-foreground">Day Ledger</h3>
-                                <p className="text-xs font-mono text-muted-foreground mt-0.5">
-                                    {theme === 'day' ? 'PAPER & INK' : 'MIDNIGHT SOOT'}
-                                </p>
+                            <div className="mt-3 grid grid-cols-3 gap-1 rounded-lg bg-muted/30 p-1">
+                                {([
+                                    { key: 'day', label: 'Light' },
+                                    { key: 'night', label: 'Dark' },
+                                    { key: 'system', label: 'System' },
+                                ] as const).map((opt) => (
+                                    <button
+                                        key={opt.key}
+                                        onClick={() => setPreference(opt.key)}
+                                        aria-pressed={preference === opt.key}
+                                        className={cn(
+                                            'py-1.5 rounded-md text-xs font-mono uppercase tracking-wider transition-colors',
+                                            preference === opt.key
+                                                ? 'bg-background text-foreground'
+                                                : 'text-muted-foreground hover:text-foreground',
+                                        )}
+                                    >
+                                        {opt.label}
+                                    </button>
+                                ))}
                             </div>
-                            <Switch
-                                checked={theme === 'day'}
-                                onCheckedChange={(on) => setTheme(on ? 'day' : 'night')}
-                            />
                         </div>
                     </motion.div>
 

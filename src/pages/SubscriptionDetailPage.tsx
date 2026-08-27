@@ -1,23 +1,40 @@
 import { useMemo, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { format } from 'date-fns';
-import { ArrowLeft, X, Pause, Play, Ban, Plus } from 'lucide-react';
+import { ArrowLeft, X, Pause, Play, Ban, Plus, Pencil } from 'lucide-react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import {
   useSubscriptions,
   useSubscriptionTransactions,
   useUnlinkTransaction,
   useSetSubscriptionStatus,
+  useUpdateSubscription,
 } from '@/hooks/useSubscriptions';
 import { AddTransactionDialog } from '@/components/subscriptions/AddTransactionDialog';
 import { formatINR, formatINRCompact } from '@/lib/formatCurrency';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 
 export default function SubscriptionDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const updateSub = useUpdateSubscription();
+  const [editOpen, setEditOpen] = useState(false);
+  const [editLabel, setEditLabel] = useState('');
+  const [editNote, setEditNote] = useState('');
+  const [editMerchant, setEditMerchant] = useState('');
   const { toast } = useToast();
   const { data: subs = [], isLoading } = useSubscriptions();
   const { data: linked = [], isLoading: txnsLoading } = useSubscriptionTransactions(id);
@@ -65,7 +82,21 @@ export default function SubscriptionDetailPage() {
           <button onClick={() => navigate('/subscriptions')} className="p-1.5 -ml-1.5 rounded-lg hover:bg-muted/30" aria-label="Back">
             <ArrowLeft className="w-5 h-5" />
           </button>
-          <h1 className="text-lg font-semibold truncate">{sub?.label ?? 'Subscription'}</h1>
+          <h1 className="text-lg font-semibold truncate flex-1">{sub?.label ?? 'Subscription'}</h1>
+          {sub && (
+            <button
+              onClick={() => {
+                setEditLabel(sub.label);
+                setEditNote(sub.match_note ?? '');
+                setEditMerchant(sub.match_merchant ?? '');
+                setEditOpen(true);
+              }}
+              className="p-1.5 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors shrink-0"
+              aria-label="Edit subscription"
+            >
+              <Pencil className="w-4 h-4" />
+            </button>
+          )}
         </div>
       </div>
 
@@ -160,6 +191,77 @@ export default function SubscriptionDetailPage() {
       </div>
 
       {sub && <AddTransactionDialog open={addOpen} onOpenChange={setAddOpen} subscriptionId={sub.id} />}
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent className="glass-elevated border-border/50">
+          <DialogHeader>
+            <DialogTitle className="font-heading font-normal text-2xl">Edit subscription</DialogTitle>
+            <DialogDescription>
+              Name and matching rules only. Cadence and amounts are derived from the
+              linked transactions, so they follow what is actually linked.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="sub-label" className="text-2xs font-mono uppercase tracking-wider text-muted-foreground">
+                Name
+              </Label>
+              <Input id="sub-label" value={editLabel} onChange={(e) => setEditLabel(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="sub-note" className="text-2xs font-mono uppercase tracking-wider text-muted-foreground">
+                Match note
+              </Label>
+              <Input
+                id="sub-note"
+                value={editNote}
+                onChange={(e) => setEditNote(e.target.value)}
+                placeholder="blank to stop matching on the note"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="sub-merchant" className="text-2xs font-mono uppercase tracking-wider text-muted-foreground">
+                Match merchant
+              </Label>
+              <Input
+                id="sub-merchant"
+                value={editMerchant}
+                onChange={(e) => setEditMerchant(e.target.value)}
+                placeholder="blank to stop matching on the merchant"
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setEditOpen(false)}>Cancel</Button>
+            <Button
+              disabled={!editLabel.trim() || updateSub.isPending}
+              onClick={async () => {
+                if (!sub) return;
+                try {
+                  await updateSub.mutateAsync({
+                    id: sub.id,
+                    label: editLabel,
+                    matchNote: editNote,
+                    matchMerchant: editMerchant,
+                  });
+                  setEditOpen(false);
+                  toast({ title: 'Subscription updated' });
+                } catch (e) {
+                  toast({
+                    title: 'Could not save',
+                    description: e instanceof Error ? e.message : undefined,
+                    variant: 'destructive',
+                  });
+                }
+              }}
+            >
+              {updateSub.isPending ? 'Saving...' : 'Save'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
     </AppLayout>
   );
 }
