@@ -309,7 +309,7 @@ export default function BankAccountsPage() {
           >
             <Building2 className="w-12 h-12 text-muted-foreground/30 mx-auto mb-4" />
             <p className="text-base text-muted-foreground">No bank accounts linked yet</p>
-            <p className="text-sm text-muted-foreground/60 mt-1">
+            <p className="text-sm text-muted-foreground mt-1">
               Add accounts here or they are detected from your transactions
             </p>
             <Button
@@ -353,21 +353,21 @@ export default function BankAccountsPage() {
                       {account.display}
                     </span>
                     {account.nickname && (
-                      <span className="hidden sm:inline text-2xs font-mono text-muted-foreground/50 shrink-0">
+                      <span className="hidden sm:inline text-2xs font-mono text-muted-foreground shrink-0">
                         {account.technicalDisplay}
                       </span>
                     )}
                   </button>
 
                   <span className="flex items-baseline gap-2.5 shrink-0">
-                    <span className="hidden sm:inline text-2xs text-muted-foreground/70">
+                    <span className="hidden sm:inline text-2xs text-muted-foreground">
                       {counted} txn{counted !== 1 ? 's' : ''}
                     </span>
                     <span className="amount text-sm">{formatINRCompact(spent)}</span>
                     <span className="flex items-center justify-end gap-0.5 w-[4.75rem]">
                       <button
                         onClick={() => openNicknameDialog(account)}
-                        className="p-1 rounded text-muted-foreground/50 hover:text-primary hover:bg-primary/10 transition-colors"
+                        className="p-1 rounded text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
                         title="Rename account"
                       >
                         <Pencil className="w-3.5 h-3.5" />
@@ -377,7 +377,7 @@ export default function BankAccountsPage() {
                           setMergeDialog({ open: true, source: account });
                           setMergeTarget('');
                         }}
-                        className="p-1 rounded text-muted-foreground/50 hover:text-primary hover:bg-primary/10 transition-colors"
+                        className="p-1 rounded text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
                         title="Link to another account"
                       >
                         <Merge className="w-3.5 h-3.5" />
@@ -393,7 +393,7 @@ export default function BankAccountsPage() {
                             savedAccountId: account.savedAccountId,
                           })
                         }
-                        className="p-1 rounded text-muted-foreground/50 hover:text-destructive hover:bg-destructive/10 transition-colors"
+                        className="p-1 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
                         title="Remove bank account"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
@@ -414,14 +414,14 @@ export default function BankAccountsPage() {
                 {/* Show aliased accounts under this one */}
                 {hasAliases && (
                   <div className="mt-2.5 pl-4 border-l border-border/40 max-w-xs">
-                    <p className="text-2xs font-mono uppercase tracking-wider text-muted-foreground/60 mb-1">
+                    <p className="text-2xs font-mono uppercase tracking-wider text-muted-foreground mb-1">
                       merged in
                     </p>
                     {accountAliases.map((alias) => {
                       const srcDisplay = toTechnicalDisplay(alias.source_bank_name, alias.source_account_last4);
                       return (
                         <div key={alias.id} className="flex items-baseline justify-between gap-3 py-1">
-                          <span className="text-2xs font-mono text-muted-foreground/80 truncate">
+                          <span className="text-2xs font-mono text-muted-foreground truncate">
                             {srcDisplay || 'unnamed account'}
                           </span>
                           <button

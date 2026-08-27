@@ -187,21 +187,21 @@ export default function GroupsPage() {
                         {group.name}
                       </span>
                       {isArchived && (
-                        <span className="text-2xs font-mono uppercase tracking-wider text-muted-foreground/50 shrink-0">
+                        <span className="text-2xs font-mono uppercase tracking-wider text-muted-foreground shrink-0">
                           archived
                         </span>
                       )}
                     </button>
 
                     <span className="flex items-baseline gap-2.5 shrink-0">
-                      <span className="hidden sm:inline text-2xs text-muted-foreground/70">
+                      <span className="hidden sm:inline text-2xs text-muted-foreground">
                         {counted} txn{counted !== 1 ? 's' : ''}
                       </span>
                       <span className="amount text-sm">{formatINRCompact(spent)}</span>
                       <span className="flex items-center justify-end gap-0.5 w-[4.75rem]">
                         <button
                           onClick={() => handleArchive(group)}
-                          className="p-1 rounded text-muted-foreground/50 hover:text-primary hover:bg-primary/10 transition-colors"
+                          className="p-1 rounded text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
                           title={isArchived ? 'Unarchive' : 'Archive'}
                           aria-label={isArchived ? 'Unarchive group' : 'Archive group'}
                         >
@@ -209,7 +209,7 @@ export default function GroupsPage() {
                         </button>
                         <button
                           onClick={() => setDialog({ open: true, group })}
-                          className="p-1 rounded text-muted-foreground/50 hover:text-primary hover:bg-primary/10 transition-colors"
+                          className="p-1 rounded text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
                           title="Edit group"
                           aria-label="Edit group"
                         >
@@ -224,7 +224,7 @@ export default function GroupsPage() {
                               count: counted,
                             })
                           }
-                          className="p-1 rounded text-muted-foreground/50 hover:text-destructive hover:bg-destructive/10 transition-colors"
+                          className="p-1 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
                           title="Delete group"
                           aria-label="Delete group"
                         >
@@ -235,7 +235,7 @@ export default function GroupsPage() {
                   </div>
 
                   {group.description && (
-                    <p className="mt-0.5 text-2xs text-muted-foreground/70 truncate prose-column">
+                    <p className="mt-0.5 text-2xs text-muted-foreground truncate prose-column">
                       {group.description}
                     </p>
                   )}

@@ -89,7 +89,7 @@ export function CombinedTransactionCard({ members, index = 0, onUngroup }: Combi
           )}>
             {note || label}
           </p>
-          <p className="mt-1 text-2xs font-mono uppercase tracking-wide text-muted-foreground/70 truncate">
+          <p className="mt-1 text-2xs font-mono uppercase tracking-wide text-muted-foreground truncate">
             {[note ? label : null, when ? format(new Date(when), 'HH:mm') : null, `${members.length} combined`]
               .filter(Boolean)
               .join('  ·  ')}

@@ -49,12 +49,12 @@ function RuleLine({ mapping, category }: RuleLineProps) {
   return (
     <>
       {qualifiers.length > 0 && (
-        <span className="text-2xs font-mono text-muted-foreground/50 shrink-0">
+        <span className="text-2xs font-mono text-muted-foreground shrink-0">
           {qualifiers.join('  ')}
         </span>
       )}
       <span className="text-2xs text-foreground/80 truncate">
-        {effects.length > 0 ? effects.join('  \u00B7  ') : <span className="text-muted-foreground/50">no effect set</span>}
+        {effects.length > 0 ? effects.join('  \u00B7  ') : <span className="text-muted-foreground">no effect set</span>}
       </span>
     </>
   );
@@ -160,7 +160,7 @@ export default function MerchantRulesPage() {
             ))
           ) : filteredMappings.length === 0 ? (
             <div className="text-center py-12 px-4 border border-dashed border-border rounded-3xl">
-              <Wand2 className="w-8 h-8 text-muted-foreground/50 mx-auto mb-3" />
+              <Wand2 className="w-8 h-8 text-muted-foreground mx-auto mb-3" />
               <h3 className="text-sm font-bold text-foreground">No rules found</h3>
               <p className="text-xs text-muted-foreground mt-1">
                 {search ? 'Try adjusting your search.' : 'You haven\'t created any automation rules yet.'}
@@ -200,14 +200,14 @@ export default function MerchantRulesPage() {
                       setShowAddDialog(true);
                     }}
                     aria-label={`Edit rule for ${mapping.raw_merchant}`}
-                    className="p-1 rounded text-muted-foreground/50 hover:text-primary hover:bg-primary/10 transition-colors"
+                    className="p-1 rounded text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
                   >
                     <Pencil className="w-3.5 h-3.5" />
                   </button>
                   <button
                     onClick={() => setDeletingId(mapping.id)}
                     aria-label={`Delete rule for ${mapping.raw_merchant}`}
-                    className="p-1 rounded text-muted-foreground/50 hover:text-destructive hover:bg-destructive/10 transition-colors"
+                    className="p-1 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>

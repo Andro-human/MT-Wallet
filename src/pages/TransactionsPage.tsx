@@ -1364,7 +1364,7 @@ export default function TransactionsPage() {
               className="text-center py-16"
             >
               <p className="text-muted-foreground">No transactions found</p>
-              <p className="text-sm text-muted-foreground/70 mt-1">Try adjusting your filters</p>
+              <p className="text-sm text-muted-foreground mt-1">Try adjusting your filters</p>
             </motion.div>
           )}
         </div>

@@ -6,7 +6,7 @@ const NotFound = () => {
   return (
     <div className="min-h-screen bg-background bg-grain flex items-center justify-center px-5">
       <div className="page-shell w-full max-w-md">
-        <p className="text-2xs font-mono uppercase tracking-widest text-muted-foreground/60">
+        <p className="text-2xs font-mono uppercase tracking-widest text-muted-foreground">
           404
         </p>
         <h1 className="mt-2 font-heading text-3xl font-normal">Nothing filed here</h1>

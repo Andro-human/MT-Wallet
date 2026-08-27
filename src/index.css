@@ -107,7 +107,9 @@
     --secondary: 40 45% 89%;
     --secondary-foreground: 35 20% 12%;
     --muted: 40 38% 84%;
-    --muted-foreground: 38 15% 42%;
+    /* 42% measured 4.34:1 on cotton, just under AA for the 10-12px labels that
+       use it. 38% measures 5.06:1. */
+    --muted-foreground: 38 15% 36%;
     --accent: 40 38% 84%;
     --accent-foreground: 35 20% 12%;
     /* Hairline stays soft: full-strength ink borders overwhelm the cream page */
@@ -115,11 +117,14 @@
     --input: 38 22% 78%;
     --destructive: 7 76% 51%;
     --destructive-foreground: 39 100% 96%;
-    --success: 108 45% 34%;
+    --success: 108 45% 30%;
     --warning: 32 90% 42%;
     --info: 212 80% 45%;
     --ring: 43 88% 38%;
-    --gold: 43 88% 38%;
+    /* Darker than night's gold on purpose: at 38% this measured 2.89:1 against
+       the cotton background and failed WCAG AA, and gold carries small text here
+       (weekend day labels, deltas). 28% measures 4.87:1. */
+    --gold: 43 88% 28%;
     --gold-foreground: 40 47% 93%;
   }
 }

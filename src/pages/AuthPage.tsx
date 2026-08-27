@@ -139,7 +139,7 @@ export default function AuthPage() {
       <div className="hidden lg:flex w-1/2 relative flex-col justify-between p-12 border-r border-border/50">
         <div>
           <h1 className="font-heading text-3xl font-normal">MT Wallet</h1>
-          <p className="mt-1.5 text-2xs font-mono uppercase tracking-widest text-muted-foreground/70">
+          <p className="mt-1.5 text-2xs font-mono uppercase tracking-widest text-muted-foreground">
             a ledger that keeps itself
           </p>
         </div>
@@ -148,7 +148,7 @@ export default function AuthPage() {
           Every rupee, where it went, and what you said about it.
         </p>
 
-        <p className="text-2xs font-mono text-muted-foreground/50">
+        <p className="text-2xs font-mono text-muted-foreground">
           Built for one person. Yours.
         </p>
       </div>

@@ -128,7 +128,7 @@ export default function DebtPage() {
             >
               <Plus className="w-4 h-4" /> Record a debt
             </button>
-            <p className="text-xs text-muted-foreground/70 mt-3">or mark any transaction as lent from its detail page</p>
+            <p className="text-xs text-muted-foreground mt-3">or mark any transaction as lent from its detail page</p>
           </div>
         ) : (
           <>
@@ -151,7 +151,7 @@ export default function DebtPage() {
                   <div className="flex items-baseline justify-between gap-3">
                     <span className="font-heading text-lg font-normal capitalize">{key}</span>
                     <span className="flex items-baseline gap-2 shrink-0">
-                      <span className="text-2xs text-muted-foreground/70 uppercase tracking-wider">
+                      <span className="text-2xs text-muted-foreground uppercase tracking-wider">
                         outstanding
                       </span>
                       <span className={cn('amount text-sm', group.outstanding > 0 ? 'text-gold' : 'text-muted-foreground line-through')}>
@@ -172,10 +172,10 @@ export default function DebtPage() {
                             </span>
                             <span className="shrink-0 flex items-baseline gap-1.5">
                               <span className="amount">{formatINR(lent)}</span>
-                              <span className="text-2xs text-muted-foreground/70">lent</span>
+                              <span className="text-2xs text-muted-foreground">lent</span>
                             </span>
                           </div>
-                          <div className="mt-0.5 flex items-baseline justify-between gap-3 text-2xs text-muted-foreground/80">
+                          <div className="mt-0.5 flex items-baseline justify-between gap-3 text-2xs text-muted-foreground">
                             <span>{format(new Date(loan.txn.transacted_at), 'MMM d, yyyy')}</span>
                             <span className="shrink-0 amount">
                               {loan.repaid > 0
@@ -193,7 +193,7 @@ export default function DebtPage() {
                           onClick={() => unmark(loan)}
                           disabled={updateEnrichment.isPending}
                           aria-label="Remove from debt tracking"
-                          className="p-1.5 -mr-1.5 rounded-full text-muted-foreground/60 hover:bg-destructive/10 hover:text-destructive transition-colors shrink-0"
+                          className="p-1.5 -mr-1.5 rounded-full text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors shrink-0"
                         >
                           <X className="w-3.5 h-3.5" />
                         </button>
@@ -203,7 +203,7 @@ export default function DebtPage() {
                 </motion.div>
               ))}
             </div>
-            <p className="text-xs text-muted-foreground/70 mt-6">
+            <p className="text-xs text-muted-foreground mt-6">
               Repayments are the credits you link to a loan from its transaction page (same flow as linking a refund).
             </p>
           </>

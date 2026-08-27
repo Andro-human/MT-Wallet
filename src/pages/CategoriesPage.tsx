@@ -206,14 +206,14 @@ export default function CategoriesPage() {
                         {category.name}
                       </span>
                       {category.is_system && (
-                        <span className="text-2xs font-mono uppercase tracking-wider text-muted-foreground/50 shrink-0">
+                        <span className="text-2xs font-mono uppercase tracking-wider text-muted-foreground shrink-0">
                           system
                         </span>
                       )}
                     </button>
 
                     <span className="flex items-baseline gap-2.5 shrink-0">
-                      <span className="hidden sm:inline text-2xs text-muted-foreground/70">
+                      <span className="hidden sm:inline text-2xs text-muted-foreground">
                         {counted} txn{counted !== 1 ? 's' : ''}
                       </span>
                       <span className="amount text-sm">{formatINRCompact(spent)}</span>
@@ -224,7 +224,7 @@ export default function CategoriesPage() {
                         <>
                           <button
                             onClick={() => openEditDialog(category)}
-                            className="p-1 rounded text-muted-foreground/50 hover:text-primary hover:bg-primary/10 transition-colors"
+                            className="p-1 rounded text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
                             title="Edit category"
                           >
                             <Pencil className="w-3.5 h-3.5" />
@@ -238,7 +238,7 @@ export default function CategoriesPage() {
                                 count: counted,
                               })
                             }
-                            className="p-1 rounded text-muted-foreground/50 hover:text-destructive hover:bg-destructive/10 transition-colors"
+                            className="p-1 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
                             title="Delete category"
                           >
                             <Trash2 className="w-3.5 h-3.5" />

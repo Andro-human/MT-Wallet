@@ -33,7 +33,7 @@ export function MonthlySummaryCard({ month }: { month: string | null }) {
             <ol className="mt-1">
               {cached.highlights.map((h, i) => (
                 <li key={i} className="flex gap-3.5 py-2.5 border-b border-border/40 last:border-b-0">
-                  <span className="font-heading italic text-gold/80 text-sm w-4 shrink-0 pt-px">
+                  <span className="font-heading italic text-gold text-sm w-4 shrink-0 pt-px">
                     {i + 1}
                   </span>
                   <p className="text-sm leading-relaxed text-foreground/90 prose-column">{h}</p>
@@ -53,7 +53,7 @@ export function MonthlySummaryCard({ month }: { month: string | null }) {
             </div>
           )}
 
-          <p className="text-[10px] text-muted-foreground/50 mt-4 font-mono">
+          <p className="text-[10px] text-muted-foreground mt-4 font-mono">
             generated {format(new Date(cached.generated_at), 'MMM d, h:mm a')}
           </p>
         </>

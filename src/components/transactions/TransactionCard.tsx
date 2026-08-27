@@ -93,7 +93,7 @@ export function TransactionCard({ transaction, onClick, index = 0, netAmount, on
         )}>
           {note || transaction.merchant || 'Unknown'}
         </p>
-        <p className="mt-1 text-2xs font-mono uppercase tracking-wide text-muted-foreground/70 truncate">
+        <p className="mt-1 text-2xs font-mono uppercase tracking-wide text-muted-foreground truncate">
           {[
             note ? transaction.merchant || 'Unknown' : null,
             format(new Date(transaction.transacted_at), 'HH:mm'),

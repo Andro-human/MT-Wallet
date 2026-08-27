@@ -117,7 +117,7 @@ export default function SubscriptionDetailPage() {
                     <Link to={`/transactions/${t.transaction_id}`} className="min-w-0 flex-1 group">
                       <div className="text-sm truncate group-hover:text-primary transition-colors">
                         {t.notes?.trim() || t.merchant || 'Transaction'}
-                        {t.linked_by === 'manual' && <span className="text-[9px] font-mono text-muted-foreground/60 ml-1.5">manual</span>}
+                        {t.linked_by === 'manual' && <span className="text-[9px] font-mono text-muted-foreground ml-1.5">manual</span>}
                       </div>
                       <div className="text-xs text-muted-foreground mt-0.5">{format(new Date(t.transacted_at), 'MMM d, yyyy')}</div>
                     </Link>

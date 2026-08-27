@@ -190,7 +190,7 @@ export default function HomePage() {
                     <div className="mt-1.5 ml-4 pl-2 border-l border-border/60 space-y-1">
                       {item.detail.map((d) => (
                         <div key={d.name} className="flex items-center gap-2">
-                          <span className="text-2xs text-muted-foreground/80 truncate">{d.name}</span>
+                          <span className="text-2xs text-muted-foreground truncate">{d.name}</span>
                           <span className="text-2xs font-mono ml-auto text-muted-foreground">{formatINR(d.value)}</span>
                         </div>
                       ))}

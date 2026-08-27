@@ -43,14 +43,14 @@ function SyncRunRow({ run, onClick }: { run: SyncRun; onClick: () => void }) {
           <span className="text-primary">{`  \u00B7  ${run.errors} error${run.errors === 1 ? '' : 's'}`}</span>
         )}
         {run.error_message && (
-          <span className="text-muted-foreground/60">{`  \u00B7  ${run.error_message}`}</span>
+          <span className="text-muted-foreground">{`  \u00B7  ${run.error_message}`}</span>
         )}
       </span>
 
-      <span className="amount text-2xs text-muted-foreground/70 shrink-0 w-12 text-right order-2 sm:order-3">
+      <span className="amount text-2xs text-muted-foreground shrink-0 w-12 text-right order-2 sm:order-3">
         {run.duration_ms != null ? formatDuration(run.duration_ms) : ''}
       </span>
-      <span className="text-2xs text-muted-foreground/50 shrink-0 w-24 text-right hidden sm:block order-4">
+      <span className="text-2xs text-muted-foreground shrink-0 w-24 text-right hidden sm:block order-4">
         {formatDistanceToNow(startedAt, { addSuffix: true })}
       </span>
     </button>
@@ -152,7 +152,7 @@ export default function SyncHistoryPage() {
                 ))}
               </div>
             </div>
-            <p className="text-2xs text-muted-foreground/60 mt-1.5">
+            <p className="text-2xs text-muted-foreground mt-1.5">
               avg / day over last {dailyStats.days} day{dailyStats.days === 1 ? '' : 's'}
             </p>
           </motion.div>
@@ -172,7 +172,7 @@ export default function SyncHistoryPage() {
             >
               <Inbox className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
               <p className="text-muted-foreground">No sync runs yet</p>
-              <p className="text-sm text-muted-foreground/60 mt-1">
+              <p className="text-sm text-muted-foreground mt-1">
                 Runs will appear here after the SMS sync processes messages
               </p>
             </motion.div>

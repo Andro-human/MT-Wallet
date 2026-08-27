@@ -759,7 +759,7 @@ export default function InsightsPage() {
                 className={cn(
                   'px-4 py-2 text-xs font-mono font-bold uppercase tracking-wider transition-all border-r border-border last:border-r-0 hover:bg-muted/10',
                   timeRange === range.value
-                    ? 'bg-primary text-primary-foreground'
+                    ? 'bg-muted text-foreground'
                     : 'text-muted-foreground hover:text-foreground'
                 )}
               >
@@ -865,7 +865,7 @@ export default function InsightsPage() {
                   className={cn(
                     'p-2 rounded-none border transition-all',
                     chartMode === 'total'
-                      ? 'bg-primary border-primary text-primary-foreground'
+                      ? 'bg-muted border-border text-foreground'
                       : 'border-border text-muted-foreground hover:text-foreground'
                   )}
                 >
@@ -876,7 +876,7 @@ export default function InsightsPage() {
                   className={cn(
                     'p-2 rounded-none border transition-all',
                     chartMode === 'combined'
-                      ? 'bg-primary border-primary text-primary-foreground'
+                      ? 'bg-muted border-border text-foreground'
                       : 'border-border text-muted-foreground hover:text-foreground'
                   )}
                 >
@@ -1019,7 +1019,7 @@ export default function InsightsPage() {
                     className={cn(
                       'px-3 py-1.5 rounded-none border text-[10px] font-mono uppercase tracking-wider whitespace-nowrap transition-all',
                       selectedReviewMonth === m.key
-                        ? 'bg-primary border-primary text-primary-foreground'
+                        ? 'bg-muted border-border text-foreground'
                         : 'border-border text-muted-foreground hover:text-foreground',
                     )}
                   >
@@ -1050,7 +1050,7 @@ export default function InsightsPage() {
                     className={cn(
                       'flex-1 sm:flex-none text-center px-2.5 py-1 rounded-none border text-[10px] font-mono uppercase tracking-wider transition-all',
                       allocTab === tab
-                        ? 'bg-primary border-primary text-primary-foreground'
+                        ? 'bg-muted border-border text-foreground'
                         : 'border-border text-muted-foreground hover:text-foreground'
                     )}
                   >
@@ -1090,10 +1090,10 @@ export default function InsightsPage() {
                             {(() => {
                               const d = deltaFor(item);
                               return d ? (
-                                <span className="text-2xs amount text-muted-foreground/60">{d}</span>
+                                <span className="text-2xs amount text-muted-foreground">{d}</span>
                               ) : null;
                             })()}
-                            <span className="text-2xs amount text-muted-foreground/60">
+                            <span className="text-2xs amount text-muted-foreground">
                               {percentage.toFixed(0)}%
                             </span>
                             <span className="amount text-sm text-foreground">
@@ -1156,7 +1156,7 @@ export default function InsightsPage() {
                               </div>
                             ))}
                             {detail?.note && (
-                              <div className="text-xs text-muted-foreground/60">{detail.note}</div>
+                              <div className="text-xs text-muted-foreground">{detail.note}</div>
                             )}
                             {(detail?.txns ?? []).slice(0, txnLimit).map((t) => (
                               <div key={t.id} className="flex items-center justify-between gap-3 text-xs">

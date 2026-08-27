@@ -114,7 +114,7 @@ export default function SubscriptionsPage() {
               <h2 className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
                 Detected from your spending
               </h2>
-              <span className="text-xs text-muted-foreground/60">({suggestions.length})</span>
+              <span className="text-xs text-muted-foreground">({suggestions.length})</span>
             </div>
             <div className="space-y-3">
               <AnimatePresence mode="popLayout">
@@ -182,7 +182,7 @@ export default function SubscriptionsPage() {
               <div className="flex items-center gap-2 mb-3 px-1">
                 <span className="text-primary text-xs">●</span>
                 <h2 className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Active</h2>
-                <span className="text-xs text-muted-foreground/60">({active.length})</span>
+                <span className="text-xs text-muted-foreground">({active.length})</span>
               </div>
               <div>
                 {active.map((s) => {
@@ -209,11 +209,11 @@ export default function SubscriptionsPage() {
                         </span>
                         <span className="flex items-baseline gap-2 shrink-0">
                           <span className="amount text-sm">{formatINR(s.median_amount ?? 0)}</span>
-                          <ChevronRight className="w-4 h-4 text-muted-foreground/60" />
+                          <ChevronRight className="w-4 h-4 text-muted-foreground" />
                         </span>
                       </div>
 
-                      <div className="mt-1 flex items-baseline justify-between gap-3 text-2xs text-muted-foreground/80">
+                      <div className="mt-1 flex items-baseline justify-between gap-3 text-2xs text-muted-foreground">
                         <span className="truncate">
                           {s.cadence}
                           {s.cadence !== 'monthly' &&
