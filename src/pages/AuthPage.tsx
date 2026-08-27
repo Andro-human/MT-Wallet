@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowUpRight } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -130,58 +129,53 @@ export default function AuthPage() {
     }
   };
 
+  const fieldClass =
+    'bg-transparent border-0 border-b border-border rounded-none px-0 h-10 focus-visible:ring-0 focus-visible:border-primary placeholder:text-muted-foreground/40';
+
   return (
-    <div className="min-h-screen bg-background flex text-foreground font-sans">
-      {/* Left Side - Visual */}
-      <div className="hidden lg:flex w-1/2 bg-secondary/20 relative flex-col justify-between p-12 overflow-hidden border-r border-border">
-
-        <div className="relative z-10">
-          <h1 className="text-4xl font-heading font-bold tracking-tighter">MT.WALLET</h1>
-          <p className="text-muted-foreground mt-2 font-mono text-xs uppercase tracking-widest">
-            Finance OS V2.0
+    <div className="min-h-screen bg-background bg-grain flex text-foreground font-sans">
+      {/* Left: what this is. No invented version numbers, and no claims about
+          encryption or uptime that nothing here actually verifies. */}
+      <div className="hidden lg:flex w-1/2 relative flex-col justify-between p-12 border-r border-border/50">
+        <div>
+          <h1 className="font-heading text-3xl font-normal">MT Wallet</h1>
+          <p className="mt-1.5 text-2xs font-mono uppercase tracking-widest text-muted-foreground/70">
+            a ledger that keeps itself
           </p>
         </div>
 
-        <div className="relative z-10">
-          <p className="text-6xl font-heading font-bold leading-none tracking-tighter text-transparent bg-clip-text bg-gradient-to-br from-foreground to-muted-foreground/20">
-            TOTAL<br />CONTROL
-          </p>
-        </div>
+        <p className="font-heading text-4xl font-normal leading-tight max-w-sm text-foreground/90">
+          Every rupee, where it went, and what you said about it.
+        </p>
 
-        <div className="relative z-10 flex justify-between items-end border-t border-border pt-6">
-          <div className="text-xs font-mono text-muted-foreground">
-            SYSTEM_STATUS: ONLINE<br />
-            ENCRYPTION: AES-256
-          </div>
-          <div className="h-12 w-12 bg-primary rounded-none flex items-center justify-center">
-            <ArrowUpRight className="text-primary-foreground w-6 h-6" />
-          </div>
-        </div>
+        <p className="text-2xs font-mono text-muted-foreground/50">
+          Built for one person. Yours.
+        </p>
       </div>
 
-      {/* Right Side - Form */}
-      <div className="w-full lg:w-1/2 flex flex-col justify-center p-8 lg:p-24 relative">
-        <div className="absolute top-8 right-8 lg:hidden">
-          <h1 className="text-xl font-heading font-bold">MT.W</h1>
+      {/* Right: the form */}
+      <div className="w-full lg:w-1/2 flex flex-col justify-center p-8 lg:p-20 relative">
+        <div className="absolute top-8 left-8 lg:hidden">
+          <h1 className="font-heading text-xl font-normal">MT Wallet</h1>
         </div>
 
         <div className="max-w-sm w-full mx-auto">
-          <div className="mb-10">
-            <h2 className="text-3xl font-heading font-semibold tracking-tight">
-              {mode === 'login' && 'Authenticate'}
-              {mode === 'signup' && 'Initialize'}
-              {mode === 'forgot' && 'Recovery'}
-              {mode === 'update_password' && 'New Vector'}
+          <div className="mb-8">
+            <h2 className="font-heading text-3xl font-normal">
+              {mode === 'login' && 'Sign in'}
+              {mode === 'signup' && 'Create your ledger'}
+              {mode === 'forgot' && 'Reset your password'}
+              {mode === 'update_password' && 'Choose a new password'}
             </h2>
             <p className="text-muted-foreground mt-2 text-sm">
-              {mode === 'login' && 'Enter credentials to access dashboard.'}
-              {mode === 'signup' && 'Create new identity within the system.'}
-              {mode === 'forgot' && 'Reset access protocols.'}
+              {mode === 'login' && 'Welcome back.'}
+              {mode === 'signup' && 'One account, one ledger.'}
+              {mode === 'forgot' && "We'll email you a link."}
+              {mode === 'update_password' && 'At least 8 characters, with a capital and a number.'}
             </p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Full Name */}
             <AnimatePresence mode="popLayout">
               {mode === 'signup' && (
                 <motion.div
@@ -191,113 +185,122 @@ export default function AuthPage() {
                   transition={{ duration: 0.2 }}
                   className="space-y-2"
                 >
-                  <Label htmlFor="fullName" className="text-xs uppercase tracking-wider font-mono text-muted-foreground">Identity</Label>
+                  <Label htmlFor="fullName" className="text-2xs font-mono uppercase tracking-wider text-muted-foreground">
+                    Name
+                  </Label>
                   <Input
                     id="fullName"
                     type="text"
+                    autoComplete="name"
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
-                    placeholder="FULL NAME"
-                    className="bg-transparent border-b border-border border-l-0 border-r-0 border-t-0 rounded-none px-0 h-10 focus-visible:ring-0 focus-visible:border-primary placeholder:text-muted-foreground/30 font-medium"
+                    className={fieldClass}
                   />
                 </motion.div>
               )}
             </AnimatePresence>
 
-            {/* Email */}
             {mode !== 'update_password' && (
               <div className="space-y-2">
-                <Label htmlFor="email" className="text-xs uppercase tracking-wider font-mono text-muted-foreground">Identifier</Label>
+                <Label htmlFor="email" className="text-2xs font-mono uppercase tracking-wider text-muted-foreground">
+                  Email
+                </Label>
                 <Input
                   id="email"
                   type="email"
+                  autoComplete="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="EMAIL ADDRESS"
-                  className="bg-transparent border-b border-border border-l-0 border-r-0 border-t-0 rounded-none px-0 h-10 focus-visible:ring-0 focus-visible:border-primary placeholder:text-muted-foreground/30 font-medium"
+                  className={fieldClass}
                 />
-                {errors.email && <p className="text-xs text-destructive font-mono mt-1">{errors.email}</p>}
+                {errors.email && <p className="text-xs text-primary font-mono mt-1">{errors.email}</p>}
               </div>
             )}
 
-            {/* Password */}
             {mode !== 'forgot' && (
               <div className="space-y-2">
-                <Label htmlFor="password" className="text-xs uppercase tracking-wider font-mono text-muted-foreground">
-                  {mode === 'update_password' ? 'New Key' : 'Key'}
+                <Label htmlFor="password" className="text-2xs font-mono uppercase tracking-wider text-muted-foreground">
+                  {mode === 'update_password' ? 'New password' : 'Password'}
                 </Label>
                 <Input
                   id="password"
                   type="password"
+                  autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="PASSWORD"
-                  className="bg-transparent border-b border-border border-l-0 border-r-0 border-t-0 rounded-none px-0 h-10 focus-visible:ring-0 focus-visible:border-primary placeholder:text-muted-foreground/30 font-medium"
+                  className={fieldClass}
                 />
-                {errors.password && <p className="text-xs text-destructive font-mono mt-1">{errors.password}</p>}
+                {errors.password && <p className="text-xs text-primary font-mono mt-1">{errors.password}</p>}
               </div>
             )}
 
-            {/* Confirm Password */}
             {mode === 'update_password' && (
               <div className="space-y-2">
+                <Label htmlFor="confirmPassword" className="text-2xs font-mono uppercase tracking-wider text-muted-foreground">
+                  Confirm
+                </Label>
                 <Input
                   id="confirmPassword"
                   type="password"
+                  autoComplete="new-password"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
-                  placeholder="CONFIRM PASSWORD"
-                  className="bg-transparent border-b border-border border-l-0 border-r-0 border-t-0 rounded-none px-0 h-10 focus-visible:ring-0 focus-visible:border-primary placeholder:text-muted-foreground/30 font-medium"
+                  className={fieldClass}
                 />
-                {errors.confirmPassword && <p className="text-xs text-destructive font-mono mt-1">{errors.confirmPassword}</p>}
+                {errors.confirmPassword && (
+                  <p className="text-xs text-primary font-mono mt-1">{errors.confirmPassword}</p>
+                )}
               </div>
             )}
 
-            {/* Actions */}
-            <div className="pt-4 space-y-4">
+            <div className="pt-2 space-y-5">
               <Button
                 type="submit"
                 disabled={loading}
-                className="w-full h-12 rounded-none bg-primary text-primary-foreground font-bold tracking-widest hover:bg-primary/90 transition-all border border-transparent hover:border-sidebar-primary/20 text-xs uppercase"
+                className="w-full h-11 rounded-lg bg-primary text-primary-foreground font-medium hover:bg-primary/90 transition-colors"
               >
-                {loading ? 'PROCESSING...' : (
-                  mode === 'login' ? 'Execute' :
-                    mode === 'signup' ? 'Initiate' :
-                      mode === 'forgot' ? 'Send Link' : 'Update'
-                )}
+                {loading
+                  ? 'One moment...'
+                  : mode === 'login'
+                    ? 'Sign in'
+                    : mode === 'signup'
+                      ? 'Create account'
+                      : mode === 'forgot'
+                        ? 'Send link'
+                        : 'Save password'}
               </Button>
 
-              <div className="flex justify-between items-center text-xs font-mono">
+              <div className="flex justify-between items-center text-xs">
                 {mode === 'login' && (
                   <>
-                    <button type="button" onClick={() => setMode('forgot')} className="text-muted-foreground hover:text-primary transition-colors">
-                      FORGOT PASSWORD?
+                    <button
+                      type="button"
+                      onClick={() => setMode('forgot')}
+                      className="text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      Forgot password?
                     </button>
-                    <button type="button" onClick={() => { setMode('signup'); setErrors({}); }} className="text-foreground border-b border-primary pb-0.5 hover:opacity-80 transition-opacity">
-                      CREATE ACCOUNT
+                    <button
+                      type="button"
+                      onClick={() => { setMode('signup'); setErrors({}); }}
+                      className="text-primary hover:opacity-80 transition-opacity"
+                    >
+                      Create an account
                     </button>
                   </>
                 )}
-                {mode === 'signup' && (
-                  <button type="button" onClick={() => { setMode('login'); setErrors({}); }} className="w-full text-center text-muted-foreground hover:text-foreground transition-colors">
-                    ALREADY HAVE ACCOUNT? LOGIN
-                  </button>
-                )}
-                {mode === 'forgot' && (
-                  <button type="button" onClick={() => { setMode('login'); setErrors({}); }} className="w-full text-center text-muted-foreground hover:text-foreground transition-colors">
-                    BACK TO LOGIN
+                {mode !== 'login' && (
+                  <button
+                    type="button"
+                    onClick={() => { setMode('login'); setErrors({}); }}
+                    className="w-full text-center text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    Back to sign in
                   </button>
                 )}
               </div>
             </div>
           </form>
-        </div>
-
-        {/* Footer */}
-        <div className="absolute bottom-8 left-0 w-full text-center lg:text-left lg:px-24">
-          <p className="text-[10px] text-muted-foreground/40 font-mono uppercase tracking-widest">
-            Secure Connection • v2.0.4
-          </p>
         </div>
       </div>
     </div>
