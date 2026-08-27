@@ -18,6 +18,7 @@ import SyncHistoryPage from "./pages/SyncHistoryPage";
 import SyncRunDetailPage from "./pages/SyncRunDetailPage";
 import BankAccountsPage from "./pages/BankAccountsPage";
 import CategoriesPage from "./pages/CategoriesPage";
+import BudgetsPage from "./pages/BudgetsPage";
 import GroupsPage from "./pages/GroupsPage";
 import MerchantRulesPage from "./pages/MerchantRulesPage";
 import SubscriptionsPage from "./pages/SubscriptionsPage";
@@ -187,6 +188,12 @@ const App = () => (
             <Route path="/categories" element={
               <ProtectedRoute>
                 <CategoriesPage />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/settings/budgets" element={
+              <ProtectedRoute>
+                <BudgetsPage />
               </ProtectedRoute>
             } />
 

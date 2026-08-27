@@ -1,0 +1,220 @@
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
+import { ArrowLeft, Plus, Pencil, Trash2, Wallet } from 'lucide-react';
+import { AppLayout } from '@/components/layout/AppLayout';
+import { useBudgetStandings } from '@/hooks/useBudgetStandings';
+import { useDeleteBudget } from '@/hooks/useBudgets';
+import { BudgetDialog } from '@/components/budgets/BudgetDialog';
+import { formatINR, formatINRCompact } from '@/lib/formatCurrency';
+import { entityColor } from '@/lib/categoryColors';
+import { Skeleton } from '@/components/ui/skeleton';
+import { useToast } from '@/hooks/use-toast';
+import { cn } from '@/lib/utils';
+import type { BudgetDef } from '@/lib/budgetMath';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+
+export default function BudgetsPage() {
+  const navigate = useNavigate();
+  const { toast } = useToast();
+  const { standings, ceiling, ceilingIsFallback, isLoading } = useBudgetStandings();
+  const deleteBudget = useDeleteBudget();
+
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editing, setEditing] = useState<BudgetDef | null>(null);
+  const [deleting, setDeleting] = useState<BudgetDef | null>(null);
+
+  const totalSpent = standings.reduce((s, x) => s + x.spent, 0);
+
+  const openNew = () => {
+    setEditing(null);
+    setDialogOpen(true);
+  };
+
+  return (
+    <AppLayout>
+      <div className="sticky top-0 z-10 backdrop-blur-xl bg-background/80 border-b border-border/30 safe-area-top">
+        <div className="flex items-center gap-3 px-5 py-3 page-shell">
+          <button
+            onClick={() => navigate('/settings')}
+            className="p-1.5 -ml-1.5 rounded-lg hover:bg-muted/30"
+            aria-label="Back"
+          >
+            <ArrowLeft className="w-5 h-5" />
+          </button>
+          <h1 className="text-lg font-semibold flex-1">Budgets</h1>
+          {!isLoading && standings.length > 0 && (
+            <span className="amount text-sm">
+              {formatINRCompact(totalSpent)}
+              <span className="text-muted-foreground"> / {formatINRCompact(ceiling)}</span>
+            </span>
+          )}
+        </div>
+      </div>
+
+      <div className="px-5 pt-safe pb-28 page-shell">
+        {isLoading ? (
+          <div className="space-y-2">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <Skeleton key={i} className="h-14 rounded bg-muted/20" />
+            ))}
+          </div>
+        ) : standings.length === 0 ? (
+          <div className="text-center py-16">
+            <Wallet className="w-10 h-10 mx-auto mb-4 text-muted-foreground/30" />
+            <p className="font-medium">No budgets yet</p>
+            <p className="text-sm text-muted-foreground mt-1 max-w-sm mx-auto">
+              {ceilingIsFallback && ceiling > 0
+                ? `Your ${formatINR(ceiling)} monthly budget is still in use. Add budgets here and the ceiling becomes their total instead.`
+                : 'Set a limit per category or group. One budget can cover several, and one can be the catch-all for everything else.'}
+            </p>
+            <button
+              onClick={openNew}
+              className="mt-5 inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium"
+            >
+              <Plus className="w-4 h-4" /> New budget
+            </button>
+          </div>
+        ) : (
+          <div>
+            {standings.map((s, i) => {
+              const pct = s.allowance > 0 ? (s.spent / s.allowance) * 100 : 0;
+              const over = s.remaining < 0;
+              const color = entityColor(s.budget.id);
+              return (
+                <motion.div
+                  key={s.budget.id}
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: Math.min(i, 12) * 0.02, duration: 0.3 }}
+                  className="group border-b border-border/50 last:border-b-0 py-3.5"
+                >
+                  <div className="flex items-baseline justify-between gap-3">
+                    <span className="flex items-baseline gap-2 min-w-0">
+                      <span className="font-heading text-lg font-normal truncate">
+                        {s.budget.name}
+                      </span>
+                      {s.budget.isRemainder && (
+                        <span className="text-2xs font-mono uppercase tracking-wider text-muted-foreground shrink-0">
+                          everything else
+                        </span>
+                      )}
+                    </span>
+
+                    <span className="flex items-baseline gap-2.5 shrink-0">
+                      <span className={cn('amount text-sm', over && 'text-warning')}>
+                        {formatINRCompact(s.spent)}
+                      </span>
+                      <span className="text-2xs text-muted-foreground">
+                        / {formatINRCompact(s.allowance)}
+                      </span>
+                      <span className="flex items-center justify-end gap-0.5 w-[3.25rem]">
+                        <button
+                          onClick={() => {
+                            setEditing(s.budget);
+                            setDialogOpen(true);
+                          }}
+                          className="p-1 rounded text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
+                          aria-label={`Edit ${s.budget.name}`}
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={() => setDeleting(s.budget)}
+                          className="p-1 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                          aria-label={`Delete ${s.budget.name}`}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </span>
+                    </span>
+                  </div>
+
+                  <div className="mt-1 flex items-baseline gap-2.5 text-2xs text-muted-foreground">
+                    {s.carryIn > 0 && (
+                      <span className="amount">{formatINRCompact(s.carryIn)} rolled over</span>
+                    )}
+                    {s.budget.weeklyAmount ? (
+                      <span className="amount">
+                        {formatINRCompact(s.spentThisWeek)} of {formatINRCompact(s.budget.weeklyAmount)} this week
+                      </span>
+                    ) : null}
+                    <span className={cn('ml-auto amount', over && 'text-warning')}>
+                      {over
+                        ? `${formatINRCompact(-s.remaining)} over`
+                        : `${formatINRCompact(s.remaining)} left`}
+                    </span>
+                  </div>
+
+                  <div className="mt-2 h-1.5 w-full rounded-full bg-muted/30 overflow-hidden">
+                    <div
+                      className="h-full rounded-full transition-[width]"
+                      style={{
+                        width: `${Math.min(pct, 100)}%`,
+                        background: over ? 'hsl(var(--warning))' : color,
+                      }}
+                    />
+                  </div>
+                </motion.div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {standings.length > 0 && (
+        <motion.button
+          className="fixed bottom-24 right-6 z-50 w-14 h-14 rounded-full bg-primary text-primary-foreground shadow-xl flex items-center justify-center"
+          whileHover={{ scale: 1.1 }}
+          whileTap={{ scale: 0.95 }}
+          onClick={openNew}
+          aria-label="New budget"
+        >
+          <Plus className="w-6 h-6" />
+        </motion.button>
+      )}
+
+      <BudgetDialog open={dialogOpen} onOpenChange={setDialogOpen} budget={editing} />
+
+      <AlertDialog open={!!deleting} onOpenChange={(o) => !o && setDeleting(null)}>
+        <AlertDialogContent className="glass-elevated border-border/50">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete {deleting?.name}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              It is archived rather than erased, so months already computed against it
+              keep their figures. Its categories fall back to the catch-all budget.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={async () => {
+                if (!deleting) return;
+                try {
+                  await deleteBudget.mutateAsync(deleting.id);
+                  toast({ title: 'Budget removed' });
+                } catch {
+                  toast({ title: 'Could not remove', variant: 'destructive' });
+                } finally {
+                  setDeleting(null);
+                }
+              }}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </AppLayout>
+  );
+}
