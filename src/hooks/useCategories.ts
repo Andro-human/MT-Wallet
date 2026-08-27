@@ -24,34 +24,6 @@ export function useCategories() {
 /**
  * Get transaction count per category for the current user
  */
-export function useCategoryTransactionCounts() {
-  const { user } = useAuth();
-
-  return useQuery({
-    queryKey: ['category-transaction-counts', user?.id],
-    queryFn: async () => {
-      if (!user) return {};
-
-      const { data, error } = await supabase
-        .from('transactions')
-        .select('category_id')
-        .eq('user_id', user.id)
-        .not('category_id', 'is', null);
-
-      if (error) throw error;
-
-      const counts: Record<string, number> = {};
-      data.forEach(t => {
-        if (t.category_id) {
-          counts[t.category_id] = (counts[t.category_id] || 0) + 1;
-        }
-      });
-      return counts;
-    },
-    enabled: !!user,
-  });
-}
-
 export function useCreateCategory() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
@@ -136,7 +108,6 @@ export function useDeleteCategory() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['categories'] });
-      queryClient.invalidateQueries({ queryKey: ['category-transaction-counts'] });
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
     },
   });

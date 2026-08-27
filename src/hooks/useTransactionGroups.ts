@@ -103,34 +103,6 @@ export function useUnarchiveTransactionGroup() {
     },
   });
 }
-
-export function useTransactionCountsByGroup() {
-  const { user } = useAuth();
-
-  return useQuery({
-    queryKey: ['transaction-counts-by-group', user?.id],
-    queryFn: async () => {
-      if (!user) return {} as Record<string, number>;
-
-      const { data, error } = await supabase
-        .from('transactions')
-        .select('group_id')
-        .eq('user_id', user.id)
-        .not('group_id', 'is', null);
-
-      if (error) throw error;
-
-      const counts: Record<string, number> = {};
-      for (const row of (data ?? []) as { group_id: string | null }[]) {
-        if (!row.group_id) continue;
-        counts[row.group_id] = (counts[row.group_id] ?? 0) + 1;
-      }
-      return counts;
-    },
-    enabled: !!user,
-  });
-}
-
 export function useCreateTransactionGroup() {
   const queryClient = useQueryClient();
   const { user } = useAuth();

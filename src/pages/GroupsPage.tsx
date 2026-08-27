@@ -1,10 +1,9 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   ArrowLeft,
   FolderKanban,
-  ChevronRight,
   Trash2,
   Pencil,
   Plus,
@@ -16,7 +15,6 @@ import {
 import {
   TransactionGroup,
   useTransactionGroups,
-  useTransactionCountsByGroup,
   useDeleteTransactionGroup,
   useArchiveTransactionGroup,
   useUnarchiveTransactionGroup,
@@ -26,6 +24,8 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { CreateGroupDialog } from '@/components/transactions/CreateGroupDialog';
 import { entityColor } from '@/lib/categoryColors';
+import { useEntityTotals } from '@/hooks/useEntityTotals';
+import { formatINRCompact } from '@/lib/formatCurrency';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -41,7 +41,20 @@ export default function GroupsPage() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { data: groups = [], isLoading } = useTransactionGroups();
-  const { data: counts = {} } = useTransactionCountsByGroup();
+  const { byGroup, maxGroupSpent } = useEntityTotals();
+
+  // Live groups first, then heaviest spend: archived ones are history and
+  // belong at the bottom, not interleaved by size.
+  const ranked = useMemo(
+    () =>
+      [...groups].sort((a, b) => {
+        const arch = Number(!!a.archived_at) - Number(!!b.archived_at);
+        if (arch !== 0) return arch;
+        const d = (byGroup[b.id]?.spent ?? 0) - (byGroup[a.id]?.spent ?? 0);
+        return d !== 0 ? d : a.name.localeCompare(b.name);
+      }),
+    [groups, byGroup],
+  );
   const deleteGroup = useDeleteTransactionGroup();
   const archiveGroup = useArchiveTransactionGroup();
   const unarchiveGroup = useUnarchiveTransactionGroup();
@@ -93,7 +106,7 @@ export default function GroupsPage() {
       />
 
       <div className="sticky top-0 z-10 backdrop-blur-xl bg-background/80 border-b border-border/30 safe-area-top">
-        <div className="flex items-center justify-between px-5 py-3">
+        <div className="flex items-center justify-between px-5 py-3 page-shell">
           <div className="flex items-center gap-3">
             <button
               onClick={() => navigate(-1)}
@@ -114,7 +127,7 @@ export default function GroupsPage() {
         </div>
       </div>
 
-      <div className="px-5 py-6 pb-24 space-y-3 relative safe-area-bottom">
+      <div className="px-5 py-6 pb-24 relative safe-area-bottom page-shell">
         <motion.div
           initial={{ opacity: 0, y: -12 }}
           animate={{ opacity: 1, y: 0 }}
@@ -149,96 +162,96 @@ export default function GroupsPage() {
             </Button>
           </motion.div>
         ) : (
-          groups.map((group, i) => {
-            const txnCount = counts[group.id] ?? 0;
-            const isArchived = !!group.archived_at;
-            return (
-              <motion.div
-                key={group.id}
-                initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.03, duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-                className={`glass-card p-5 group ${isArchived ? 'opacity-60' : ''}`}
-              >
-                <div className="flex items-center gap-4">
-                  <div
-                    className="w-12 h-12 rounded-xl flex items-center justify-center text-xl flex-shrink-0"
-                    style={{
-                      backgroundColor: `${entityColor(group.id)}18`,
-                      boxShadow: `0 0 0 1px ${entityColor(group.id)}20 inset`,
-                    }}
-                  >
-                    {group.icon}
-                  </div>
-
-                  <button
-                    onClick={() => navigate(`/transactions?group=${group.id}`)}
-                    className="flex-1 min-w-0 text-left"
-                  >
-                    <div className="flex items-center gap-2">
-                      <p className="text-base font-semibold text-foreground truncate">
+          <div>
+            {ranked.map((group, i) => {
+              const total = byGroup[group.id];
+              const spent = total?.spent ?? 0;
+              const counted = total?.counted ?? 0;
+              const barWidth = maxGroupSpent > 0 ? (spent / maxGroupSpent) * 100 : 0;
+              const isArchived = !!group.archived_at;
+              return (
+                <motion.div
+                  key={group.id}
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: Math.min(i, 12) * 0.02, duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+                  className={`group border-b border-border/50 last:border-b-0 py-3.5 ${isArchived ? 'opacity-55' : ''}`}
+                >
+                  <div className="flex items-baseline justify-between gap-3">
+                    <button
+                      onClick={() => navigate(`/transactions?group=${group.id}`)}
+                      className="flex items-baseline gap-2.5 min-w-0 text-left"
+                    >
+                      <span className="text-base leading-none shrink-0">{group.icon}</span>
+                      <span className="font-heading text-lg font-normal truncate group-hover:text-primary transition-colors">
                         {group.name}
-                      </p>
+                      </span>
                       {isArchived && (
-                        <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground border border-border/50 px-1.5 py-0.5 rounded">
+                        <span className="text-2xs font-mono uppercase tracking-wider text-muted-foreground/50 shrink-0">
                           archived
                         </span>
                       )}
-                    </div>
-                    <p className="text-sm text-muted-foreground mt-0.5 truncate">
-                      {txnCount} transaction{txnCount !== 1 ? 's' : ''}
-                      {group.description && ` · ${group.description}`}
-                    </p>
-                  </button>
+                    </button>
 
-                  <div className="flex items-center gap-1">
-                    <button
-                      onClick={() => handleArchive(group)}
-                      className="w-9 h-9 rounded-xl flex items-center justify-center text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
-                      title={isArchived ? 'Unarchive' : 'Archive'}
-                      aria-label={isArchived ? 'Unarchive group' : 'Archive group'}
-                    >
-                      {isArchived ? (
-                        <ArchiveRestore className="w-4 h-4" />
-                      ) : (
-                        <Archive className="w-4 h-4" />
-                      )}
-                    </button>
-                    <button
-                      onClick={() => setDialog({ open: true, group })}
-                      className="w-9 h-9 rounded-xl flex items-center justify-center text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
-                      title="Edit group"
-                      aria-label="Edit group"
-                    >
-                      <Pencil className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() =>
-                        setDeleteDialog({
-                          open: true,
-                          groupId: group.id,
-                          groupName: group.name,
-                          count: txnCount,
-                        })
-                      }
-                      className="w-9 h-9 rounded-xl flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
-                      title="Delete group"
-                      aria-label="Delete group"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => navigate(`/transactions?group=${group.id}`)}
-                      className="w-9 h-9 rounded-xl flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
-                      aria-label="View transactions"
-                    >
-                      <ChevronRight className="w-5 h-5" />
-                    </button>
+                    <span className="flex items-baseline gap-2.5 shrink-0">
+                      <span className="hidden sm:inline text-2xs text-muted-foreground/70">
+                        {counted} txn{counted !== 1 ? 's' : ''}
+                      </span>
+                      <span className="amount text-sm">{formatINRCompact(spent)}</span>
+                      <span className="flex items-center justify-end gap-0.5 w-[4.75rem]">
+                        <button
+                          onClick={() => handleArchive(group)}
+                          className="p-1 rounded text-muted-foreground/50 hover:text-primary hover:bg-primary/10 transition-colors"
+                          title={isArchived ? 'Unarchive' : 'Archive'}
+                          aria-label={isArchived ? 'Unarchive group' : 'Archive group'}
+                        >
+                          {isArchived ? <ArchiveRestore className="w-3.5 h-3.5" /> : <Archive className="w-3.5 h-3.5" />}
+                        </button>
+                        <button
+                          onClick={() => setDialog({ open: true, group })}
+                          className="p-1 rounded text-muted-foreground/50 hover:text-primary hover:bg-primary/10 transition-colors"
+                          title="Edit group"
+                          aria-label="Edit group"
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={() =>
+                            setDeleteDialog({
+                              open: true,
+                              groupId: group.id,
+                              groupName: group.name,
+                              count: counted,
+                            })
+                          }
+                          className="p-1 rounded text-muted-foreground/50 hover:text-destructive hover:bg-destructive/10 transition-colors"
+                          title="Delete group"
+                          aria-label="Delete group"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </span>
+                    </span>
                   </div>
-                </div>
-              </motion.div>
-            );
-          })
+
+                  {group.description && (
+                    <p className="mt-0.5 text-2xs text-muted-foreground/70 truncate prose-column">
+                      {group.description}
+                    </p>
+                  )}
+
+                  {spent > 0 && (
+                    <div className="mt-2 h-1 w-full rounded-full bg-muted/25 overflow-hidden">
+                      <div
+                        className="h-full rounded-full"
+                        style={{ width: `${Math.max(barWidth, 0.6)}%`, background: entityColor(group.id) }}
+                      />
+                    </div>
+                  )}
+                </motion.div>
+              );
+            })}
+          </div>
         )}
       </div>
 
