@@ -354,7 +354,7 @@ export default function TransactionDetailPage() {
       
       {/* Header */}
       <div className="sticky top-0 z-10 backdrop-blur-xl bg-background/80 border-b border-border/30 safe-area-top">
-        <div className="flex items-center gap-3 px-5 py-3">
+        <div className="flex items-center gap-3 px-5 py-3 page-shell">
           <button 
             onClick={() => navigate(-1)}
             className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-muted/50 transition-colors -ml-1"
@@ -367,7 +367,7 @@ export default function TransactionDetailPage() {
         </div>
       </div>
 
-      <div className="px-5 py-6 space-y-4 relative">
+      <div className="px-5 py-6 space-y-4 relative page-shell">
         {/* Main Card */}
         <motion.div
           initial={{ opacity: 0, y: 16 }}

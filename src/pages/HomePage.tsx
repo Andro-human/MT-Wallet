@@ -48,7 +48,7 @@ export default function HomePage() {
 
   return (
     <AppLayout>
-      <div className="px-4 sm:px-6 pt-6 md:pt-12 pb-4 safe-area-top max-w-2xl mx-auto">
+      <div className="px-4 sm:px-6 pt-6 md:pt-12 pb-4 safe-area-top page-shell">
         {/* Header - Minimalist */}
         <motion.div
           initial={{ opacity: 0, y: -12 }}

@@ -36,7 +36,7 @@ export function MonthlySummaryCard({ month }: { month: string | null }) {
                   <span className="font-heading italic text-gold/80 text-sm w-4 shrink-0 pt-px">
                     {i + 1}
                   </span>
-                  <p className="text-sm leading-relaxed text-foreground/90">{h}</p>
+                  <p className="text-sm leading-relaxed text-foreground/90 prose-column">{h}</p>
                 </li>
               ))}
             </ol>

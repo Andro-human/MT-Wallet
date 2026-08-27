@@ -146,6 +146,18 @@
 
 @layer utilities {
 
+  /* DESIGN.md: 1120px desktop cap, prose columns ~640px. .page-shell is the
+     outer cap for a page's content; .prose-column wraps running sentences
+     inside it, which stay unreadable at full shell width. */
+  .page-shell {
+    max-width: 1120px;
+    margin-inline: auto;
+  }
+
+  .prose-column {
+    max-width: 640px;
+  }
+
   /* Paper grain overlay — apply to full-page containers */
   .bg-grain {
     position: relative;

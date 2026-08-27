@@ -471,12 +471,17 @@ export default function InsightsPage() {
     .filter(t => t.is_income)
     .reduce((sum, t) => sum + creditNet(t as any, refundAllocations), 0);
   const totalBankSpent = bankBreakdown.reduce((sum, b) => sum + b.amount, 0);
+  const bankMax = bankBreakdown.reduce((m, b) => Math.max(m, b.amount), 0);
   const totalGroupSpent = groupsBreakdown.reduce((sum, g) => sum + g.amount, 0);
 
   // Active Allocation tab: which breakdown + which denominator for its bars.
   const activeAllocation =
     allocTab === 'categories' ? categoriesBreakdown : allocTab === 'groups' ? groupsBreakdown : allocationBreakdown;
   const allocationDenom = allocTab === 'groups' ? totalGroupSpent : totalSpent;
+  // Bars scale to the biggest row, not to the total: with ~27 buckets the top
+  // one is only ~12% of spend, so a share-of-total bar is a stub at any width.
+  // The share still reads as the % on the row.
+  const allocationMax = activeAllocation.reduce((m, i) => Math.max(m, i.amount), 0);
 
   // Months spanned by the current range — each is independently reviewable
   // (never merged). The selector strip and the review card key off these.
@@ -721,7 +726,7 @@ export default function InsightsPage() {
 
   return (
     <AppLayout>
-      <div className="px-5 pt-6 md:pt-12 pb-4 safe-area-top">
+      <div className="px-5 pt-6 md:pt-12 pb-4 safe-area-top page-shell">
         {/* Header - Neo Style */}
         <motion.div
           initial={{ opacity: 0, y: -12 }}
@@ -1064,6 +1069,7 @@ export default function InsightsPage() {
             <div className="space-y-9">
               {activeAllocation.map((item) => {
                 const percentage = allocationDenom > 0 ? (item.amount / allocationDenom) * 100 : 0;
+                const barWidth = allocationMax > 0 ? (item.amount / allocationMax) * 100 : 0;
                 const isExpanded = expandedAlloc === item.id;
                 const detail = isExpanded ? categoryDetail(item) : null;
                 return (
@@ -1116,13 +1122,13 @@ export default function InsightsPage() {
                         {(() => {
                           const line = oneLinerFor(item);
                           return line ? (
-                            <p className="text-xs leading-relaxed text-muted-foreground mb-2 pr-8">{line}</p>
+                            <p className="text-xs leading-relaxed text-muted-foreground mb-2 pr-8 prose-column">{line}</p>
                           ) : null;
                         })()}
                         <div className="h-1.5 bg-muted/20 w-full overflow-hidden rounded-full mb-2">
                           <motion.div
                             initial={{ width: 0 }}
-                            animate={{ width: `${percentage}%` }}
+                            animate={{ width: `${barWidth}%` }}
                             transition={{ delay: 0.2, duration: 0.5 }}
                             className="h-full rounded-full"
                             style={{ backgroundColor: item.color }}
@@ -1200,7 +1206,7 @@ export default function InsightsPage() {
 
             <div className="space-y-9">
               {bankBreakdown.map((b) => {
-                const percentage = totalBankSpent > 0 ? (b.amount / totalBankSpent) * 100 : 0;
+                const percentage = bankMax > 0 ? (b.amount / bankMax) * 100 : 0;
                 const params = new URLSearchParams();
                 if (b.bankName) params.set('bank', b.bankName);
                 if (b.accountLast4) params.set('account', b.accountLast4);

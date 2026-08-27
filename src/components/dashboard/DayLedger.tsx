@@ -111,7 +111,7 @@ export function DayLedger({ days, bankDisplayMap, netAmountFor, summaries = {} }
               </div>
 
               {summaries[day.key] && (
-                <p className="pl-[4.75rem] pr-1 mt-1 text-2xs leading-relaxed text-muted-foreground/75 transition-colors group-hover:text-muted-foreground">
+                <p className="pl-[4.75rem] pr-1 mt-1 text-2xs leading-relaxed text-muted-foreground/75 transition-colors group-hover:text-muted-foreground prose-column">
                   {summaries[day.key]}
                 </p>
               )}

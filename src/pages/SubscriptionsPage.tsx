@@ -91,7 +91,7 @@ export default function SubscriptionsPage() {
   return (
     <AppLayout>
       <div className="sticky top-0 z-10 backdrop-blur-xl bg-background/80 border-b border-border/30 safe-area-top">
-        <div className="flex items-center justify-between px-5 py-3 gap-3">
+        <div className="flex items-center justify-between px-5 py-3 gap-3 page-shell">
           <h1 className="text-lg font-semibold flex items-center gap-2">
             <Repeat className="w-4 h-4" /> Subscriptions
           </h1>
@@ -106,7 +106,7 @@ export default function SubscriptionsPage() {
         </div>
       </div>
 
-      <div className="px-4 pb-28 pt-5 max-w-lg mx-auto">
+      <div className="px-4 pb-28 pt-5 page-shell">
         {suggestions.length > 0 && (
           <div className="mb-6">
             <div className="flex items-center gap-2 mb-3 px-1">
