@@ -266,6 +266,48 @@ export function useUnlinkTransaction() {
 // Auto-satisfy: when a transaction's note is set/edited, try to match it to an active
 // subscription (deterministic note + merchant, no AI) and link it if the match is HIGH
 // confidence. Only links a transaction not already linked. Returns the matched label.
+export interface UpdateSubscriptionInput {
+  id: string;
+  label: string;
+  matchNote: string | null;
+  matchMerchant: string | null;
+  identity?: string | null;
+}
+
+/** Edit the naming and matching rules of an existing subscription.
+ *
+ *  Deliberately does NOT touch cadence, median_amount or predicted_next: those
+ *  are derived from the linked transactions by summarizeOccurrences, and letting
+ *  a rename overwrite them would put the label and the arithmetic out of step.
+ *  Changing which transactions are linked is what moves those, via auto-link. */
+export function useUpdateSubscription() {
+  const { user } = useAuth();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: UpdateSubscriptionInput) => {
+      const label = input.label.trim();
+      if (!label) throw new Error('Name cannot be empty');
+      // `subscriptions` is absent from the generated types, which is why every
+      // call in this file casts. Regenerating types is the real fix.
+      const { error } = await (supabase as any)
+        .from('subscriptions')
+        .update({
+          label,
+          match_note: input.matchNote?.trim() || null,
+          match_merchant: input.matchMerchant?.trim() || null,
+          identity: input.identity?.trim() || null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', input.id)
+        .eq('user_id', user!.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: [KEY] });
+    },
+  });
+}
+
 export function useAutoLinkSubscription() {
   const { user } = useAuth();
   const qc = useQueryClient();
