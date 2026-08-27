@@ -131,9 +131,13 @@ export default function DebtPage() {
           </div>
         ) : (
           <>
-            <div className="mb-6 p-4 rounded-2xl bg-muted/10 border border-border/50 flex items-center justify-between">
-              <span className="text-sm text-muted-foreground">Total outstanding</span>
-              <span className="text-lg font-bold font-mono">{formatINR(totalOutstanding)}</span>
+            <div className="mb-6 pb-4 border-b border-border/60">
+              <p className="text-2xs font-mono uppercase tracking-widest text-muted-foreground mb-1">
+                Total outstanding
+              </p>
+              <p className="text-3xl font-semibold currency-display text-gold">
+                {formatINR(totalOutstanding)}
+              </p>
             </div>
             <div className="space-y-6">
               {byCounterparty.map(([key, group]) => (
@@ -143,8 +147,8 @@ export default function DebtPage() {
                   animate={{ opacity: 1, y: 0 }}
                   className="rounded-2xl border border-border/50 overflow-hidden"
                 >
-                  <div className="px-4 py-3 bg-muted/10 flex items-center justify-between">
-                    <span className="font-bold capitalize">{key}</span>
+                  <div className="px-4 py-3 bg-muted/10 flex items-baseline justify-between">
+                    <span className="font-heading text-lg font-normal capitalize">{key}</span>
                     <span className={cn('font-mono font-medium', group.outstanding > 0 ? 'text-foreground' : 'text-muted-foreground line-through')}>
                       {formatINR(group.outstanding)}
                     </span>
@@ -158,7 +162,7 @@ export default function DebtPage() {
                           </span>
                           <span className="font-mono ml-2 shrink-0">{formatINR(Number(loan.txn.amount))}</span>
                         </div>
-                        <div className="flex items-center justify-between text-xs text-muted-foreground mt-0.5">
+                        <div className="flex items-center justify-between text-2xs text-muted-foreground mt-0.5">
                           <span>{format(new Date(loan.txn.transacted_at), 'MMM d, yyyy')}</span>
                           <span className="ml-2 shrink-0 amount">
                             {loan.repaid > 0
@@ -166,6 +170,20 @@ export default function DebtPage() {
                               : 'nothing repaid yet'}
                           </span>
                         </div>
+                        {/* Two numbers do not show how far along a loan is; the
+                            filled part is what has come back. */}
+                        {(() => {
+                          const lent = Number(loan.txn.amount);
+                          const paid = lent > 0 ? Math.min((loan.repaid / lent) * 100, 100) : 0;
+                          return (
+                            <div className="mt-1.5 h-1 w-full rounded-full bg-muted/30 overflow-hidden">
+                              <div
+                                className="h-full rounded-full bg-gold"
+                                style={{ width: `${paid}%` }}
+                              />
+                            </div>
+                          );
+                        })()}
                       </Link>
                       <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
                       <button
