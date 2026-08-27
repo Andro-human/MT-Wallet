@@ -148,6 +148,16 @@ export default function BudgetsPage() {
                         {formatINRCompact(s.spentThisWeek)} of {formatINRCompact(s.budget.weeklyAmount)} this week
                       </span>
                     ) : null}
+                    {s.ordersThisWeek !== null && s.budget.weeklyCount ? (
+                      <span
+                        className={cn(
+                          'amount',
+                          s.ordersThisWeek > s.budget.weeklyCount && 'text-warning',
+                        )}
+                      >
+                        {s.ordersThisWeek} of {s.budget.weeklyCount} orders
+                      </span>
+                    ) : null}
                     <span className={cn('ml-auto amount', over && 'text-warning')}>
                       {over
                         ? `${formatINRCompact(-s.remaining)} over`

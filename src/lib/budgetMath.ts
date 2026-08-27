@@ -16,6 +16,8 @@ export interface BudgetDef {
   /** Optional weekly pacing target. The same money at a different cadence,
    *  never an extra allowance. */
   weeklyAmount?: number | null;
+  /** Optional cap on ORDERS per week, not transactions. See collapseOrders. */
+  weeklyCount?: number | null;
   carryover: boolean;
   isRemainder: boolean;
   /** yyyy-MM-01. Carry never reaches back before this. */
@@ -163,4 +165,31 @@ export function monthlyCeiling(budgets: BudgetDef[], month: string): number {
 export function weeklyPace(budget: BudgetDef, spentThisWeek: number): number | null {
   if (!budget.weeklyAmount || budget.weeklyAmount <= 0) return null;
   return spentThisWeek / budget.weeklyAmount;
+}
+
+/** How many orders a set of transactions represents.
+ *
+ *  Uses the combine feature from the Activity page: transactions the user has
+ *  explicitly combined share a combine_id and count once. Anything not combined
+ *  counts as its own order.
+ *
+ *  This is declared intent rather than inference, which is why it beats a
+ *  merchant-and-time heuristic. Measured on August Food: the user's combining
+ *  gives 30 orders from 41 transactions, a 60-minute same-merchant guess gave
+ *  29, and the guess would also merge two different restaurants ordered through
+ *  one aggregator inside an hour. The count improves as more get combined,
+ *  rather than needing a window retuned.
+ */
+export function countOrders(
+  txns: { id: string }[],
+  combineByTxnId: Record<string, string>,
+): number {
+  const combines = new Set<string>();
+  let solo = 0;
+  for (const t of txns) {
+    const cid = combineByTxnId[t.id];
+    if (cid) combines.add(cid);
+    else solo += 1;
+  }
+  return combines.size + solo;
 }

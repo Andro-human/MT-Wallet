@@ -6,6 +6,7 @@ import {
   standingForMonth,
   monthlyCeiling,
   weeklyPace,
+  countOrders,
   type BudgetDef,
 } from '@/lib/budgetMath';
 
@@ -156,5 +157,33 @@ describe('weeklyPace', () => {
     const food = budget({ ...FOOD, weeklyAmount: 1250 });
     expect(weeklyPace(food, 625)).toBe(0.5);
     expect(weeklyPace(food, 1500)).toBe(1.2);
+  });
+});
+
+describe('countOrders', () => {
+  it('counts a combined set once', () => {
+    // The real shape: Zomato bills an order and its fee separately, and the
+    // user combines the two in the Activity page.
+    const combines = { a: 'c1', b: 'c1' };
+    expect(countOrders([{ id: 'a' }, { id: 'b' }], combines)).toBe(1);
+  });
+
+  it('counts anything uncombined on its own', () => {
+    expect(countOrders([{ id: 'a' }, { id: 'b' }], {})).toBe(2);
+  });
+
+  it('mixes combined and solo correctly', () => {
+    const combines = { a: 'c1', b: 'c1', d: 'c2', e: 'c2' };
+    // c1, c2, and the solo c.
+    expect(countOrders([{ id: 'a' }, { id: 'b' }, { id: 'c' }, { id: 'd' }, { id: 'e' }], combines)).toBe(3);
+  });
+
+  it('does not double count a combine whose members arrive apart', () => {
+    const combines = { a: 'c1', z: 'c1' };
+    expect(countOrders([{ id: 'a' }, { id: 'm' }, { id: 'z' }], combines)).toBe(2);
+  });
+
+  it('is zero for an empty week', () => {
+    expect(countOrders([], {})).toBe(0);
   });
 });

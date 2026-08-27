@@ -89,3 +89,11 @@ create policy "Users manage their own budget_groups"
 -- profiles.monthly_budget is left in place on purpose. While a user has no
 -- budgets the app falls back to it, so the Home ring and the Activity strip
 -- keep working from the first render instead of showing zero.
+
+-- Weekly order cap, added after measuring: 41 August Food transactions were
+-- only 29 orders, because Zomato splits one order into a charge plus a small
+-- fee. Counting raw transactions would over-report by ~29%, so budgetMath
+-- collapses same-merchant charges inside an hour before counting.
+alter table public.budgets
+  add column if not exists weekly_count integer
+  check (weekly_count is null or weekly_count > 0);

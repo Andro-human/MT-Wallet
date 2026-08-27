@@ -17,6 +17,7 @@ interface BudgetRow {
   name: string;
   amount: string | number;
   weekly_amount: string | number | null;
+  weekly_count: number | null;
   carryover: boolean;
   is_remainder: boolean;
   active_from: string;
@@ -36,7 +37,7 @@ export function useBudgets() {
       const [budgets, cats, groups] = await Promise.all([
         db
           .from('budgets')
-          .select('id, name, amount, weekly_amount, carryover, is_remainder, active_from, archived_at')
+          .select('id, name, amount, weekly_amount, weekly_count, carryover, is_remainder, active_from, archived_at')
           .eq('user_id', user.id)
           .is('archived_at', null)
           .order('amount', { ascending: false }),
@@ -62,6 +63,7 @@ export function useBudgets() {
         name: b.name,
         amount: Number(b.amount),
         weeklyAmount: b.weekly_amount == null ? null : Number(b.weekly_amount),
+        weeklyCount: b.weekly_count ?? null,
         carryover: b.carryover,
         isRemainder: b.is_remainder,
         activeFrom: b.active_from,
@@ -95,6 +97,7 @@ export interface BudgetInput {
   name: string;
   amount: number;
   weeklyAmount: number | null;
+  weeklyCount: number | null;
   carryover: boolean;
   isRemainder: boolean;
   categoryIds: string[];
@@ -138,6 +141,7 @@ export function useCreateBudget() {
           name: input.name.trim(),
           amount: input.amount,
           weekly_amount: input.weeklyAmount,
+          weekly_count: input.weeklyCount,
           carryover: input.carryover,
           is_remainder: input.isRemainder,
         })
@@ -161,6 +165,7 @@ export function useUpdateBudget() {
           name: input.name.trim(),
           amount: input.amount,
           weekly_amount: input.weeklyAmount,
+          weekly_count: input.weeklyCount,
           carryover: input.carryover,
           is_remainder: input.isRemainder,
           updated_at: new Date().toISOString(),

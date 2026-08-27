@@ -4,6 +4,7 @@ import { useTransactions } from './useTransactions';
 import { useFinanceContext } from './useFinanceData';
 import { useBudgets } from './useBudgets';
 import { useProfile } from './useProfile';
+import { useCombineMaps } from './useCombinedTransactions';
 import { classifyTransaction, netAmount } from '@/lib/transactionMath';
 import {
   buildBudgetIndex,
@@ -11,6 +12,7 @@ import {
   standingForMonth,
   monthlyCeiling,
   weeklyPace,
+  countOrders,
   type BudgetDef,
   type MonthStanding,
 } from '@/lib/budgetMath';
@@ -21,6 +23,9 @@ export interface BudgetStanding extends MonthStanding {
   spentThisWeek: number;
   /** Fraction of the weekly target used, or null when no target is set. */
   pace: number | null;
+  /** Orders this week, using the Activity page's combine feature: transactions
+   *  combined by the user count once. Null when the budget sets no order cap. */
+  ordersThisWeek: number | null;
 }
 
 export interface BudgetStandings {
@@ -44,6 +49,7 @@ export function useBudgetStandings(month?: string): BudgetStandings {
   const { data: budgets = [], isLoading: budgetsLoading } = useBudgets();
   const { data: txns = [], isLoading: txnsLoading } = useTransactions();
   const { data: profile } = useProfile();
+  const { data: combineMaps } = useCombineMaps();
   const { refundTotals, refundAllocations, duplicateExcludeIds, isReady } = useFinanceContext();
 
   return useMemo(() => {
@@ -65,6 +71,7 @@ export function useBudgetStandings(month?: string): BudgetStandings {
     // budgetId -> month -> spend, plus a separate this-week tally.
     const byBudgetMonth = new Map<string, Map<string, number>>();
     const weekSpend = new Map<string, number>();
+    const weekTxns = new Map<string, { id: string }[]>();
 
     for (const t of txns) {
       if (
@@ -91,7 +98,12 @@ export function useBudgetStandings(month?: string): BudgetStandings {
       }
       months.set(m, (months.get(m) ?? 0) + amount);
 
-      if (day >= weekStart) weekSpend.set(id, (weekSpend.get(id) ?? 0) + amount);
+      if (day >= weekStart) {
+        weekSpend.set(id, (weekSpend.get(id) ?? 0) + amount);
+        const bucket = weekTxns.get(id) ?? [];
+        bucket.push(t as { id: string });
+        weekTxns.set(id, bucket);
+      }
     }
 
     const standings = budgets.map((b) => {
@@ -99,7 +111,16 @@ export function useBudgetStandings(month?: string): BudgetStandings {
       const spentIn = (m: string) => months?.get(m) ?? 0;
       const standing = standingForMonth(b, monthKey, spentIn);
       const spentThisWeek = weekSpend.get(b.id) ?? 0;
-      return { budget: b, ...standing, spentThisWeek, pace: weeklyPace(b, spentThisWeek) };
+      const ordersThisWeek = b.weeklyCount
+        ? countOrders(weekTxns.get(b.id) ?? [], combineMaps?.combineByTxnId ?? {})
+        : null;
+      return {
+        budget: b,
+        ...standing,
+        spentThisWeek,
+        pace: weeklyPace(b, spentThisWeek),
+        ordersThisWeek,
+      };
     });
 
     return {
@@ -119,5 +140,6 @@ export function useBudgetStandings(month?: string): BudgetStandings {
     refundTotals,
     refundAllocations,
     duplicateExcludeIds,
+    combineMaps,
   ]);
 }

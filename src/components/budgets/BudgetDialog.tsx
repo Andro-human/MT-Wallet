@@ -38,6 +38,7 @@ export function BudgetDialog({ open, onOpenChange, budget }: Props) {
   const [name, setName] = useState('');
   const [amount, setAmount] = useState('');
   const [weekly, setWeekly] = useState('');
+  const [weeklyCount, setWeeklyCount] = useState('');
   const [carryover, setCarryover] = useState(false);
   const [isRemainder, setIsRemainder] = useState(false);
   const [cats, setCats] = useState<Set<string>>(new Set());
@@ -48,6 +49,7 @@ export function BudgetDialog({ open, onOpenChange, budget }: Props) {
     setName(budget?.name ?? '');
     setAmount(budget ? String(budget.amount) : '');
     setWeekly(budget?.weeklyAmount ? String(budget.weeklyAmount) : '');
+    setWeeklyCount(budget?.weeklyCount ? String(budget.weeklyCount) : '');
     setCarryover(budget?.carryover ?? false);
     setIsRemainder(budget?.isRemainder ?? false);
     setCats(new Set(budget?.categoryIds ?? []));
@@ -63,11 +65,13 @@ export function BudgetDialog({ open, onOpenChange, budget }: Props) {
 
   const amountNum = Number(amount);
   const weeklyNum = weekly.trim() === '' ? null : Number(weekly);
+  const countNum = weeklyCount.trim() === '' ? null : Number(weeklyCount);
   const valid =
     name.trim().length > 0 &&
     Number.isFinite(amountNum) &&
     amountNum >= 0 &&
     (weeklyNum === null || (Number.isFinite(weeklyNum) && weeklyNum >= 0)) &&
+    (countNum === null || (Number.isInteger(countNum) && countNum > 0)) &&
     (isRemainder || cats.size > 0 || grps.size > 0);
 
   const pending = create.isPending || update.isPending;
@@ -77,6 +81,7 @@ export function BudgetDialog({ open, onOpenChange, budget }: Props) {
       name,
       amount: amountNum,
       weeklyAmount: weeklyNum,
+      weeklyCount: countNum,
       carryover,
       isRemainder,
       // The catch-all is defined by what it does NOT name, so it carries no
@@ -157,6 +162,24 @@ export function BudgetDialog({ open, onOpenChange, budget }: Props) {
               />
             </div>
           </div>
+          <div className="space-y-2">
+            <Label htmlFor="b-count" className="text-2xs font-mono uppercase tracking-wider text-muted-foreground">
+              Orders per week
+            </Label>
+            <Input
+              id="b-count"
+              inputMode="numeric"
+              className="no-spinner amount"
+              value={weeklyCount}
+              onChange={(e) => setWeeklyCount(e.target.value)}
+              placeholder="optional, e.g. 3"
+            />
+            <p className="text-2xs text-muted-foreground">
+              Counts orders, not charges. Transactions you have combined on the Activity
+              page count once, so an order and the fee that follows it are one.
+            </p>
+          </div>
+
           {weeklyNum !== null && amountNum > 0 && (
             <p className="text-2xs text-muted-foreground -mt-2">
               A month is about 4.35 weeks, so {weeklyNum} a week runs to roughly{' '}
