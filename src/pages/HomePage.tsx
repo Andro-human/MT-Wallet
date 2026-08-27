@@ -16,6 +16,7 @@ import { formatINR, formatINRCompact } from '@/lib/formatCurrency';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useProfile';
+import { useMonthlyCeiling } from '@/hooks/useMonthlyCeiling';
 import { useDaySummaries } from '@/hooks/useDaySummaries';
 import { cn } from '@/lib/utils';
 
@@ -26,7 +27,9 @@ export default function HomePage() {
   const { user } = useAuth();
   const [openFold, setOpenFold] = useState(false);
   const { data: profile } = useProfile();
-  const budget = profile?.monthly_budget ?? 0;
+  // Ceiling is the sum of the budgets, falling back to the single monthly
+  // budget only while none exist.
+  const { ceiling: budget } = useMonthlyCeiling();
   const bankDisplayMap = useBankDisplayMap();
   const {
     thisMonthSpent,

@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
-import { differenceInDays, endOfMonth } from 'date-fns';
+import { useNavigate } from 'react-router-dom';
+import { differenceInDays, endOfMonth, format } from 'date-fns';
 import { motion } from 'framer-motion';
 import { ArrowUpRight, ArrowDownRight, Pencil, Check, X } from 'lucide-react';
 import { BudgetCircle } from './BudgetCircle';
@@ -7,6 +8,7 @@ import { TransactionWithCategory } from '@/types/database';
 import { formatINR } from '@/lib/formatCurrency';
 import { useProfile, useUpdateBudget } from '@/hooks/useProfile';
 import { useFinanceContext } from '@/hooks/useFinanceData';
+import { useMonthlyCeiling } from '@/hooks/useMonthlyCeiling';
 import { sumSpent, sumIncome } from '@/lib/transactionMath';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
@@ -20,6 +22,7 @@ interface ActivitySummaryProps {
 
 export function ActivitySummary({ transactions, dateRange, isLoading, refundTotals = {} }: ActivitySummaryProps) {
   const { data: profile } = useProfile();
+  const navigate = useNavigate();
   const updateBudget = useUpdateBudget();
   const { duplicateExcludeIds, refundAllocations } = useFinanceContext();
   const [editingBudget, setEditingBudget] = useState(false);
@@ -30,8 +33,6 @@ export function ActivitySummary({ transactions, dateRange, isLoading, refundTota
     const income = sumIncome(transactions, duplicateExcludeIds, refundAllocations);
     return { expenses, income, net: income - expenses };
   }, [transactions, refundTotals, duplicateExcludeIds, refundAllocations]);
-
-  const budget = profile?.monthly_budget ?? 0;
 
   // Safe/day and pacing are projections for a month still in progress. Composing
   // them from today's date while looking at a past month produced a figure that
@@ -44,6 +45,10 @@ export function ActivitySummary({ transactions, dateRange, isLoading, refundTota
     viewAnchor.getMonth() === today.getMonth();
   const viewMonthEnd = endOfMonth(viewAnchor);
   const daysInViewMonth = viewMonthEnd.getDate();
+
+  // The ceiling is the sum of the budgets, for the month being viewed. It falls
+  // back to profiles.monthly_budget only while no budget exists.
+  const { ceiling: budget, usingFallback } = useMonthlyCeiling(format(viewAnchor, 'yyyy-MM'));
 
   const handleStartEdit = () => {
     setBudgetInput(budget > 0 ? String(budget) : '');
@@ -176,7 +181,9 @@ export function ActivitySummary({ transactions, dateRange, isLoading, refundTota
             </span>
             {!editingBudget && (
               <button
-                onClick={handleStartEdit}
+                onClick={usingFallback ? handleStartEdit : () => navigate('/settings/budgets')}
+                aria-label={usingFallback ? 'Edit budget' : 'Open budgets'}
+                title={usingFallback ? undefined : 'Set by your budgets'}
                 className="text-muted-foreground hover:text-foreground transition-colors flex-shrink-0"
               >
                 <Pencil className="w-3 h-3" />
