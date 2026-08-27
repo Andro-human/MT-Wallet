@@ -33,6 +33,18 @@ export function ActivitySummary({ transactions, dateRange, isLoading, refundTota
 
   const budget = profile?.monthly_budget ?? 0;
 
+  // Safe/day and pacing are projections for a month still in progress. Composing
+  // them from today's date while looking at a past month produced a figure that
+  // meant nothing: viewing Nov 2025 on 28 Aug compared November's spend against
+  // 28/31 of the budget. A finished month reports what actually happened instead.
+  const viewAnchor = dateRange.startDate ?? new Date();
+  const today = new Date();
+  const isCurrentMonth =
+    viewAnchor.getFullYear() === today.getFullYear() &&
+    viewAnchor.getMonth() === today.getMonth();
+  const viewMonthEnd = endOfMonth(viewAnchor);
+  const daysInViewMonth = viewMonthEnd.getDate();
+
   const handleStartEdit = () => {
     setBudgetInput(budget > 0 ? String(budget) : '');
     setEditingBudget(true);
@@ -102,14 +114,20 @@ export function ActivitySummary({ transactions, dateRange, isLoading, refundTota
         <div className="text-center py-3 sm:border-r border-border/30">
           <div className="flex items-center justify-center gap-1.5 mb-1">
             <span className="text-2xs text-muted-foreground uppercase tracking-wider font-medium truncate">
-              Safe/Day
+              {isCurrentMonth ? 'Safe/Day' : 'Avg/Day'}
             </span>
           </div>
           {budget > 0 ? (() => {
+            if (!isCurrentMonth) {
+              const perDay = stats.expenses / Math.max(daysInViewMonth, 1);
+              return (
+                <p className="text-xs sm:text-sm font-bold currency-display truncate px-1">
+                  {formatINR(Math.round(perDay))}
+                </p>
+              );
+            }
             const remaining = Math.max(budget - stats.expenses, 0);
-            const today = new Date();
-            const monthEnd = endOfMonth(today);
-            const daysLeft = Math.max(differenceInDays(monthEnd, today) + 1, 1);
+            const daysLeft = Math.max(differenceInDays(viewMonthEnd, today) + 1, 1);
             const perDay = remaining / daysLeft;
             return (
               <p className={`text-xs sm:text-sm font-bold currency-display truncate px-1 ${remaining > 0 ? 'text-gold' : 'text-warning'}`}>
@@ -125,15 +143,15 @@ export function ActivitySummary({ transactions, dateRange, isLoading, refundTota
         <div className="text-center py-3 border-r border-border/30 border-t sm:border-t-0">
           <div className="flex items-center justify-center gap-1.5 mb-1">
             <span className="text-2xs text-muted-foreground uppercase tracking-wider font-medium truncate">
-              Pacing
+              {isCurrentMonth ? 'Pacing' : 'vs Budget'}
             </span>
           </div>
           {budget > 0 ? (() => {
-            const today = new Date();
-            const currentDay = today.getDate();
-            const daysInMonth = endOfMonth(today).getDate();
-            
-            const expectedSpend = (budget / daysInMonth) * currentDay;
+            // A finished month is measured against the whole budget, not against
+            // however far through today happens to be.
+            const expectedSpend = isCurrentMonth
+              ? (budget / daysInViewMonth) * today.getDate()
+              : budget;
             const actualSpend = stats.expenses;
             const difference = expectedSpend - actualSpend;
             const isAhead = difference >= 0;
