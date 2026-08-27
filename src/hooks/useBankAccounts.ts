@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 import { BankAccountAlias, BankAccountNickname } from '@/types/database';
+import { toTechnicalDisplay } from '@/lib/bankDisplay';
 
 export interface BankAccountInfo {
   /** Display name shown in UI — nickname if set, otherwise "HDFC ••1234" */
@@ -30,12 +31,7 @@ function makeKey(bankName: string, accountLast4: string) {
   return `${bankName}|${accountLast4}`;
 }
 
-function makeDisplay(bankName: string, accountLast4: string) {
-  if (bankName && accountLast4) return `${bankName} ••${accountLast4}`;
-  if (bankName) return bankName;
-  if (accountLast4) return `••${accountLast4}`;
-  return '';
-}
+const makeDisplay = toTechnicalDisplay;
 
 interface BankSummaryRow {
   bank_name: string | null;

@@ -1,127 +1,11 @@
 import { motion } from 'framer-motion';
 import { format } from 'date-fns';
 import { Sparkles } from 'lucide-react';
-import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
-import { useMonthlySummary, type SpendSlice } from '@/hooks/useMonthlySummary';
-import { formatINR, formatINRCompact } from '@/lib/formatCurrency';
-import { cn } from '@/lib/utils';
+import { useMonthlySummary } from '@/hooks/useMonthlySummary';
+import { SpendTreemap } from './SpendTreemap';
 
-// Categorical slots validated for CVD-safe adjacency (incl. the ring's wrap
-// pair) on the app's #0a0a0a card surface; gray is the de-emphasis fill for
-// the folded "Everything else" segment, not a sixth identity.
-const SLICE_COLORS = ['#3987e5', '#d95926', '#199e70', '#c98500', '#d55181'];
-const OTHER_COLOR = '#a8a7a0';
-// A donut reads part-to-whole at a glance only up to ~6 segments; the tail
-// folds into "Everything else" while the list beside it still shows every slice.
-const MAX_SEGMENTS = 6;
-
-function SpendDonut({ slices }: { slices: SpendSlice[] }) {
-  const total = slices.reduce((s, x) => s + x.amount, 0);
-  if (total <= 0) return null;
-
-  const fold = slices.length > MAX_SEGMENTS;
-  const shown = fold ? slices.slice(0, MAX_SEGMENTS - 1) : slices;
-  const rest = fold ? slices.slice(MAX_SEGMENTS - 1) : [];
-  const segments = [
-    ...shown.map((s, i) => ({ ...s, fill: SLICE_COLORS[i % SLICE_COLORS.length] })),
-    ...(rest.length > 0
-      ? [
-          {
-            label: 'Everything else',
-            amount: rest.reduce((s, x) => s + x.amount, 0),
-            count: rest.reduce((s, x) => s + x.count, 0),
-            fill: OTHER_COLOR,
-          },
-        ]
-      : []),
-  ];
-
-  const pct = (amount: number) => `${Math.round((amount / total) * 100)}%`;
-
-  return (
-    <div className="mt-5 pt-4 border-t border-border/50">
-      <p className="text-2xs font-mono text-muted-foreground uppercase tracking-wider mb-3">
-        Where it went
-      </p>
-      <div className="flex flex-col sm:flex-row items-center gap-5">
-        <div className="relative w-44 h-44 shrink-0">
-          <ResponsiveContainer width="100%" height="100%">
-            <PieChart>
-              <Pie
-                data={segments}
-                dataKey="amount"
-                nameKey="label"
-                innerRadius="62%"
-                outerRadius="100%"
-                startAngle={90}
-                endAngle={-270}
-                stroke="hsl(var(--card))"
-                strokeWidth={2}
-                isAnimationActive={false}
-              >
-                {segments.map((s) => (
-                  <Cell key={s.label} fill={s.fill} />
-                ))}
-              </Pie>
-              <Tooltip
-                content={({ active, payload }) =>
-                  active && payload?.[0] ? (
-                    <div className="bg-background border border-border px-3 py-2 shadow-2xl">
-                      <p className="text-xs text-foreground font-medium">{payload[0].payload.label}</p>
-                      <p className="text-xs font-mono text-muted-foreground mt-0.5">
-                        {formatINR(payload[0].payload.amount)} · {pct(payload[0].payload.amount)} ·{' '}
-                        {payload[0].payload.count}×
-                      </p>
-                    </div>
-                  ) : null
-                }
-              />
-            </PieChart>
-          </ResponsiveContainer>
-          <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-            <span className="text-lg font-heading font-bold text-foreground">
-              {formatINRCompact(total)}
-            </span>
-            <span className="text-2xs font-mono text-muted-foreground uppercase tracking-wider">
-              spent
-            </span>
-          </div>
-        </div>
-
-        <ul className="flex-1 w-full space-y-1.5 min-w-0">
-          {slices.map((s, i) => {
-            const folded = fold && i >= MAX_SEGMENTS - 1;
-            return (
-              <li key={s.label} className="flex items-center gap-2 text-xs">
-                <span
-                  className={cn('w-2 h-2 shrink-0 rounded-full', folded && 'opacity-60')}
-                  style={
-                    folded
-                      ? { border: `1.5px solid ${OTHER_COLOR}` }
-                      : { backgroundColor: SLICE_COLORS[i % SLICE_COLORS.length] }
-                  }
-                />
-                <span className="text-muted-foreground truncate">
-                  {s.label}
-                  <span className="opacity-50 ml-1.5">×{s.count}</span>
-                </span>
-                <span className="ml-auto shrink-0 font-mono text-foreground">
-                  {formatINRCompact(s.amount)}
-                </span>
-                <span className="w-9 text-right shrink-0 font-mono text-muted-foreground/60">
-                  {pct(s.amount)}
-                </span>
-              </li>
-            );
-          })}
-        </ul>
-      </div>
-    </div>
-  );
-}
-
-// Display-only: reviews are generated and stored by the nightly agent
-// (Gemini Spark via the backend's reconcile guard), never from the client.
+// Display-only: reviews are written by the nightly Claude routine and stored
+// behind the backend's reconcile guard, never generated from the client.
 export function MonthlySummaryCard({ month }: { month: string | null }) {
   const { data: cached, isLoading } = useMonthlySummary(month);
 
@@ -142,21 +26,34 @@ export function MonthlySummaryCard({ month }: { month: string | null }) {
 
       {cached ? (
         <>
-          <p className="text-sm text-foreground leading-relaxed">{cached.summary}</p>
+          {/* The prose summary is deliberately not rendered. It restated these
+              same figures in a form you cannot compare: a dozen rupee amounts
+              in a paragraph is the thing a chart exists to replace. */}
           {cached.highlights.length > 0 && (
-            <ul className="mt-3 space-y-1.5">
+            <ol className="mt-1">
               {cached.highlights.map((h, i) => (
-                <li key={i} className="text-xs text-muted-foreground flex gap-2">
-                  <span className="text-primary shrink-0">—</span>
-                  {h}
+                <li key={i} className="flex gap-3.5 py-2.5 border-b border-border/40 last:border-b-0">
+                  <span className="font-heading italic text-gold text-sm w-4 shrink-0 pt-px">
+                    {i + 1}
+                  </span>
+                  <p className="text-sm leading-relaxed text-foreground/90 prose-column">{h}</p>
                 </li>
               ))}
-            </ul>
+            </ol>
           )}
 
-          {cached.spend_slices.length > 0 && <SpendDonut slices={cached.spend_slices} />}
+          {cached.spend_slices.length > 0 && (
+            <div className="mt-6 pt-5 border-t border-border/50">
+              <p className="text-2xs font-mono text-muted-foreground uppercase tracking-wider mb-3">
+                Where it went
+              </p>
+              {/* Area is the share and the name sits inside the box, so there
+                  is no legend to correlate against. */}
+              <SpendTreemap slices={cached.spend_slices} />
+            </div>
+          )}
 
-          <p className="text-[10px] text-muted-foreground/50 mt-4 font-mono">
+          <p className="text-[10px] text-muted-foreground mt-4 font-mono">
             generated {format(new Date(cached.generated_at), 'MMM d, h:mm a')}
           </p>
         </>

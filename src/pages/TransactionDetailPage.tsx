@@ -31,6 +31,7 @@ import { BulkEditSuggestion } from '@/components/transactions/BulkEditSuggestion
 import { InlineEditableField } from '@/components/transactions/InlineEditableField';
 import { InlineSelectField } from '@/components/transactions/InlineSelectField';
 import { InlineDateField } from '@/components/transactions/InlineDateField';
+import { entityColor } from '@/lib/categoryColors';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -136,12 +137,12 @@ export default function TransactionDetailPage() {
   // Prepare options for inline selects
   const categoryOptions = useMemo(() => [
     { value: 'none', label: 'No category' },
-    ...categories.map(c => ({ value: c.id, label: c.name, icon: c.icon, color: c.color }))
+    ...categories.map(c => ({ value: c.id, label: c.name, icon: c.icon, color: entityColor(c.id) }))
   ], [categories]);
 
   const groupOptions = useMemo(() => [
     { value: 'none', label: 'No group' },
-    ...groups.map(g => ({ value: g.id, label: g.name, icon: g.icon, color: g.color }))
+    ...groups.map(g => ({ value: g.id, label: g.name, icon: g.icon, color: entityColor(g.id) }))
   ], [groups]);
 
   const bankAccountOptions = useMemo(
@@ -353,7 +354,7 @@ export default function TransactionDetailPage() {
       
       {/* Header */}
       <div className="sticky top-0 z-10 backdrop-blur-xl bg-background/80 border-b border-border/30 safe-area-top">
-        <div className="flex items-center gap-3 px-5 py-3">
+        <div className="flex items-center gap-3 px-5 py-3 page-shell">
           <button 
             onClick={() => navigate(-1)}
             className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-muted/50 transition-colors -ml-1"
@@ -366,7 +367,7 @@ export default function TransactionDetailPage() {
         </div>
       </div>
 
-      <div className="px-5 py-6 space-y-4 relative">
+      <div className="px-5 py-6 space-y-4 relative page-shell">
         {/* Main Card */}
         <motion.div
           initial={{ opacity: 0, y: 16 }}
@@ -459,8 +460,8 @@ export default function TransactionDetailPage() {
               <div
                 className="w-12 h-12 flex items-center justify-center rounded-xl text-xl"
                 style={{
-                  backgroundColor: `${transaction.categories.color}18`,
-                  boxShadow: `0 0 0 1px ${transaction.categories.color}20 inset`,
+                  backgroundColor: `${entityColor(transaction.category_id)}18`,
+                  boxShadow: `0 0 0 1px ${entityColor(transaction.category_id)}20 inset`,
                 }}
               >
                 {transaction.categories.icon}
@@ -486,10 +487,10 @@ export default function TransactionDetailPage() {
           {/* Refund indicator */}
           {/* Duplicate indicator */}
           {linkedDuplicates.length > 0 && (
-            <div className="mt-4 p-3 rounded-xl bg-amber-500/10 border border-amber-500/20">
+            <div className="mt-4 p-3 rounded-xl bg-warning/10 border border-warning/20">
               <div className="flex items-center gap-2 mb-2">
-                <Copy className="w-4 h-4 text-amber-500" />
-                <span className="text-sm font-medium text-amber-600 dark:text-amber-400">
+                <Copy className="w-4 h-4 text-warning" />
+                <span className="text-sm font-medium text-warning">
                   {linkedDuplicates.length} duplicate{linkedDuplicates.length > 1 ? 's' : ''} linked
                 </span>
               </div>
@@ -498,7 +499,7 @@ export default function TransactionDetailPage() {
                   <span className="text-muted-foreground truncate">
                     {dup.merchant || 'Unknown'} · {format(new Date(dup.transacted_at), 'MMM d, h:mm a')}
                   </span>
-                  <span className="font-medium text-amber-500">
+                  <span className="font-medium text-warning amount">
                     ₹{formatINR(Number(dup.amount)).replace('₹', '')}
                   </span>
                 </div>
@@ -509,10 +510,10 @@ export default function TransactionDetailPage() {
 
           {/* Potential duplicates suggestion */}
           {potentialDuplicates.length > 0 && (
-            <div className="mt-4 p-3 rounded-xl bg-orange-500/10 border border-orange-500/20">
+            <div className="mt-4 p-3 rounded-xl bg-warning/10 border border-warning/20">
               <div className="flex items-center gap-2 mb-2">
-                <AlertTriangle className="w-4 h-4 text-orange-500" />
-                <span className="text-sm font-medium text-orange-600 dark:text-orange-400">
+                <AlertTriangle className="w-4 h-4 text-warning" />
+                <span className="text-sm font-medium text-warning ">
                   Possible duplicate{potentialDuplicates.length > 1 ? 's' : ''} found
                 </span>
               </div>
@@ -534,7 +535,7 @@ export default function TransactionDetailPage() {
                       }
                     }}
                     disabled={createDuplicateLink.isPending}
-                    className="ml-2 flex items-center gap-1 text-xs font-medium text-orange-600 dark:text-orange-400 hover:text-orange-700 dark:hover:text-orange-300 transition-colors px-2 py-1 rounded-lg hover:bg-orange-500/10"
+                    className="ml-2 flex items-center gap-1 text-xs font-medium text-warning hover:text-warning transition-colors px-2 py-1 rounded-lg hover:bg-warning/10"
                   >
                     <Link2 className="w-3.5 h-3.5" />
                     Link
@@ -546,10 +547,10 @@ export default function TransactionDetailPage() {
 
           {/* AI category suggestion */}
           {suggestedCategory && (
-            <div className="mt-4 p-3 rounded-xl bg-blue-500/10 border border-blue-500/20">
+            <div className="mt-4 p-3 rounded-xl bg-info/10 border border-info/20">
               <div className="flex items-center gap-2 mb-2">
-                <Sparkles className="w-4 h-4 text-blue-500" />
-                <span className="text-sm font-medium text-blue-600 dark:text-blue-400">
+                <Sparkles className="w-4 h-4 text-info" />
+                <span className="text-sm font-medium text-info ">
                   Is this category right?
                 </span>
               </div>
@@ -569,7 +570,7 @@ export default function TransactionDetailPage() {
                       }
                     }}
                     disabled={updateEnrichment.isPending}
-                    className="text-xs font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors px-2 py-1 rounded-lg hover:bg-blue-500/10"
+                    className="text-xs font-medium text-info hover:text-info transition-colors px-2 py-1 rounded-lg hover:bg-info/10"
                   >
                     Apply
                   </button>
@@ -596,14 +597,14 @@ export default function TransactionDetailPage() {
             <div className="mt-4 p-3 rounded-xl bg-success/10 border border-success/20">
               <div className="flex items-center justify-between text-sm">
                 <span className="text-muted-foreground">Refunded</span>
-                <span className="font-medium text-success">
+                <span className="font-medium text-gold amount">
                   ₹{formatINR(totalRefunded).replace('₹', '')}
                 </span>
               </div>
               <div className="flex items-center justify-between mt-1">
                 <span className="text-sm font-medium">Net Contribution</span>
                 <span className={cn(
-                  "font-bold",
+                  "font-bold amount",
                   netAmount === 0 ? "text-muted-foreground line-through" : "text-foreground"
                 )}>
                   {netAmount === 0 ? '₹0' : `₹${formatINR(netAmount).replace('₹', '')}`}
@@ -655,8 +656,8 @@ export default function TransactionDetailPage() {
                 <div
                   className="w-10 h-10 flex items-center justify-center rounded-xl text-base"
                   style={{
-                    backgroundColor: `${transaction.categories.color}18`,
-                    boxShadow: `0 0 0 1px ${transaction.categories.color}20 inset`,
+                    backgroundColor: `${entityColor(transaction.category_id)}18`,
+                    boxShadow: `0 0 0 1px ${entityColor(transaction.category_id)}20 inset`,
                   }}
                 >
                   {transaction.categories.icon}
@@ -717,7 +718,7 @@ export default function TransactionDetailPage() {
               {transactionGroup && (
                 <div 
                   className="w-10 h-10 rounded-xl flex items-center justify-center text-lg"
-                  style={{ backgroundColor: transactionGroup.color + '20' }}
+                  style={{ backgroundColor: entityColor(transactionGroup.id) + '20' }}
                 >
                   {transactionGroup.icon}
                 </div>

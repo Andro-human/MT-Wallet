@@ -5,6 +5,7 @@ import { ChevronRight, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatINR } from '@/lib/formatCurrency';
 import { TransactionWithCategory } from '@/types/database';
+import { entityColor } from '@/lib/categoryColors';
 
 interface TransactionCardProps {
   transaction: TransactionWithCategory;
@@ -25,6 +26,7 @@ interface TransactionCardProps {
 
 export function TransactionCard({ transaction, onClick, index = 0, netAmount, onSwipeApprove, bankDisplay, onIconSelect, isSelected }: TransactionCardProps) {
   const isCredit = transaction.direction === 'credit';
+  const note = transaction.notes?.trim() || '';
   const category = transaction.categories;
   const needsReview = (transaction as any).needs_review;
   const swipeEnabled = !!onSwipeApprove && needsReview;
@@ -65,8 +67,8 @@ export function TransactionCard({ transaction, onClick, index = 0, netAmount, on
           isSelected && "bg-primary border-primary text-primary-foreground ring-2 ring-primary"
         )}
         style={isSelected ? undefined : category ? {
-          borderColor: category.color ? `${category.color}40` : 'var(--border)',
-          color: category.color || 'var(--foreground)',
+          borderColor: `${entityColor(category.id)}40`,
+          color: entityColor(category.id),
         } : {
           borderColor: 'var(--border)',
         }}
@@ -76,25 +78,30 @@ export function TransactionCard({ transaction, onClick, index = 0, netAmount, on
 
       {needsReview && (
         <div className="relative flex-shrink-0">
-          <div className="w-2.5 h-2.5 rounded-full bg-orange-400 animate-pulse" />
+          <div className="w-2.5 h-2.5 rounded-full bg-warning animate-pulse" />
         </div>
       )}
 
+      {/* The note the user wrote is the row. Merchant, time and account are how
+          it got recorded, which is metadata, so they sit under it muted. Rows
+          with no note fall back to the merchant so the line is never empty. */}
       <div className="flex-1 min-w-0">
-        <h4 className={cn(
-          "font-medium truncate text-sm font-sans",
-          isNotCounted ? "text-muted-foreground line-through" : "text-foreground"
+        <p className={cn(
+          'text-sm leading-snug line-clamp-2',
+          note ? 'font-normal' : 'font-medium',
+          isNotCounted ? 'text-muted-foreground line-through' : 'text-foreground',
         )}>
-          {transaction.merchant || 'Unknown'}
-        </h4>
-        <p className="text-[10px] uppercase tracking-wide text-muted-foreground mt-0.5 font-mono">
-          {format(new Date(transaction.transacted_at), 'MMM d • HH:mm')}
+          {note || transaction.merchant || 'Unknown'}
         </p>
-        {transaction.notes && (
-          <p className="text-xs text-muted-foreground/60 mt-0.5 truncate">
-            {transaction.notes}
-          </p>
-        )}
+        <p className="mt-1 text-2xs font-mono uppercase tracking-wide text-muted-foreground truncate">
+          {[
+            note ? transaction.merchant || 'Unknown' : null,
+            format(new Date(transaction.transacted_at), 'HH:mm'),
+            bankDisplay,
+          ]
+            .filter(Boolean)
+            .join('  ·  ')}
+        </p>
       </div>
 
       <div className="flex items-center gap-3">
@@ -104,7 +111,7 @@ export function TransactionCard({ transaction, onClick, index = 0, netAmount, on
               'font-mono font-medium text-sm',
               isNotCounted
                 ? 'text-muted-foreground line-through'
-                : isCredit ? 'text-primary' : 'text-foreground'
+                : isCredit ? 'text-gold' : 'text-foreground'
             )}
           >
             {isCredit ? '+' : ''}
@@ -114,11 +121,6 @@ export function TransactionCard({ transaction, onClick, index = 0, netAmount, on
           {hasRefund && !isNotCounted && (
             <p className="text-[10px] text-muted-foreground line-through font-mono">
               ₹{formatINR(transaction.amount).replace('₹', '')}
-            </p>
-          )}
-          {bankDisplay && (
-            <p className="text-[10px] text-muted-foreground/70 font-mono mt-0.5 max-w-[120px] truncate">
-              {bankDisplay}
             </p>
           )}
         </div>
@@ -135,11 +137,11 @@ export function TransactionCard({ transaction, onClick, index = 0, netAmount, on
           className="absolute inset-0 flex items-center justify-between px-6"
           style={{ opacity: bgOpacity }}
         >
-          <div className="flex items-center gap-2 text-green-500">
+          <div className="flex items-center gap-2 text-success">
             <Check className="w-5 h-5" />
             <span className="text-xs font-semibold">Approve</span>
           </div>
-          <div className="flex items-center gap-2 text-green-500">
+          <div className="flex items-center gap-2 text-success">
             <span className="text-xs font-semibold">Approve</span>
             <Check className="w-5 h-5" />
           </div>

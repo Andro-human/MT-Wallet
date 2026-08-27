@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
-import { useDuplicateTransactions, useAllLinkedTransactionIds } from './useDuplicateLinks';
+import { useAllLinkedTransactionIds } from './useDuplicateLinks';
 import { TransactionWithCategory } from '@/types/database';
 
 function makePairKey(id1: string, id2: string): [string, string] {
@@ -78,12 +78,51 @@ export function useDismissDuplicate() {
 /**
  * Detect potential duplicate transactions for a given transaction (detail page).
  */
-export function usePotentialDuplicates(transaction: TransactionWithCategory | null | undefined) {
-  const { data: alreadyLinked = [] } = useDuplicateTransactions(transaction?.id || '');
-  const { data: dismissed = new Set<string>() } = useDismissedDuplicates();
+const NEAR_MS = 30 * 60 * 1000;
 
-  // We need nearby transactions — use the ones passed in or skip
-  return { dismissed, alreadyLinkedIds: new Set(alreadyLinked.map(t => t.id)) };
+export function usePotentialDuplicates(
+  transaction: TransactionWithCategory | null | undefined,
+): TransactionWithCategory[] {
+  const { user } = useAuth();
+  const { data: dismissed = new Set<string>() } = useDismissedDuplicates();
+  const { data: allLinkedIds = new Set<string>() } = useAllLinkedTransactionIds();
+
+  // Same match as usePotentialDuplicatesList: identical amount and direction
+  // within half an hour. Scoped to that window in SQL rather than pulling a
+  // page of rows to filter in the client.
+  const { data: nearby = [] } = useQuery({
+    queryKey: ['potential-duplicates', transaction?.id],
+    queryFn: async () => {
+      if (!user || !transaction) return [];
+      const at = new Date(transaction.transacted_at).getTime();
+
+      const { data, error } = await supabase
+        .from('transactions')
+        .select('*, categories(*)')
+        .eq('user_id', user.id)
+        .eq('amount', transaction.amount)
+        .eq('direction', transaction.direction)
+        .neq('id', transaction.id)
+        .gte('transacted_at', new Date(at - NEAR_MS).toISOString())
+        .lte('transacted_at', new Date(at + NEAR_MS).toISOString());
+
+      if (error) throw error;
+      return (data ?? []) as unknown as TransactionWithCategory[];
+    },
+    enabled: !!user && !!transaction,
+    staleTime: 60_000,
+  });
+
+  return useMemo(() => {
+    if (!transaction) return [];
+    if (allLinkedIds.has(transaction.id)) return [];
+
+    return nearby.filter((candidate) => {
+      if (allLinkedIds.has(candidate.id)) return false;
+      const [a, b] = makePairKey(transaction.id, candidate.id);
+      return !dismissed.has(`${a}|${b}`);
+    });
+  }, [transaction, nearby, dismissed, allLinkedIds]);
 }
 
 /**

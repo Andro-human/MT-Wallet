@@ -1,8 +1,10 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ArrowLeft, Tag, ChevronRight, Trash2, Pencil, Plus, Loader2, AlertTriangle } from 'lucide-react';
-import { useCategories, useCategoryTransactionCounts, useDeleteCategory, useUpdateCategory } from '@/hooks/useCategories';
+import { ArrowLeft, Tag, Trash2, Pencil, Plus, Loader2, AlertTriangle } from 'lucide-react';
+import { useCategories, useDeleteCategory, useUpdateCategory } from '@/hooks/useCategories';
+import { useEntityTotals } from '@/hooks/useEntityTotals';
+import { formatINRCompact } from '@/lib/formatCurrency';
 import { Category } from '@/types/database';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
@@ -11,6 +13,7 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { EmojiPicker } from '@/components/ui/EmojiPicker';
 import { CreateCategoryDialog } from '@/components/transactions/CreateCategoryDialog';
+import { entityColor } from '@/lib/categoryColors';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -28,13 +31,23 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 
-const COLOR_OPTIONS = ['#8B5CF6', '#EC4899', '#F59E0B', '#10B981', '#3B82F6', '#EF4444', '#6366F1', '#14B8A6', '#F97316', '#06B6D4'];
 
 export default function CategoriesPage() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { data: categories = [], isLoading } = useCategories();
-  const { data: categoryCounts = {} } = useCategoryTransactionCounts();
+  const { byCategory, maxCategorySpent } = useEntityTotals();
+
+  // Heaviest first: the page's job is "which of these actually matter", and the
+  // ones with nothing behind them are the ones you come here to prune.
+  const ranked = useMemo(
+    () =>
+      [...categories].sort((a, b) => {
+        const d = (byCategory[b.id]?.spent ?? 0) - (byCategory[a.id]?.spent ?? 0);
+        return d !== 0 ? d : a.name.localeCompare(b.name);
+      }),
+    [categories, byCategory],
+  );
   const deleteCategory = useDeleteCategory();
   const updateCategory = useUpdateCategory();
 
@@ -111,7 +124,7 @@ export default function CategoriesPage() {
 
       {/* Header */}
       <div className="sticky top-0 z-10 backdrop-blur-xl bg-background/80 border-b border-border/30 safe-area-top">
-        <div className="flex items-center justify-between px-5 py-3">
+        <div className="flex items-center justify-between px-5 py-3 page-shell">
           <div className="flex items-center gap-3">
             <button
               onClick={() => navigate(-1)}
@@ -132,7 +145,7 @@ export default function CategoriesPage() {
         </div>
       </div>
 
-      <div className="px-5 py-6 space-y-3 relative">
+      <div className="px-5 py-6 relative page-shell">
         {/* Summary */}
         <motion.div
           initial={{ opacity: 0, y: -12 }}
@@ -168,80 +181,86 @@ export default function CategoriesPage() {
             </Button>
           </motion.div>
         ) : (
-          categories.map((category, i) => {
-            const txnCount = categoryCounts[category.id] || 0;
-            return (
-              <motion.div
-                key={category.id}
-                initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.03, duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-                className="glass-card p-5 group"
-              >
-                <div className="flex items-center gap-4">
-                  <div
-                    className="w-12 h-12 rounded-xl flex items-center justify-center text-xl flex-shrink-0"
-                    style={{
-                      backgroundColor: `${category.color}18`,
-                      boxShadow: `0 0 0 1px ${category.color}20 inset`,
-                    }}
-                  >
-                    {category.icon}
-                  </div>
-
-                  <button
-                    onClick={() => navigate(`/transactions?category=${category.id}`)}
-                    className="flex-1 min-w-0 text-left"
-                  >
-                    <p className="text-base font-semibold text-foreground truncate">
-                      {category.name}
-                    </p>
-                    <p className="text-sm text-muted-foreground mt-0.5">
-                      {txnCount} transaction{txnCount !== 1 ? 's' : ''}
-                      {category.is_system && ' · System'}
-                    </p>
-                  </button>
-
-                  <div className="flex items-center gap-1">
-                    {/* Edit — only user-owned categories */}
-                    {!category.is_system && (
-                      <button
-                        onClick={() => openEditDialog(category)}
-                        className="w-9 h-9 rounded-xl flex items-center justify-center text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
-                        title="Edit category"
-                      >
-                        <Pencil className="w-4 h-4" />
-                      </button>
-                    )}
-                    {/* Delete — only user-owned categories */}
-                    {!category.is_system && (
-                      <button
-                        onClick={() =>
-                          setDeleteDialog({
-                            open: true,
-                            categoryId: category.id,
-                            categoryName: category.name,
-                            count: txnCount,
-                          })
-                        }
-                        className="w-9 h-9 rounded-xl flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
-                        title="Delete category"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    )}
-                    {/* View transactions */}
+          <div>
+            {ranked.map((category, i) => {
+              const total = byCategory[category.id];
+              const spent = total?.spent ?? 0;
+              const counted = total?.counted ?? 0;
+              const barWidth = maxCategorySpent > 0 ? (spent / maxCategorySpent) * 100 : 0;
+              const color = entityColor(category.id);
+              return (
+                <motion.div
+                  key={category.id}
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: Math.min(i, 12) * 0.02, duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+                  className="group border-b border-border/50 last:border-b-0 py-3.5"
+                >
+                  <div className="flex items-baseline justify-between gap-3">
                     <button
                       onClick={() => navigate(`/transactions?category=${category.id}`)}
-                      className="w-9 h-9 rounded-xl flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+                      className="flex items-baseline gap-2.5 min-w-0 text-left"
                     >
-                      <ChevronRight className="w-5 h-5" />
+                      <span className="text-base leading-none shrink-0">{category.icon}</span>
+                      <span className="font-heading text-lg font-normal truncate group-hover:text-primary transition-colors">
+                        {category.name}
+                      </span>
+                      {category.is_system && (
+                        <span className="text-2xs font-mono uppercase tracking-wider text-muted-foreground shrink-0">
+                          system
+                        </span>
+                      )}
                     </button>
+
+                    <span className="flex items-baseline gap-2.5 shrink-0">
+                      <span className="hidden sm:inline text-2xs text-muted-foreground">
+                        {counted} txn{counted !== 1 ? 's' : ''}
+                      </span>
+                      <span className="amount text-sm">{formatINRCompact(spent)}</span>
+                      {/* Slot is always reserved, even for system rows that have no
+                          actions, so the amount column stays aligned. */}
+                      <span className="flex items-center justify-end gap-0.5 w-[3.25rem]">
+                      {!category.is_system && (
+                        <>
+                          <button
+                            onClick={() => openEditDialog(category)}
+                            className="p-1 rounded text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
+                            title="Edit category"
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() =>
+                              setDeleteDialog({
+                                open: true,
+                                categoryId: category.id,
+                                categoryName: category.name,
+                                count: counted,
+                              })
+                            }
+                            className="p-1 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                            title="Delete category"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </>
+                      )}
+                      </span>
+                    </span>
                   </div>
-                </div>
-              </motion.div>
-            );
-          })
+
+                  {spent > 0 && (
+                    <div className="mt-2 h-1 w-full rounded-full bg-muted/25 overflow-hidden">
+                      <div
+                        className="h-full rounded-full"
+                        style={{ width: `${Math.max(barWidth, 0.6)}%`, background: color }}
+                      />
+                    </div>
+                  )}
+                </motion.div>
+              );
+            })}
+          </div>
         )}
       </div>
 
@@ -250,7 +269,7 @@ export default function CategoriesPage() {
         <AlertDialogContent className="glass-elevated border-border/50">
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2 text-lg">
-              <AlertTriangle className="w-5 h-5 text-amber-400" />
+              <AlertTriangle className="w-5 h-5 text-warning" />
               Delete Category
             </AlertDialogTitle>
             <AlertDialogDescription asChild>
@@ -259,7 +278,7 @@ export default function CategoriesPage() {
                   Are you sure you want to delete <strong className="text-foreground">{deleteDialog.categoryName}</strong>?
                 </p>
                 {deleteDialog.count > 0 && (
-                  <p className="text-amber-400 font-medium text-base">
+                  <p className="text-warning font-medium text-base">
                     {deleteDialog.count} transaction{deleteDialog.count !== 1 ? 's' : ''} will be unlinked.
                   </p>
                 )}
@@ -309,23 +328,6 @@ export default function CategoriesPage() {
               </div>
             </div>
 
-            {/* Color */}
-            <div className="space-y-2">
-              <Label className="text-sm text-muted-foreground">Color</Label>
-              <div className="flex flex-wrap gap-2">
-                {COLOR_OPTIONS.map((c) => (
-                  <button
-                    key={c}
-                    type="button"
-                    onClick={() => setEditColor(c)}
-                    className={`w-8 h-8 rounded-full transition-all ${
-                      editColor === c ? 'ring-2 ring-offset-2 ring-offset-background ring-primary' : ''
-                    }`}
-                    style={{ backgroundColor: c }}
-                  />
-                ))}
-              </div>
-            </div>
 
             {/* Preview */}
             <div className="p-4 rounded-xl bg-muted/20 border border-border/30">
@@ -334,8 +336,8 @@ export default function CategoriesPage() {
                 <div
                   className="w-10 h-10 rounded-xl flex items-center justify-center text-lg"
                   style={{
-                    backgroundColor: `${editColor}18`,
-                    boxShadow: `0 0 0 1px ${editColor}20 inset`,
+                    backgroundColor: `${entityColor(editDialog.category?.id)}18`,
+                    boxShadow: `0 0 0 1px ${entityColor(editDialog.category?.id)}20 inset`,
                   }}
                 >
                   {editIcon}

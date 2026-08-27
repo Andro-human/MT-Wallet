@@ -1,9 +1,11 @@
+import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
-import { TrendingDown, TrendingUp, ChevronRight, ArrowUpRight, ArrowDownRight, Activity } from 'lucide-react';
-import { format } from 'date-fns';
+import { TrendingDown, TrendingUp, ChevronRight, ChevronDown, ArrowUpRight, ArrowDownRight, Activity } from 'lucide-react';
+import { format, startOfMonth, endOfMonth } from 'date-fns';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { SpendingDonut } from '@/components/dashboard/SpendingDonut';
+import { DayLedger } from '@/components/dashboard/DayLedger';
 import { StatCard } from '@/components/dashboard/StatCard';
 import { TransactionCard } from '@/components/transactions/TransactionCard';
 import { useBankDisplayMap, lookupBankDisplay } from '@/hooks/useBankDisplayMap';
@@ -13,19 +15,31 @@ import { netAmount as computeNetAmount, creditNet } from '@/lib/transactionMath'
 import { formatINR, formatINRCompact } from '@/lib/formatCurrency';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/hooks/useAuth';
+import { useProfile } from '@/hooks/useProfile';
+import { useDaySummaries } from '@/hooks/useDaySummaries';
+import { cn } from '@/lib/utils';
+
+// Wide figures sitting side by side need a rule between them, not just a gap:
+// Rs28,597.11 next to Rs6,402.89 reads as one number otherwise.
+const STAT = 'pl-6 pr-2 first:pl-0 border-l border-border/50 first:border-l-0';
 
 export default function HomePage() {
   const { user } = useAuth();
+  const [openFold, setOpenFold] = useState(false);
+  const { data: profile } = useProfile();
+  const budget = profile?.monthly_budget ?? 0;
   const bankDisplayMap = useBankDisplayMap();
   const {
     thisMonthSpent,
     monthChange,
     thisMonthIncome,
     chartData,
-    recentTxns,
+    dayLedger,
     transactionCount,
     isLoading,
   } = useDashboardStats();
+
+  const { data: daySummaries } = useDaySummaries(startOfMonth(new Date()), endOfMonth(new Date()));
 
   const monthName = format(new Date(), 'MMMM');
   const year = format(new Date(), 'yyyy');
@@ -34,7 +48,7 @@ export default function HomePage() {
 
   return (
     <AppLayout>
-      <div className="px-4 sm:px-6 pt-6 md:pt-12 pb-4 safe-area-top max-w-2xl mx-auto">
+      <div className="px-4 sm:px-6 pt-6 md:pt-12 pb-4 safe-area-top page-shell">
         {/* Header - Minimalist */}
         <motion.div
           initial={{ opacity: 0, y: -12 }}
@@ -51,66 +65,78 @@ export default function HomePage() {
             </h1>
           </div>
           <div className="text-right">
-            <p className="text-sm font-bold text-primary">{monthName}</p>
+            <p className="text-sm font-bold text-gold">{monthName}</p>
             <p className="text-xs text-muted-foreground font-mono">{year}</p>
           </div>
         </motion.div>
 
-        {/* Bento Grid Layout */}
-        <div className="grid grid-cols-2 gap-4 mb-4 md:mb-8">
-
-          {/* Main Hero: Total Spent - Spans 2 cols */}
-          <div className="col-span-2">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.98 }}
-              animate={{ opacity: 1, scale: 1 }}
-              className="neo-card p-6 relative overflow-hidden bg-card"
-            >
-              <div className="absolute top-0 right-0 p-4 opacity-50">
-                <Activity className="w-12 h-12 text-muted-foreground/10" />
-              </div>
-
-              <p className="text-xs font-mono uppercase tracking-widest text-muted-foreground mb-2">
-                Total Output
+        {/* Stat strip: the one-second answer, then the drill-down below */}
+        <motion.div
+          initial={{ opacity: 0, y: -6 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex flex-wrap items-stretch gap-y-4 mb-6 md:mb-8 pb-5 border-b border-border/60"
+        >
+          <div className={STAT}>
+            <p className="text-2xs font-mono uppercase tracking-widest text-muted-foreground mb-1">
+              Spent
+            </p>
+            {isLoading ? (
+              <Skeleton className="h-7 w-28 bg-muted/20" />
+            ) : (
+              <p className="text-2xl font-semibold text-foreground currency-display">
+                {formatINR(thisMonthSpent)}
               </p>
-
-              {isLoading ? (
-                <Skeleton className="h-12 w-48 bg-muted/20" />
-              ) : (
-                <div className="relative z-10">
-                  <h2 className="text-5xl font-heading font-bold text-foreground tracking-tighter">
-                    <span className="text-2xl text-muted-foreground align-top mr-1">₹</span>
-                    {formatINR(thisMonthSpent).replace('₹', '')}
-                  </h2>
-
-                  <div className="flex items-center gap-3 mt-4">
-                    <div className={`flex items-center gap-1.5 px-2 py-1 border text-xs font-mono font-medium ${monthChange > 0
-                      ? 'border-destructive/30 text-destructive bg-destructive/5'
-                      : 'border-primary/30 text-primary bg-primary/5'
-                      }`}>
-                      {monthChange > 0 ? '▲' : '▼'} {Math.abs(monthChange).toFixed(0)}%
-                    </div>
-                    <span className="text-xs text-muted-foreground font-mono uppercase">vs last month</span>
-                  </div>
-                </div>
-              )}
-            </motion.div>
+            )}
           </div>
 
-          {/* Quick Stats */}
-          <StatCard
-            label="Income"
-            value={isLoading ? '...' : formatINRCompact(thisMonthIncome)}
-            icon={<TrendingUp className="w-4 h-4" />}
-            variant="default"
-          />
-          <StatCard
-            label="Transactions"
-            value={isLoading ? '...' : transactionCount.toString()}
-            icon={<TrendingDown className="w-4 h-4" />}
-            variant="default"
-          />
-        </div>
+          {budget > 0 && (
+            <div className={STAT}>
+              <p className="text-2xs font-mono uppercase tracking-widest text-muted-foreground mb-1">
+                Left of {formatINRCompact(budget)}
+              </p>
+              {isLoading ? (
+                <Skeleton className="h-7 w-24 bg-muted/20" />
+              ) : (
+                <p
+                  className={cn(
+                    'text-2xl font-semibold currency-display',
+                    budget - thisMonthSpent >= 0 ? 'text-gold' : 'text-warning',
+                  )}
+                >
+                  {formatINR(budget - thisMonthSpent)}
+                </p>
+              )}
+            </div>
+          )}
+
+          <div className={STAT}>
+            <p className="text-2xs font-mono uppercase tracking-widest text-muted-foreground mb-1">
+              vs last month
+            </p>
+            {isLoading ? (
+              <Skeleton className="h-7 w-16 bg-muted/20" />
+            ) : (
+              <p
+                className={cn(
+                  'text-2xl font-semibold currency-display',
+                  monthChange > 0 ? 'text-warning' : 'text-gold',
+                )}
+              >
+                {monthChange > 0 ? '+' : '−'}
+                {Math.abs(monthChange).toFixed(0)}%
+              </p>
+            )}
+          </div>
+
+          <div className={cn(STAT, 'ml-auto text-right')}>
+            <p className="text-2xs font-mono uppercase tracking-widest text-muted-foreground mb-1">
+              In · Txns
+            </p>
+            <p className="text-sm text-muted-foreground currency-display">
+              {isLoading ? '…' : `${formatINRCompact(thisMonthIncome)} · ${transactionCount}`}
+            </p>
+          </div>
+        </motion.div>
 
         {/* Charts & Breakdown */}
         <motion.div
@@ -139,26 +165,51 @@ export default function HomePage() {
               )}
             </div>
 
-            <div className="w-full md:w-1/2 grid grid-cols-2 gap-3">
-              {chartData.slice(0, 6).map((item) => (
-                <div key={item.name} className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-none" style={{ backgroundColor: item.color }} />
-                  <span className="text-xs font-medium text-muted-foreground truncate">{item.name}</span>
-                  <span className="text-xs font-mono ml-auto">{((item.value / thisMonthSpent) * 100).toFixed(0)}%</span>
+            <div className="w-full md:w-1/2 grid grid-cols-2 gap-3 self-start">
+              {chartData.map((item) => (
+                <div key={item.name} className={item.detail ? 'col-span-2' : undefined}>
+                  <button
+                    type="button"
+                    disabled={!item.detail}
+                    onClick={() => setOpenFold((v) => !v)}
+                    className={cn(
+                      'w-full flex items-center gap-2 text-left',
+                      item.detail && 'hover:opacity-80 transition-opacity',
+                    )}
+                  >
+                    <div className="w-2 h-2 rounded-none shrink-0" style={{ backgroundColor: item.color }} />
+                    <span className="text-xs font-medium text-muted-foreground truncate">{item.name}</span>
+                    {item.detail && (
+                      <ChevronDown
+                        className={cn('w-3 h-3 shrink-0 text-muted-foreground transition-transform', openFold && 'rotate-180')}
+                      />
+                    )}
+                    <span className="text-xs font-mono ml-auto">{((item.value / thisMonthSpent) * 100).toFixed(0)}%</span>
+                  </button>
+                  {item.detail && openFold && (
+                    <div className="mt-1.5 ml-4 pl-2 border-l border-border/60 space-y-1">
+                      {item.detail.map((d) => (
+                        <div key={d.name} className="flex items-center gap-2">
+                          <span className="text-2xs text-muted-foreground truncate">{d.name}</span>
+                          <span className="text-2xs font-mono ml-auto text-muted-foreground">{formatINR(d.value)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
           </div>
         </motion.div>
 
-        {/* Recent Transactions */}
+        {/* Day Ledger: one row per day, tap to unfold that day */}
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
         >
-          <div className="flex items-center justify-between mb-4 border-b border-border/50 pb-2">
-            <h3 className="font-heading font-semibold text-foreground">Activity Log</h3>
+          <div className="flex items-center justify-between mb-2 border-b border-border/50 pb-2">
+            <h3 className="font-heading font-semibold text-foreground">The Month, Day by Day</h3>
             <Link
               to="/transactions"
               className="text-xs font-mono text-primary flex items-center gap-1 hover:underline underline-offset-4"
@@ -167,35 +218,30 @@ export default function HomePage() {
             </Link>
           </div>
 
-          <div className="space-y-0 border border-border bg-card">
-            {isLoading ? (
-              <div className="p-4 space-y-4">
-                <Skeleton className="h-12 w-full bg-muted/10" />
-                <Skeleton className="h-12 w-full bg-muted/10" />
-              </div>
-            ) : recentTxns.length > 0 ? (
-              recentTxns.map((txn, i) => {
-                let net: number | undefined;
-                if (contextReady) {
-                  if (txn.direction === 'credit' && refundAllocations[txn.id]) {
-                    net = creditNet(txn as any, refundAllocations);
-                  } else if (refundTotals[txn.id]) {
-                    net = computeNetAmount(txn as any, refundTotals);
-                  }
+          {isLoading ? (
+            <div className="py-4 space-y-3">
+              <Skeleton className="h-6 w-full bg-muted/10" />
+              <Skeleton className="h-6 w-full bg-muted/10" />
+              <Skeleton className="h-6 w-full bg-muted/10" />
+            </div>
+          ) : dayLedger.length > 0 ? (
+            <DayLedger
+              days={dayLedger}
+              summaries={daySummaries}
+              bankDisplayMap={bankDisplayMap}
+              netAmountFor={(id, direction) => {
+                if (!contextReady) return undefined;
+                if (direction === 'credit' && refundAllocations[id]) {
+                  return creditNet({ id } as any, refundAllocations);
                 }
-                const bankDisplay = lookupBankDisplay(bankDisplayMap, txn.bank_name, txn.account_last4);
-                return (
-                  <Link key={txn.id} to={`/transactions/${txn.id}`}>
-                    <TransactionCard transaction={txn} index={i} netAmount={net} bankDisplay={bankDisplay} />
-                  </Link>
-                );
-              })
-            ) : (
-              <div className="text-center py-12 text-muted-foreground font-mono text-xs">
-                NO TRANSACTIONS RECORDED
-              </div>
-            )}
-          </div>
+                return refundTotals[id] ? computeNetAmount({ id } as any, refundTotals) : undefined;
+              }}
+            />
+          ) : (
+            <div className="text-center py-12 text-muted-foreground font-mono text-xs">
+              NO TRANSACTIONS RECORDED
+            </div>
+          )}
         </motion.div>
       </div>
     </AppLayout>

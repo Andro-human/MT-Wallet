@@ -6,6 +6,7 @@ import { ChevronDown, Layers, Ungroup } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatINR } from '@/lib/formatCurrency';
 import { TransactionWithCategory } from '@/types/database';
+import { entityColor } from '@/lib/categoryColors';
 
 interface CombinedTransactionCardProps {
   members: TransactionWithCategory[];
@@ -69,8 +70,8 @@ export function CombinedTransactionCard({ members, index = 0, onUngroup }: Combi
           style={
             category
               ? {
-                  borderColor: category.color ? `${category.color}40` : 'var(--border)',
-                  color: category.color || 'var(--foreground)',
+                  borderColor: `${entityColor(category.id)}40`,
+                  color: entityColor(category.id),
                 }
               : { borderColor: 'var(--border)' }
           }
@@ -82,20 +83,24 @@ export function CombinedTransactionCard({ members, index = 0, onUngroup }: Combi
         </div>
 
         <div className="flex-1 min-w-0">
-          <h4 className="font-medium truncate text-sm font-sans text-foreground">{label}</h4>
-          <p className="text-[10px] uppercase tracking-wide text-muted-foreground mt-0.5 font-mono">
-            {when ? format(new Date(when), 'MMM d • HH:mm') : ''} • {members.length} combined
+          <p className={cn(
+            'text-sm leading-snug line-clamp-2 text-foreground',
+            note ? 'font-normal' : 'font-medium',
+          )}>
+            {note || label}
           </p>
-          {note && (
-            <p className="text-xs text-muted-foreground/60 mt-0.5 truncate">{note}</p>
-          )}
+          <p className="mt-1 text-2xs font-mono uppercase tracking-wide text-muted-foreground truncate">
+            {[note ? label : null, when ? format(new Date(when), 'HH:mm') : null, `${members.length} combined`]
+              .filter(Boolean)
+              .join('  ·  ')}
+          </p>
         </div>
 
         <div className="flex items-center gap-3">
           <span
             className={cn(
               'font-mono font-medium text-sm',
-              isCredit ? 'text-primary' : 'text-foreground'
+              isCredit ? 'text-gold' : 'text-foreground'
             )}
           >
             {isCredit ? '+' : ''}
@@ -141,7 +146,7 @@ export function CombinedTransactionCard({ members, index = 0, onUngroup }: Combi
                     <span
                       className={cn(
                         'font-mono font-medium text-sm',
-                        memberCredit ? 'text-primary' : 'text-foreground'
+                        memberCredit ? 'text-gold' : 'text-foreground'
                       )}
                     >
                       {memberCredit ? '+' : ''}

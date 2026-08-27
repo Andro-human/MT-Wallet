@@ -50,7 +50,7 @@ export default function SubscriptionDetailPage() {
   if (!isLoading && !sub) {
     return (
       <AppLayout>
-        <div className="px-4 pt-6 max-w-lg mx-auto">
+        <div className="px-4 pt-6 page-shell">
           <button onClick={() => navigate('/subscriptions')} className="text-sm text-muted-foreground">← Subscriptions</button>
           <p className="text-center py-16 text-muted-foreground">Subscription not found.</p>
         </div>
@@ -61,7 +61,7 @@ export default function SubscriptionDetailPage() {
   return (
     <AppLayout>
       <div className="sticky top-0 z-10 backdrop-blur-xl bg-background/80 border-b border-border/30 safe-area-top">
-        <div className="flex items-center gap-3 px-4 py-3">
+        <div className="flex items-center gap-3 px-4 py-3 page-shell">
           <button onClick={() => navigate('/subscriptions')} className="p-1.5 -ml-1.5 rounded-lg hover:bg-muted/30" aria-label="Back">
             <ArrowLeft className="w-5 h-5" />
           </button>
@@ -69,7 +69,7 @@ export default function SubscriptionDetailPage() {
         </div>
       </div>
 
-      <div className="px-4 pb-24 max-w-lg mx-auto">
+      <div className="px-4 pb-24 page-shell">
         {isLoading || !sub ? (
           <div className="pt-6 space-y-4"><Skeleton className="h-28 w-full bg-muted/20" /></div>
         ) : (
@@ -117,7 +117,7 @@ export default function SubscriptionDetailPage() {
                     <Link to={`/transactions/${t.transaction_id}`} className="min-w-0 flex-1 group">
                       <div className="text-sm truncate group-hover:text-primary transition-colors">
                         {t.notes?.trim() || t.merchant || 'Transaction'}
-                        {t.linked_by === 'manual' && <span className="text-[9px] font-mono text-muted-foreground/60 ml-1.5">manual</span>}
+                        {t.linked_by === 'manual' && <span className="text-[9px] font-mono text-muted-foreground ml-1.5">manual</span>}
                       </div>
                       <div className="text-xs text-muted-foreground mt-0.5">{format(new Date(t.transacted_at), 'MMM d, yyyy')}</div>
                     </Link>

@@ -27,16 +27,16 @@ import {
 import { useToast } from '@/components/ui/use-toast';
 
 const statusConfig: Record<string, { color: string; bg: string; label: string }> = {
-  success: { color: 'text-green-400', bg: 'bg-green-400/10', label: 'Success' },
-  partial: { color: 'text-yellow-400', bg: 'bg-yellow-400/10', label: 'Partial' },
-  failed: { color: 'text-red-400', bg: 'bg-red-400/10', label: 'Failed' },
+  success: { color: 'text-foreground/80', bg: 'bg-muted/30', label: 'Success' },
+  partial: { color: 'text-warning', bg: 'bg-warning/10', label: 'Partial' },
+  failed: { color: 'text-destructive', bg: 'bg-destructive/10', label: 'Failed' },
   no_messages: { color: 'text-muted-foreground', bg: 'bg-muted/30', label: 'No Messages' },
 };
 
 const detailStatusConfig: Record<string, { icon: typeof CheckCircle2; color: string; label: string }> = {
-  inserted: { icon: ArrowDownCircle, color: 'text-green-400', label: 'Inserted' },
+  inserted: { icon: ArrowDownCircle, color: 'text-foreground', label: 'Inserted' },
   skipped: { icon: SkipForward, color: 'text-muted-foreground', label: 'Skipped' },
-  error: { icon: XCircle, color: 'text-red-400', label: 'Error' },
+  error: { icon: XCircle, color: 'text-destructive', label: 'Error' },
 };
 
 const sourceLabels: Record<string, string> = {
@@ -123,9 +123,9 @@ function MessageCard({
               {detail?.status && (
                 <span className={cn(
                   "text-xs font-medium px-2 py-0.5 rounded-full",
-                  detail.status === 'inserted' && 'bg-green-400/10 text-green-400',
+                  detail.status === 'inserted' && 'bg-muted/40 text-foreground',
                   detail.status === 'skipped' && 'bg-muted/50 text-muted-foreground',
-                  detail.status === 'error' && 'bg-red-400/10 text-red-400',
+                  detail.status === 'error' && 'bg-destructive/10 text-destructive',
                 )}>
                   {detailConfig?.label}
                 </span>
@@ -142,8 +142,8 @@ function MessageCard({
           {detail?.transaction && (
             <div className="flex items-center gap-2.5 mt-1.5">
               <span className={cn(
-                "text-base font-bold",
-                detail.transaction.direction === 'debit' ? 'text-red-400' : 'text-green-400'
+                "text-base font-bold amount",
+                detail.transaction.direction === 'debit' ? 'text-foreground' : 'text-gold'
               )}>
                 {detail.transaction.direction === 'debit' ? '−' : '+'}{formatINR(detail.transaction.amount)}
               </span>
@@ -183,7 +183,7 @@ function MessageCard({
 
           {/* Message preview (collapsed) */}
           {!expanded && message?.body && (
-            <p className="text-sm text-muted-foreground/70 mt-1 line-clamp-1">
+            <p className="text-sm text-muted-foreground mt-1 line-clamp-1">
               {message.body}
             </p>
           )}
@@ -253,9 +253,9 @@ function MessageCard({
                   </p>
                   <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm">
                     <span className="text-muted-foreground">Amount</span>
-                    <span className="text-foreground font-medium">{formatINR(detail.transaction.amount)}</span>
+                    <span className="text-foreground font-medium amount">{formatINR(detail.transaction.amount)}</span>
                     <span className="text-muted-foreground">Direction</span>
-                    <span className={cn("font-medium", detail.transaction.direction === 'debit' ? 'text-red-400' : 'text-green-400')}>
+                    <span className={cn("font-medium", detail.transaction.direction === 'debit' ? 'text-foreground' : 'text-gold')}>
                       {detail.transaction.direction}
                     </span>
                     {detail.transaction.merchant && (
@@ -290,7 +290,7 @@ function MessageCard({
                     <button
                       onClick={(e) => { e.stopPropagation(); setConfirmRemoveOpen(true); }}
                       disabled={markNotTxn.isPending}
-                      className="w-full flex items-center justify-center gap-2 text-sm font-medium py-2.5 px-3 rounded-lg bg-red-400/10 text-red-400 hover:bg-red-400/15 transition-colors disabled:opacity-50"
+                      className="w-full flex items-center justify-center gap-2 text-sm font-medium py-2.5 px-3 rounded-lg bg-destructive/10 text-destructive hover:bg-destructive/15 transition-colors disabled:opacity-50"
                     >
                       {markNotTxn.isPending ? (
                         <Loader2 className="w-4 h-4 animate-spin" />
@@ -334,7 +334,7 @@ function MessageCard({
             <AlertDialogAction
               onClick={(e) => { e.preventDefault(); handleRemove(); }}
               disabled={markNotTxn.isPending}
-              className="bg-red-500 hover:bg-red-600"
+              className="bg-destructive hover:bg-destructive/90"
             >
               Remove
             </AlertDialogAction>
@@ -411,7 +411,7 @@ export default function SyncRunDetailPage() {
 
   return (
     <AppLayout>
-      <div className="px-5 pb-4 pt-[calc(2rem+env(safe-area-inset-top))]">
+      <div className="px-5 pb-4 pt-[calc(2rem+env(safe-area-inset-top))] page-shell">
         {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: -12 }}
@@ -448,7 +448,7 @@ export default function SyncRunDetailPage() {
               className={cn(
                 "flex-1 text-sm font-medium py-2.5 px-3 rounded-lg transition-colors",
                 activeTab === tab.key
-                  ? "bg-primary text-primary-foreground"
+                  ? "bg-muted/60 text-foreground"
                   : "text-muted-foreground hover:text-foreground"
               )}
             >
@@ -468,7 +468,7 @@ export default function SyncRunDetailPage() {
               <motion.div
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="grid grid-cols-2 gap-3"
+                className="grid grid-cols-2 sm:grid-cols-4 gap-3"
               >
                 <div className="glass-card p-4">
                   <div className="flex items-center gap-2 mb-1">
@@ -479,10 +479,10 @@ export default function SyncRunDetailPage() {
                 </div>
                 <div className="glass-card p-4">
                   <div className="flex items-center gap-2 mb-1">
-                    <ArrowDownCircle className="w-4 h-4 text-green-400" />
+                    <ArrowDownCircle className="w-4 h-4 text-muted-foreground" />
                     <span className="text-sm text-muted-foreground">Inserted</span>
                   </div>
-                  <p className="text-2xl font-bold text-green-400">{run.inserted}</p>
+                  <p className="text-2xl font-bold">{run.inserted}</p>
                 </div>
                 <div className="glass-card p-4">
                   <div className="flex items-center gap-2 mb-1">
@@ -493,10 +493,14 @@ export default function SyncRunDetailPage() {
                 </div>
                 <div className="glass-card p-4">
                   <div className="flex items-center gap-2 mb-1">
-                    <AlertCircle className="w-4 h-4 text-red-400" />
+                    <AlertCircle className={cn('w-4 h-4', run.errors > 0 ? 'text-destructive' : 'text-muted-foreground')} />
                     <span className="text-sm text-muted-foreground">Errors</span>
                   </div>
-                  <p className="text-2xl font-bold text-red-400">{run.errors}</p>
+                  {/* Zero errors is the normal case; shouting it in vermilion
+                      reads as an alarm about the absence of a problem. */}
+                  <p className={cn('text-2xl font-bold', run.errors > 0 && 'text-destructive')}>
+                    {run.errors}
+                  </p>
                 </div>
               </motion.div>
 
@@ -505,7 +509,7 @@ export default function SyncRunDetailPage() {
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.05 }}
-                className="glass-card p-4 space-y-3.5"
+                className="glass-card p-4 space-y-3.5 max-w-xl"
               >
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-muted-foreground">Duration</span>
@@ -584,13 +588,13 @@ export default function SyncRunDetailPage() {
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.1 }}
-                  className="glass-card p-4 border-red-400/20"
+                  className="glass-card p-4 border-destructive/20"
                 >
                   <div className="flex items-center gap-2 mb-2">
-                    <XCircle className="w-5 h-5 text-red-400" />
-                    <span className="text-sm font-semibold text-red-400">Error</span>
+                    <XCircle className="w-5 h-5 text-destructive" />
+                    <span className="text-sm font-semibold text-destructive">Error</span>
                   </div>
-                  <p className="text-sm text-red-400/80 font-mono leading-relaxed">{run.error_message}</p>
+                  <p className="text-sm text-destructive/80 font-mono leading-relaxed">{run.error_message}</p>
                 </motion.div>
               )}
             </>
@@ -612,7 +616,7 @@ export default function SyncRunDetailPage() {
                     className={cn(
                       "text-sm px-3.5 py-1.5 rounded-full transition-colors",
                       filterStatus === chip.key
-                        ? "bg-primary text-primary-foreground"
+                        ? "bg-muted/60 text-foreground"
                         : "bg-card/60 text-muted-foreground"
                     )}
                   >

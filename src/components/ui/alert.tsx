@@ -10,6 +10,10 @@ const alertVariants = cva(
       variant: {
         default: "bg-background text-foreground",
         destructive: "border-destructive/50 text-destructive dark:border-destructive [&>svg]:text-destructive",
+        success: "bg-muted border-0 border-l-2 border-[var(--cat-groceries)] rounded-l-none [&>svg]:text-[var(--cat-groceries)]",
+        warning: "bg-muted border-0 border-l-2 border-[var(--cat-food)] rounded-l-none [&>svg]:text-[var(--cat-food)]",
+        error: "bg-muted border-0 border-l-2 border-primary rounded-l-none [&>svg]:text-primary",
+        info: "bg-muted border-0 border-l-2 border-[var(--cat-transport)] rounded-l-none [&>svg]:text-[var(--cat-transport)]",
       },
     },
     defaultVariants: {

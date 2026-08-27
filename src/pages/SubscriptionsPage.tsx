@@ -9,6 +9,7 @@ import { useDetectedSubscriptions } from '@/hooks/useDetectedSubscriptions';
 import { useSubscriptionOverrides, useSetSubscriptionOverride } from '@/hooks/useSubscriptionOverrides';
 import { CreateSubscriptionDialog, type CreateSeed } from '@/components/subscriptions/CreateSubscriptionDialog';
 import { formatINR, formatINRCompact } from '@/lib/formatCurrency';
+import { entityColor } from '@/lib/categoryColors';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
@@ -38,8 +39,14 @@ export default function SubscriptionsPage() {
   const [seed, setSeed] = useState<CreateSeed | undefined>(undefined);
 
   const active = useMemo(() => subs.filter((s) => s.status === 'active'), [subs]);
+  // monthlyNormalized() returns 0 for irregular cadence, so those rows carry no
+  // share and must stay out of both the total and the bars.
   const committed = useMemo(
     () => active.reduce((sum, s) => sum + subscriptionMonthly(s), 0),
+    [active],
+  );
+  const varying = useMemo(
+    () => active.filter((s) => subscriptionMonthly(s) === 0).length,
     [active],
   );
 
@@ -84,19 +91,22 @@ export default function SubscriptionsPage() {
   return (
     <AppLayout>
       <div className="sticky top-0 z-10 backdrop-blur-xl bg-background/80 border-b border-border/30 safe-area-top">
-        <div className="flex items-center justify-between px-5 py-3 gap-3">
+        <div className="flex items-center justify-between px-5 py-3 gap-3 page-shell">
           <h1 className="text-lg font-semibold flex items-center gap-2">
             <Repeat className="w-4 h-4" /> Subscriptions
           </h1>
           {committed > 0 && (
             <span className="font-mono text-sm">
               ~{formatINRCompact(committed)}<span className="text-muted-foreground">/mo</span>
+              {varying > 0 && (
+                <span className="text-muted-foreground"> + {varying} varying</span>
+              )}
             </span>
           )}
         </div>
       </div>
 
-      <div className="px-4 pb-28 pt-5 max-w-lg mx-auto">
+      <div className="px-4 pb-28 pt-5 page-shell">
         {suggestions.length > 0 && (
           <div className="mb-6">
             <div className="flex items-center gap-2 mb-3 px-1">
@@ -104,7 +114,7 @@ export default function SubscriptionsPage() {
               <h2 className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
                 Detected from your spending
               </h2>
-              <span className="text-xs text-muted-foreground/60">({suggestions.length})</span>
+              <span className="text-xs text-muted-foreground">({suggestions.length})</span>
             </div>
             <div className="space-y-3">
               <AnimatePresence mode="popLayout">
@@ -120,7 +130,7 @@ export default function SubscriptionsPage() {
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <div className="font-bold truncate">{d.label}</div>
-                        <div className="text-xs text-muted-foreground mt-0.5">
+                        <div className="text-xs text-muted-foreground mt-0.5 amount">
                           {formatINR(d.amount)} · {d.cadence} · next ~{format(new Date(`${d.nextExpected}T12:00:00`), 'MMM d')}
                         </div>
                       </div>
@@ -172,45 +182,74 @@ export default function SubscriptionsPage() {
               <div className="flex items-center gap-2 mb-3 px-1">
                 <span className="text-primary text-xs">●</span>
                 <h2 className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Active</h2>
-                <span className="text-xs text-muted-foreground/60">({active.length})</span>
+                <span className="text-xs text-muted-foreground">({active.length})</span>
               </div>
-              <div className="space-y-3">
+              <div>
                 {active.map((s) => {
                   const overdue = isOverdue(s);
                   const variable = s.amount_min != null && s.amount_max != null && s.amount_min !== s.amount_max;
+                  const perMonth = subscriptionMonthly(s);
+                  const share = committed > 0 ? (perMonth / committed) * 100 : 0;
                   return (
                     <button
                       key={s.id}
                       onClick={() => navigate(`/subscriptions/${s.id}`)}
-                      className="w-full text-left neo-card p-4 rounded-xl"
+                      className="group w-full text-left py-3.5 border-b border-border/50 last:border-b-0"
                     >
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="font-bold truncate">{s.label}</span>
-                            {s.cadence && (
-                              <span className="text-[9px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded-full border border-border text-muted-foreground">
-                                {s.cadence}
-                              </span>
-                            )}
-                            {overdue && (
-                              <span className="text-[9px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded-full border border-orange-500/40 text-orange-500">
-                                overdue
-                              </span>
-                            )}
-                          </div>
-                          <div className="text-xs text-muted-foreground mt-1">
-                            {s.predicted_next && <>next ~{format(new Date(`${s.predicted_next}T12:00:00`), 'MMM d')}</>}
-                            {variable && (
-                              <span className="font-mono"> · {formatINRCompact(s.amount_min!)}–{formatINRCompact(s.amount_max!)}</span>
-                            )}
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-1 shrink-0">
-                          <span className="font-mono text-sm font-medium">{formatINR(s.median_amount ?? 0)}</span>
+                      <div className="flex items-baseline justify-between gap-3">
+                        <span className="flex items-baseline gap-2 min-w-0">
+                          <span className="font-heading text-lg font-normal truncate group-hover:text-primary transition-colors">
+                            {s.label}
+                          </span>
+                          {overdue && (
+                            <span className="text-2xs font-mono uppercase tracking-wider text-warning shrink-0">
+                              overdue
+                            </span>
+                          )}
+                        </span>
+                        <span className="flex items-baseline gap-2 shrink-0">
+                          <span className="amount text-sm">{formatINR(s.median_amount ?? 0)}</span>
                           <ChevronRight className="w-4 h-4 text-muted-foreground" />
-                        </div>
+                        </span>
                       </div>
+
+                      <div className="mt-1 flex items-baseline justify-between gap-3 text-2xs text-muted-foreground">
+                        <span className="truncate">
+                          {s.cadence}
+                          {s.cadence !== 'monthly' &&
+                            (perMonth > 0 ? (
+                              <span className="amount">
+                                {'  ·  '}
+                                {formatINRCompact(perMonth)}/mo
+                              </span>
+                            ) : (
+                              <span>{'  ·  '}no fixed monthly</span>
+                            ))}
+                          {variable && (
+                            <span className="amount">
+                              {'  ·  '}
+                              {formatINRCompact(s.amount_min!)}–{formatINRCompact(s.amount_max!)}
+                            </span>
+                          )}
+                        </span>
+                        {s.predicted_next && (
+                          <span className="shrink-0 amount">
+                            next ~{format(new Date(`${s.predicted_next}T12:00:00`), 'MMM d')}
+                          </span>
+                        )}
+                      </div>
+
+                      {perMonth > 0 && (
+                        <div className="mt-2 h-1 w-full rounded-full bg-muted/30 overflow-hidden">
+                          <div
+                            className="h-full rounded-full"
+                            style={{
+                              width: `${Math.max(share, 1)}%`,
+                              background: entityColor(s.label),
+                            }}
+                          />
+                        </div>
+                      )}
                     </button>
                   );
                 })}

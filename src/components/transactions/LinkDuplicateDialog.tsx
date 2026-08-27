@@ -153,7 +153,7 @@ export function LinkDuplicateDialog({
                 {linkedDuplicates.map((dup) => (
                   <div
                     key={dup.id}
-                    className="flex items-center justify-between p-3 rounded-xl bg-amber-500/10 border border-amber-500/20"
+                    className="flex items-center justify-between p-3 rounded-xl bg-warning/10 border border-warning/20"
                   >
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium truncate">{dup.merchant || 'Unknown'}</p>
@@ -162,7 +162,7 @@ export function LinkDuplicateDialog({
                       </p>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="text-sm font-semibold text-amber-500">
+                      <span className="text-sm font-semibold text-warning">
                         ₹{formatINR(Number(dup.amount)).replace('₹', '')}
                       </span>
                       <button
@@ -211,7 +211,7 @@ export function LinkDuplicateDialog({
                     className={cn(
                       "w-full flex items-center justify-between p-3 rounded-xl transition-colors text-left",
                       isExactMatch && isSameMerchant
-                        ? "bg-amber-500/10 border border-amber-500/20"
+                        ? "bg-warning/10 border border-warning/20"
                         : "bg-muted/30 hover:bg-muted/50"
                     )}
                   >
@@ -219,7 +219,7 @@ export function LinkDuplicateDialog({
                       <div className="flex items-center gap-2">
                         <p className="text-sm font-medium truncate">{tx.merchant || 'Unknown'}</p>
                         {isExactMatch && isSameMerchant && (
-                          <span className="text-2xs bg-amber-500/20 text-amber-600 dark:text-amber-400 px-1.5 py-0.5 rounded-full font-medium">
+                          <span className="text-2xs bg-warning/20 text-warning px-1.5 py-0.5 rounded-full font-medium">
                             Likely match
                           </span>
                         )}

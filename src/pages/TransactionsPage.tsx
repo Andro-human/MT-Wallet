@@ -63,6 +63,7 @@ import {
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
 import { BookmarkPlus } from 'lucide-react';
+import { entityColor } from '@/lib/categoryColors';
 
 type DateFilter = 'this-month' | 'last-month' | 'last-3-months' | 'custom' | 'all';
 type DirectionFilter = 'all' | 'credit' | 'debit';
@@ -602,7 +603,7 @@ export default function TransactionsPage() {
 
   return (
     <AppLayout>
-      <div className="px-4 sm:px-5 pt-6 md:pt-12 pb-24 safe-area-top">
+      <div className="px-4 sm:px-5 pt-6 md:pt-12 pb-24 safe-area-top page-shell">
         {/* Back Button for Filtered Views */}
         {isFilteredView && !isSelectMode && (
           <motion.button
@@ -695,7 +696,7 @@ export default function TransactionsPage() {
                       size="sm"
                       disabled={selectedIds.size === 0}
                       onClick={handleMarkSelectedForReview}
-                      className="gap-1.5 rounded-xl border-orange-500/40 text-orange-400 hover:bg-orange-500/10"
+                      className="gap-1.5 rounded-xl border-warning/40 text-warning hover:bg-warning/10"
                     >
                       <RotateCcw className="w-3.5 h-3.5" />
                       Review
@@ -731,7 +732,7 @@ export default function TransactionsPage() {
                 <div className="flex items-center gap-3 mb-1">
                   <div
                     className="w-10 h-10 rounded-xl flex items-center justify-center text-lg"
-                    style={{ backgroundColor: activeGroup.color + '20' }}
+                    style={{ backgroundColor: entityColor(activeGroup.id) + '20' }}
                   >
                     {activeGroup.icon}
                   </div>
@@ -751,7 +752,7 @@ export default function TransactionsPage() {
                 <div className="flex items-center gap-3 mb-1">
                   <div
                     className="w-10 h-10 rounded-xl flex items-center justify-center text-lg"
-                    style={{ backgroundColor: activeCategory.color + '20' }}
+                    style={{ backgroundColor: entityColor(activeCategory.id) + '20' }}
                   >
                     {activeCategory.icon}
                   </div>
@@ -767,8 +768,8 @@ export default function TransactionsPage() {
             ) : isBankFiltered ? (
               <>
                 <div className="flex items-center gap-3 mb-1">
-                  <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center">
-                    <Building2 className="w-5 h-5 text-blue-400" />
+                  <div className="w-10 h-10 rounded-xl bg-info/10 flex items-center justify-center">
+                    <Building2 className="w-5 h-5 text-info" />
                   </div>
                   <div>
                     <h1 className="text-2xl font-bold text-foreground">
@@ -919,7 +920,7 @@ export default function TransactionsPage() {
               onClick={() => setReviewMode(isInboxMode ? 'false' : 'true')}
               className={cn(
                 'gap-1.5 rounded-xl border-border/50 flex-shrink-0',
-                isInboxMode && 'bg-orange-500 hover:bg-orange-600 border-orange-600'
+                isInboxMode && 'bg-warning hover:bg-warning border-warning'
               )}
             >
               <Inbox className="w-3.5 h-3.5" />
@@ -937,7 +938,7 @@ export default function TransactionsPage() {
             <Button
               variant="outline"
               size="sm"
-              className="gap-1.5 rounded-xl border-green-500/40 text-green-400 hover:bg-green-500/10 flex-shrink-0"
+              className="gap-1.5 rounded-xl border-success/40 text-success hover:bg-success/10 flex-shrink-0"
               onClick={handleApproveAll}
             >
               <CheckCheck className="w-3.5 h-3.5" />
@@ -953,7 +954,7 @@ export default function TransactionsPage() {
                 <Button
                   variant="outline"
                   size="sm"
-                  className="gap-1.5 rounded-xl border-orange-500/40 text-orange-400 hover:bg-orange-500/10 flex-shrink-0"
+                  className="gap-1.5 rounded-xl border-warning/40 text-warning hover:bg-warning/10 flex-shrink-0"
                 >
                   <RotateCcw className="w-3.5 h-3.5" />
                   Review All
@@ -1363,7 +1364,7 @@ export default function TransactionsPage() {
               className="text-center py-16"
             >
               <p className="text-muted-foreground">No transactions found</p>
-              <p className="text-sm text-muted-foreground/70 mt-1">Try adjusting your filters</p>
+              <p className="text-sm text-muted-foreground mt-1">Try adjusting your filters</p>
             </motion.div>
           )}
         </div>
@@ -1444,7 +1445,7 @@ function FilteredViewSummary({
           <p className="text-2xs text-muted-foreground uppercase tracking-wider font-medium mb-1">
             Received
           </p>
-          <p className="text-sm font-bold text-success currency-display">
+          <p className="text-sm font-bold text-gold currency-display">
             {formatINR(stats.totalIncome)}
           </p>
         </div>

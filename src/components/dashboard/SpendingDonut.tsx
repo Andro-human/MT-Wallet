@@ -72,7 +72,7 @@ export function SpendingDonut({ data, totalSpent }: SpendingDonutProps) {
           <span className="text-[10px] font-mono text-muted-foreground uppercase tracking-widest">
             Total Spent
           </span>
-          <div className="text-xl font-bold text-foreground mt-1 tracking-tight font-heading">
+          <div className="text-xl font-bold text-foreground mt-1 currency-display">
             <span className="text-muted-foreground text-sm mr-0.5">₹</span>
             {formatINR(totalSpent).replace('₹', '')}
           </div>

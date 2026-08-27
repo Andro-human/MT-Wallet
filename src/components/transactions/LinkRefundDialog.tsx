@@ -195,11 +195,11 @@ export function LinkRefundDialog({
         <div className="p-4 rounded-xl bg-muted/30 space-y-2 flex-shrink-0">
           <div className="flex justify-between text-sm">
             <span className="text-muted-foreground">Original Amount</span>
-            <span className="font-medium">₹{formatINR(transactionAmount).replace('₹', '')}</span>
+            <span className="font-medium amount">₹{formatINR(transactionAmount).replace('₹', '')}</span>
           </div>
           <div className="flex justify-between text-sm">
             <span className="text-muted-foreground">Total Linked</span>
-            <span className="font-medium text-success">
+            <span className="font-medium text-gold amount">
               ₹{formatINR(totalRefunded).replace('₹', '')}
             </span>
           </div>

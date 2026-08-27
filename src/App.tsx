@@ -57,29 +57,33 @@ function ScrollManager() {
     };
 
     if (navigationType === "POP" && saved != null && saved > 0) {
-      let frame = 0;
+      // Heavy lists (Activity) re-render after mount as data/finance state resolves,
+      // briefly collapsing height and clamping scroll to 0. A one-shot restore lands
+      // correctly then gets thrown to top. So HOLD the position: re-assert whenever it
+      // drifts, for ~1.5s or until the user scrolls (their intent wins).
       let cancelled = false;
-      const cancel = () => {
+      const start = performance.now();
+      const onUser = () => {
         cancelled = true;
+        cleanup();
       };
-      window.addEventListener("wheel", cancel, { passive: true, once: true });
-      window.addEventListener("touchstart", cancel, { passive: true, once: true });
-      const restore = () => {
-        if (cancelled) {
-          release();
-          return;
-        }
-        window.scrollTo(0, saved);
-        frame++;
-        if (Math.abs(window.scrollY - saved) > 2 && frame < 40) {
-          requestAnimationFrame(restore);
+      const cleanup = () => {
+        suppressSave = false;
+        window.removeEventListener("wheel", onUser);
+        window.removeEventListener("touchstart", onUser);
+      };
+      window.addEventListener("wheel", onUser, { passive: true });
+      window.addEventListener("touchstart", onUser, { passive: true });
+      const hold = () => {
+        if (cancelled) return;
+        if (Math.abs(window.scrollY - saved) > 2) window.scrollTo(0, saved);
+        if (performance.now() - start < 1500) {
+          requestAnimationFrame(hold);
         } else {
-          release();
-          window.removeEventListener("wheel", cancel);
-          window.removeEventListener("touchstart", cancel);
+          cleanup();
         }
       };
-      requestAnimationFrame(restore);
+      requestAnimationFrame(hold);
       return;
     }
 

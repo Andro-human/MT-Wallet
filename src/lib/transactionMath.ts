@@ -1,4 +1,5 @@
 import type { Transaction, TransactionWithCategory } from '@/types/database';
+import { FOLD_DONUT, foldTail, assignColors } from './categoryColors';
 
 type AnyTxn = Pick<
   Transaction,
@@ -103,6 +104,8 @@ export interface CategoryChartSlice {
   value: number;
   color: string;
   icon: string;
+  // present only on the folded slice: what the fold swallowed, largest first
+  detail?: Array<{ name: string; value: number }>;
 }
 
 export function categoryChartData(
@@ -110,23 +113,45 @@ export function categoryChartData(
   refundTotals: RefundTotalsMap,
   duplicateExcludeIds: DuplicateExcludeSet,
   categories: Array<{ id: string; name: string; color: string; icon: string }>,
-  topN: number = 6,
+  topN: number = FOLD_DONUT,
 ): CategoryChartSlice[] {
   const byCat = spentByCategory(txns, refundTotals, duplicateExcludeIds);
   const catMap = new Map(categories.map((c) => [c.id, c]));
 
-  return Object.entries(byCat)
-    .map(([catId, value]) => {
-      const cat = catMap.get(catId);
-      return {
-        name: cat?.name ?? 'Uncategorized',
-        value,
-        color: cat?.color ?? '#9CA3AF',
-        icon: cat?.icon ?? '📦',
-      };
-    })
-    .sort((a, b) => b.value - a.value)
-    .slice(0, topN);
+  const sorted = Object.entries(byCat)
+    .map(([catId, value]) => ({
+      catId,
+      value,
+      name: catMap.get(catId)?.name ?? 'Uncategorized',
+      icon: catMap.get(catId)?.icon ?? '📦',
+    }))
+    .sort((a, b) => b.value - a.value);
+
+  const colors = assignColors(sorted.map((s) => s.catId));
+  const ranked: CategoryChartSlice[] = sorted.map(({ catId, value, name, icon }) => ({
+    name,
+    value,
+    icon,
+    color: colors.get(catId)!,
+  }));
+
+  const folded = foldTail<CategoryChartSlice>(
+    ranked,
+    topN,
+    (name, value, color) => ({ name, value, color, icon: '\u2026' }),
+    (slice) => slice.value,
+  );
+
+  // attach the tail's contents to the folded slice so the UI can open it up
+  if (folded.length < ranked.length) {
+    const tail = ranked.slice(topN);
+    folded[folded.length - 1] = {
+      ...folded[folded.length - 1],
+      detail: tail.map(({ name, value }) => ({ name, value })),
+    };
+  }
+
+  return folded;
 }
 
 export function filterOutDuplicates<T extends { id: string }>(

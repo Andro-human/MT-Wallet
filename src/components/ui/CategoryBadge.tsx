@@ -1,6 +1,7 @@
 import { cn } from '@/lib/utils';
 import { Category } from '@/types/database';
 import { forwardRef } from 'react';
+import { entityColor } from '@/lib/categoryColors';
 
 interface CategoryBadgeProps {
   category: Category | null;
@@ -38,8 +39,8 @@ export const CategoryBadge = forwardRef<HTMLDivElement, CategoryBadgeProps>(
             sizeClasses[size]
           )}
           style={{
-            backgroundColor: `${category.color}18`,
-            boxShadow: `0 0 0 1px ${category.color}20 inset, 0 4px 12px -4px ${category.color}30`,
+            backgroundColor: `${entityColor(category.id)}18`,
+            boxShadow: `0 0 0 1px ${entityColor(category.id)}20 inset, 0 4px 12px -4px ${entityColor(category.id)}30`,
           }}
         >
           <span>{category.icon}</span>

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, forwardRef } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { AlertTriangle, Check, ChevronDown, X } from 'lucide-react';
 import { format } from 'date-fns';
@@ -33,21 +33,28 @@ interface PairCardProps {
   isPending: boolean;
 }
 
-function PairCard({ pair, onDismiss, onLink, isPending }: PairCardProps) {
+// AnimatePresence mode="popLayout" measures its direct child through a ref, so
+// a plain function component here means the ref never attaches and exit/layout
+// animation silently does nothing.
+const PairCard = forwardRef<HTMLDivElement, PairCardProps>(function PairCard(
+  { pair, onDismiss, onLink, isPending },
+  ref,
+) {
   const [expanded, setExpanded] = useState(false);
 
   return (
     <motion.div
+      ref={ref}
       layout
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0, height: 0 }}
       transition={{ duration: 0.15 }}
-      className="rounded-xl border border-orange-500/20 bg-orange-500/5 px-4 py-3"
+      className="rounded-xl border border-warning/20 bg-warning/5 px-4 py-3"
     >
       {/* Always-visible summary row */}
       <div className="flex items-center gap-2">
-        <AlertTriangle className="w-3.5 h-3.5 text-orange-500 flex-shrink-0" />
+        <AlertTriangle className="w-3.5 h-3.5 text-warning flex-shrink-0" />
         <p className="text-sm text-foreground flex-1 min-w-0 truncate">
           <span className="font-medium">{pair.transactionA.merchant || 'Unknown'}</span>
           <span className="text-muted-foreground"> &amp; </span>
@@ -60,7 +67,7 @@ function PairCard({ pair, onDismiss, onLink, isPending }: PairCardProps) {
         <button
           type="button"
           onClick={() => setExpanded((e) => !e)}
-          className="text-xs font-medium text-orange-500 hover:text-orange-400 transition-colors flex items-center gap-1 flex-shrink-0"
+          className="text-xs font-medium text-warning hover:text-warning transition-colors flex items-center gap-1 flex-shrink-0"
         >
           Resolve
           <ChevronDown
@@ -102,11 +109,11 @@ function PairCard({ pair, onDismiss, onLink, isPending }: PairCardProps) {
                     className={cn(
                       'w-full flex items-center gap-2 px-3 py-2 rounded-lg text-left',
                       'bg-background/40 border border-border/30',
-                      'hover:bg-background/80 hover:border-orange-500/40 active:scale-[0.98]',
+                      'hover:bg-background/80 hover:border-warning/40 active:scale-[0.98]',
                       'transition-all disabled:opacity-50',
                     )}
                   >
-                    <Check className="w-3.5 h-3.5 text-orange-500/70 flex-shrink-0" />
+                    <Check className="w-3.5 h-3.5 text-warning/70 flex-shrink-0" />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-baseline justify-between gap-2">
                         <span className="text-sm font-medium text-foreground truncate">
@@ -122,7 +129,7 @@ function PairCard({ pair, onDismiss, onLink, isPending }: PairCardProps) {
                         </p>
                       )}
                     </div>
-                    <span className="text-[11px] text-orange-500/80 whitespace-nowrap font-medium">
+                    <span className="text-[11px] text-warning/80 whitespace-nowrap font-medium">
                       Keep
                     </span>
                   </button>
@@ -134,7 +141,7 @@ function PairCard({ pair, onDismiss, onLink, isPending }: PairCardProps) {
       </AnimatePresence>
     </motion.div>
   );
-}
+});
 
 export function DuplicateSuggestionsCard({ pairs, onDismiss }: DuplicateSuggestionsCardProps) {
   const createLink = useCreateDuplicateLink();

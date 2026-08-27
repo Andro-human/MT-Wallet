@@ -33,3 +33,6 @@ supabase/.temp/
 *.njsproj
 *.sln
 *.sw?
+
+# TypeScript incremental build artifact — machine-specific, churns every build
+*.tsbuildinfo

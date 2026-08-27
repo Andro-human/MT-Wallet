@@ -157,7 +157,7 @@ export function CreateSubscriptionDialog({
                     </span>
                     <span className="flex-1 min-w-0 text-sm truncate">
                       {m.txn.merchant || 'Transaction'}
-                      <span className="text-muted-foreground/60 text-xs ml-1">
+                      <span className="text-muted-foreground text-xs ml-1">
                         · {format(new Date((m.txn as any).transacted_at), 'MMM d')}
                         {m.txn.notes ? ` · "${m.txn.notes.trim()}"` : ' · no note'}
                       </span>
