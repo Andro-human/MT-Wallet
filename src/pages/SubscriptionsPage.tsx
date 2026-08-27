@@ -9,6 +9,7 @@ import { useDetectedSubscriptions } from '@/hooks/useDetectedSubscriptions';
 import { useSubscriptionOverrides, useSetSubscriptionOverride } from '@/hooks/useSubscriptionOverrides';
 import { CreateSubscriptionDialog, type CreateSeed } from '@/components/subscriptions/CreateSubscriptionDialog';
 import { formatINR, formatINRCompact } from '@/lib/formatCurrency';
+import { entityColor } from '@/lib/categoryColors';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
@@ -38,8 +39,14 @@ export default function SubscriptionsPage() {
   const [seed, setSeed] = useState<CreateSeed | undefined>(undefined);
 
   const active = useMemo(() => subs.filter((s) => s.status === 'active'), [subs]);
+  // monthlyNormalized() returns 0 for irregular cadence, so those rows carry no
+  // share and must stay out of both the total and the bars.
   const committed = useMemo(
     () => active.reduce((sum, s) => sum + subscriptionMonthly(s), 0),
+    [active],
+  );
+  const varying = useMemo(
+    () => active.filter((s) => subscriptionMonthly(s) === 0).length,
     [active],
   );
 
@@ -91,6 +98,9 @@ export default function SubscriptionsPage() {
           {committed > 0 && (
             <span className="font-mono text-sm">
               ~{formatINRCompact(committed)}<span className="text-muted-foreground">/mo</span>
+              {varying > 0 && (
+                <span className="text-muted-foreground"> + {varying} varying</span>
+              )}
             </span>
           )}
         </div>
@@ -178,9 +188,6 @@ export default function SubscriptionsPage() {
                 {active.map((s) => {
                   const overdue = isOverdue(s);
                   const variable = s.amount_min != null && s.amount_max != null && s.amount_min !== s.amount_max;
-                  // A yearly charge and a monthly one are not comparable at face
-                  // value, so every row also carries what it costs per month and
-                  // its share of the total commitment.
                   const perMonth = subscriptionMonthly(s);
                   const share = committed > 0 ? (perMonth / committed) * 100 : 0;
                   return (
@@ -209,12 +216,15 @@ export default function SubscriptionsPage() {
                       <div className="mt-1 flex items-baseline justify-between gap-3 text-2xs text-muted-foreground/80">
                         <span className="truncate">
                           {s.cadence}
-                          {s.cadence !== 'monthly' && perMonth > 0 && (
-                            <span className="amount">
-                              {'  ·  '}
-                              {formatINRCompact(perMonth)}/mo
-                            </span>
-                          )}
+                          {s.cadence !== 'monthly' &&
+                            (perMonth > 0 ? (
+                              <span className="amount">
+                                {'  ·  '}
+                                {formatINRCompact(perMonth)}/mo
+                              </span>
+                            ) : (
+                              <span>{'  ·  '}no fixed monthly</span>
+                            ))}
                           {variable && (
                             <span className="amount">
                               {'  ·  '}
@@ -229,12 +239,17 @@ export default function SubscriptionsPage() {
                         )}
                       </div>
 
-                      <div className="mt-2 h-1 w-full rounded-full bg-muted/30 overflow-hidden">
-                        <div
-                          className="h-full rounded-full bg-[var(--cat-subs)]"
-                          style={{ width: `${Math.max(share, 1)}%` }}
-                        />
-                      </div>
+                      {perMonth > 0 && (
+                        <div className="mt-2 h-1 w-full rounded-full bg-muted/30 overflow-hidden">
+                          <div
+                            className="h-full rounded-full"
+                            style={{
+                              width: `${Math.max(share, 1)}%`,
+                              background: entityColor(s.label),
+                            }}
+                          />
+                        </div>
+                      )}
                     </button>
                   );
                 })}
