@@ -189,7 +189,7 @@ export default function TransactionDetailPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-background p-5 safe-area-top">
+      <div className="min-h-screen bg-background px-5 pb-5 pt-safe">
         <Skeleton className="h-8 w-32 mb-8" />
         <Skeleton className="h-48 rounded-2xl mb-4" />
         <Skeleton className="h-24 rounded-2xl mb-4" />

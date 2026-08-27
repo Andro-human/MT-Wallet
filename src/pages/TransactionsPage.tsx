@@ -603,7 +603,7 @@ export default function TransactionsPage() {
 
   return (
     <AppLayout>
-      <div className="px-4 sm:px-5 pt-6 md:pt-12 pb-24 safe-area-top page-shell">
+      <div className="px-4 sm:px-5 pt-safe pb-24 page-shell">
         {/* Back Button for Filtered Views */}
         {isFilteredView && !isSelectMode && (
           <motion.button

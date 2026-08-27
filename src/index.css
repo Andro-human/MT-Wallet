@@ -217,9 +217,61 @@
     font-variant-numeric: tabular-nums;
   }
 
-  /* Safe Area Utilities for iOS */
+  /* Safe Area Utilities for iOS.
+     .safe-area-top is for elements with no top padding of their own (the sticky
+     headers). It cannot be combined with pt-*: both land in @layer utilities at
+     equal specificity, so this rule wins on source order and silently zeroes the
+     page's padding. Page bodies want .pt-safe, which adds the inset instead of
+     replacing the spacing. */
   .safe-area-top {
     padding-top: env(safe-area-inset-top);
+  }
+
+  .pt-safe {
+    padding-top: calc(env(safe-area-inset-top) + 1.5rem);
+  }
+
+  @media (min-width: 768px) {
+    .pt-safe {
+      padding-top: calc(env(safe-area-inset-top) + 3rem);
+    }
+  }
+
+  /* Four numbers that wrap to 2x2 on a phone. As flex-wrap the second row came
+     out indented under a stray rule, because first:pl-0 only ever matches the
+     first child, never the first cell of a wrapped row. */
+  .stat-strip {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: 1.25rem;
+    row-gap: 1rem;
+  }
+
+  .stat-strip > * {
+    padding-left: 1.25rem;
+    border-left: 1px solid hsl(var(--border) / 0.5);
+    min-width: 0;
+  }
+
+  .stat-strip > *:nth-child(odd) {
+    padding-left: 0;
+    border-left: 0;
+  }
+
+  @media (min-width: 640px) {
+    .stat-strip {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+
+    .stat-strip > *:nth-child(odd) {
+      padding-left: 1.25rem;
+      border-left: 1px solid hsl(var(--border) / 0.5);
+    }
+
+    .stat-strip > *:first-child {
+      padding-left: 0;
+      border-left: 0;
+    }
   }
 
   .safe-area-bottom {

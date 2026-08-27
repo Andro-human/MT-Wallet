@@ -21,7 +21,6 @@ import { cn } from '@/lib/utils';
 
 // Wide figures sitting side by side need a rule between them, not just a gap:
 // Rs28,597.11 next to Rs6,402.89 reads as one number otherwise.
-const STAT = 'pl-6 pr-2 first:pl-0 border-l border-border/50 first:border-l-0';
 
 export default function HomePage() {
   const { user } = useAuth();
@@ -48,7 +47,7 @@ export default function HomePage() {
 
   return (
     <AppLayout>
-      <div className="px-4 sm:px-6 pt-6 md:pt-12 pb-4 safe-area-top page-shell">
+      <div className="px-4 sm:px-6 pt-safe pb-4 page-shell">
         {/* Header - Minimalist */}
         <motion.div
           initial={{ opacity: 0, y: -12 }}
@@ -74,23 +73,23 @@ export default function HomePage() {
         <motion.div
           initial={{ opacity: 0, y: -6 }}
           animate={{ opacity: 1, y: 0 }}
-          className="flex flex-wrap items-stretch gap-y-4 mb-6 md:mb-8 pb-5 border-b border-border/60"
+          className="stat-strip items-stretch mb-6 md:mb-8 pb-5 border-b border-border/60"
         >
-          <div className={STAT}>
+          <div>
             <p className="text-2xs font-mono uppercase tracking-widest text-muted-foreground mb-1">
               Spent
             </p>
             {isLoading ? (
               <Skeleton className="h-7 w-28 bg-muted/20" />
             ) : (
-              <p className="text-2xl font-semibold text-foreground currency-display">
+              <p className="text-xl sm:text-2xl font-semibold text-foreground currency-display">
                 {formatINR(thisMonthSpent)}
               </p>
             )}
           </div>
 
           {budget > 0 && (
-            <div className={STAT}>
+            <div>
               <p className="text-2xs font-mono uppercase tracking-widest text-muted-foreground mb-1">
                 Left of {formatINRCompact(budget)}
               </p>
@@ -99,7 +98,7 @@ export default function HomePage() {
               ) : (
                 <p
                   className={cn(
-                    'text-2xl font-semibold currency-display',
+                    'text-xl sm:text-2xl font-semibold currency-display',
                     budget - thisMonthSpent >= 0 ? 'text-gold' : 'text-warning',
                   )}
                 >
@@ -109,7 +108,7 @@ export default function HomePage() {
             </div>
           )}
 
-          <div className={STAT}>
+          <div>
             <p className="text-2xs font-mono uppercase tracking-widest text-muted-foreground mb-1">
               vs last month
             </p>
@@ -118,7 +117,7 @@ export default function HomePage() {
             ) : (
               <p
                 className={cn(
-                  'text-2xl font-semibold currency-display',
+                  'text-xl sm:text-2xl font-semibold currency-display',
                   monthChange > 0 ? 'text-warning' : 'text-gold',
                 )}
               >
@@ -128,7 +127,7 @@ export default function HomePage() {
             )}
           </div>
 
-          <div className={cn(STAT, 'ml-auto text-right')}>
+          <div className="sm:text-right">
             <p className="text-2xs font-mono uppercase tracking-widest text-muted-foreground mb-1">
               In · Txns
             </p>
