@@ -20,6 +20,46 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 
+interface RuleLineProps {
+  mapping: UserMerchantMapping;
+  category?: { icon: string; name: string };
+}
+
+// Qualifiers narrow when the rule fires; effects are what it does. Neither is
+// money, so neither takes the money colours: DESIGN.md forbids red for expense
+// and green for income, and this page had both.
+function RuleLine({ mapping, category }: RuleLineProps) {
+  const qualifiers: string[] = [];
+  if (mapping.match_type === 'contains') qualifiers.push('contains');
+  if (mapping.amount_operator) qualifiers.push(`amt ${mapping.amount_operator} \u20B9${mapping.amount_threshold}`);
+  if (mapping.date_operator) qualifiers.push(`day ${mapping.date_operator} ${mapping.date_threshold}`);
+
+  const effects: string[] = [];
+  if (mapping.mapped_merchant && mapping.mapped_merchant !== mapping.raw_merchant) {
+    effects.push(`rename to ${mapping.mapped_merchant}`);
+  }
+  if (category) effects.push(`file under ${category.icon} ${category.name}`);
+  if (mapping.default_is_expense !== null) {
+    effects.push(mapping.default_is_expense ? 'force expense' : 'never an expense');
+  }
+  if (mapping.default_is_income !== null) {
+    effects.push(mapping.default_is_income ? 'force income' : 'never an income');
+  }
+
+  return (
+    <>
+      {qualifiers.length > 0 && (
+        <span className="text-2xs font-mono text-muted-foreground/50 shrink-0">
+          {qualifiers.join('  ')}
+        </span>
+      )}
+      <span className="text-2xs text-foreground/80 truncate">
+        {effects.length > 0 ? effects.join('  \u00B7  ') : <span className="text-muted-foreground/50">no effect set</span>}
+      </span>
+    </>
+  );
+}
+
 export default function MerchantRulesPage() {
   const navigate = useNavigate();
   const { data: mappings = [], isLoading } = useMerchantMappings();
@@ -76,7 +116,7 @@ export default function MerchantRulesPage() {
         </div>
       </div>
 
-      <div className="px-5 py-6 pb-24 min-h-screen">
+      <div className="px-5 py-6 pb-24 min-h-screen page-shell">
         {/* Subtitle — count of active rules */}
         <p className="text-base text-muted-foreground mb-4">
           {mappings.length} active rule{mappings.length === 1 ? '' : 's'}
@@ -113,10 +153,10 @@ export default function MerchantRulesPage() {
         </div>
 
         {/* Rules List */}
-        <div className="space-y-4">
+        <div>
           {isLoading ? (
-            Array(3).fill(0).map((_, i) => (
-              <Skeleton key={i} className="h-32 w-full rounded-2xl" />
+            Array(8).fill(0).map((_, i) => (
+              <Skeleton key={i} className="h-9 w-full rounded mb-1" />
             ))
           ) : filteredMappings.length === 0 ? (
             <div className="text-center py-12 px-4 border border-dashed border-border rounded-3xl">
@@ -130,110 +170,48 @@ export default function MerchantRulesPage() {
             filteredMappings.map((mapping, index) => (
               <motion.div
                 key={mapping.id}
-                initial={{ opacity: 0, y: 16 }}
+                initial={{ opacity: 0, y: 6 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.05 }}
-                className="neo-card p-0 overflow-hidden group"
+                transition={{ delay: Math.min(index, 15) * 0.015, duration: 0.2 }}
+                className="group flex flex-wrap sm:flex-nowrap items-start sm:items-baseline gap-x-3 border-b border-border/40 last:border-b-0 py-2.5"
               >
-                <div className="p-4 border-b border-border/50 bg-muted/5 flex items-start justify-between">
-                  <div>
-                    <span className="text-[10px] font-mono font-bold text-muted-foreground uppercase tracking-wider">
-                      When SMS From
-                    </span>
-                    <h3 className="text-base font-bold text-foreground mt-0.5">
-                      {mapping.raw_merchant}
-                    </h3>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <button 
-                      onClick={() => {
-                        setEditingRule(mapping);
-                        setShowAddDialog(true);
-                      }}
-                      className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:bg-secondary/10 hover:text-secondary transition-colors shrink-0"
-                    >
-                      <Pencil className="w-4 h-4" />
-                    </button>
-                    <button 
-                      onClick={() => setDeletingId(mapping.id)}
-                      className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors shrink-0"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-                
-                <div className="p-4 bg-background space-y-3">
-                  <span className="text-[10px] font-mono font-bold text-primary uppercase tracking-wider block mb-2">
-                    Automatically Apply
-                  </span>
-                  
-                  {/* Filter Constraints */}
-                  {(mapping.amount_operator || mapping.date_operator || mapping.match_type === 'contains') && (
-                    <div className="flex items-center gap-2 mb-3 pb-3 border-b border-border/50">
-                      {mapping.match_type === 'contains' && (
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-muted text-muted-foreground uppercase">
-                          MATCH CONTAINS
-                        </span>
-                      )}
-                      
-                      {mapping.amount_operator && (
-                         <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-primary/10 text-primary uppercase flex items-center gap-1">
-                           IF AMT {mapping.amount_operator} ₹{mapping.amount_threshold}
-                         </span>
-                      )}
+                <span
+                  className="font-mono text-xs text-foreground truncate flex-1 sm:flex-none sm:basis-[26%] shrink-0 order-1"
+                  title={mapping.raw_merchant}
+                >
+                  {mapping.raw_merchant}
+                </span>
 
-                      {mapping.date_operator && (
-                         <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-secondary/10 text-secondary uppercase flex items-center gap-1">
-                           IF DAY {mapping.date_operator} {mapping.date_threshold}
-                         </span>
-                      )}
-                    </div>
-                  )}
+                <span className="basis-full sm:basis-auto sm:flex-1 min-w-0 flex flex-wrap items-baseline gap-x-2.5 order-3 sm:order-2">
+                  <RuleLine
+                    mapping={mapping}
+                    category={
+                      mapping.default_category_id
+                        ? categoryMap.get(mapping.default_category_id)
+                        : undefined
+                    }
+                  />
+                </span>
 
-                  {/* Name Mapping */}
-                  {mapping.mapped_merchant && mapping.mapped_merchant !== mapping.raw_merchant && (
-                    <div className="flex items-center gap-3 text-sm">
-                      <div className="w-6 flex justify-center"><Edit3 className="w-4 h-4 text-muted-foreground" /></div>
-                      <span className="text-muted-foreground">Rename to</span>
-                      <span className="font-semibold text-foreground">{mapping.mapped_merchant}</span>
-                    </div>
-                  )}
-
-                  {/* Category Mapping */}
-                  {mapping.default_category_id && categoryMap.has(mapping.default_category_id) && (
-                    <div className="flex items-center gap-3 text-sm">
-                      <div className="w-6 flex justify-center"><Tag className="w-4 h-4 text-muted-foreground" /></div>
-                      <span className="text-muted-foreground">Categorize as</span>
-                      <span className="font-semibold text-foreground flex items-center gap-1.5">
-                        {categoryMap.get(mapping.default_category_id)?.icon}
-                        {categoryMap.get(mapping.default_category_id)?.name}
-                      </span>
-                    </div>
-                  )}
-
-                  {/* Expense Constraint */}
-                  {mapping.default_is_expense !== null && (
-                    <div className="flex items-center gap-3 text-sm">
-                       <div className="w-6 flex justify-center"><Wallet className="w-4 h-4 text-muted-foreground" /></div>
-                       <span className="text-muted-foreground">Expense status</span>
-                       <span className={`font-semibold ${mapping.default_is_expense ? 'text-destructive' : 'text-foreground'}`}>
-                         {mapping.default_is_expense ? 'Force as Expense' : 'Never an Expense'}
-                       </span>
-                    </div>
-                  )}
-
-                  {/* Income Constraint */}
-                  {mapping.default_is_income !== null && (
-                    <div className="flex items-center gap-3 text-sm">
-                       <div className="w-6 flex justify-center"><Banknote className="w-4 h-4 text-muted-foreground" /></div>
-                       <span className="text-muted-foreground">Income status</span>
-                       <span className={`font-semibold ${mapping.default_is_income ? 'text-success' : 'text-foreground'}`}>
-                         {mapping.default_is_income ? 'Force as Income' : 'Never an Income'}
-                       </span>
-                    </div>
-                  )}
-                </div>
+                <span className="flex items-center justify-end gap-0.5 w-[3.25rem] shrink-0 order-2 sm:order-3">
+                  <button
+                    onClick={() => {
+                      setEditingRule(mapping);
+                      setShowAddDialog(true);
+                    }}
+                    aria-label={`Edit rule for ${mapping.raw_merchant}`}
+                    className="p-1 rounded text-muted-foreground/50 hover:text-primary hover:bg-primary/10 transition-colors"
+                  >
+                    <Pencil className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    onClick={() => setDeletingId(mapping.id)}
+                    aria-label={`Delete rule for ${mapping.raw_merchant}`}
+                    className="p-1 rounded text-muted-foreground/50 hover:text-destructive hover:bg-destructive/10 transition-colors"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </span>
               </motion.div>
             ))
           )}

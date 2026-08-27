@@ -411,7 +411,7 @@ export default function SyncRunDetailPage() {
 
   return (
     <AppLayout>
-      <div className="px-5 pb-4 pt-[calc(2rem+env(safe-area-inset-top))]">
+      <div className="px-5 pb-4 pt-[calc(2rem+env(safe-area-inset-top))] page-shell">
         {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: -12 }}

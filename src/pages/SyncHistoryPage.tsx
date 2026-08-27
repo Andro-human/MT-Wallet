@@ -152,7 +152,7 @@ export default function SyncHistoryPage() {
         </div>
       </div>
 
-      <div className="px-5 py-6 pb-4">
+      <div className="px-5 py-6 pb-4 page-shell">
         {/* Per-day averages — compact 3×3 grid */}
         {!isLoading && dailyStats && (
           <motion.div
