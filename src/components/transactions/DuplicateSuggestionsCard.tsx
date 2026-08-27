@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, forwardRef } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { AlertTriangle, Check, ChevronDown, X } from 'lucide-react';
 import { format } from 'date-fns';
@@ -33,11 +33,18 @@ interface PairCardProps {
   isPending: boolean;
 }
 
-function PairCard({ pair, onDismiss, onLink, isPending }: PairCardProps) {
+// AnimatePresence mode="popLayout" measures its direct child through a ref, so
+// a plain function component here means the ref never attaches and exit/layout
+// animation silently does nothing.
+const PairCard = forwardRef<HTMLDivElement, PairCardProps>(function PairCard(
+  { pair, onDismiss, onLink, isPending },
+  ref,
+) {
   const [expanded, setExpanded] = useState(false);
 
   return (
     <motion.div
+      ref={ref}
       layout
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
@@ -134,7 +141,7 @@ function PairCard({ pair, onDismiss, onLink, isPending }: PairCardProps) {
       </AnimatePresence>
     </motion.div>
   );
-}
+});
 
 export function DuplicateSuggestionsCard({ pairs, onDismiss }: DuplicateSuggestionsCardProps) {
   const createLink = useCreateDuplicateLink();
