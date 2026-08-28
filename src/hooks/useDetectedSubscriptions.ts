@@ -6,12 +6,8 @@ import { detectSubscriptions, type DetectedSubscription } from '@/lib/subscripti
 
 // The payment rail hides the payee: insurance billed through Amazon Pay,
 // YouTube through assorted UPI handles. service_identity names the service
-// rather than the rail, so it is the cluster key whenever enrichment found one.
-//
-// This replaced a test against four hardcoded item_labels
-// (insurance, subscriptions, dating-apps, cloud-and-api) that fell back to raw
-// note text. The identity is normalized and is not limited to those four, so
-// any recurring service clusters now, not just the ones on that list.
+// rather than the rail, so it is the cluster key whenever enrichment found one,
+// with raw note text as the fallback.
 
 /**
  * Detection runs over FULL history (not any selected range) — cadence needs
