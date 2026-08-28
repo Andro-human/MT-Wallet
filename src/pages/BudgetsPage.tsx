@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { format, startOfMonth, subMonths, addMonths, isSameMonth } from 'date-fns';
@@ -66,6 +66,19 @@ export default function BudgetsPage() {
   const isCurrentMonth = isSameMonth(viewMonth, new Date());
   const { standings, ceiling, ceilingIsFallback, isLoading } = useBudgetStandings(monthKey);
   const [expanded, setExpanded] = useState<string | null>(null);
+
+  // Heaviest pressure first. useBudgets orders by amount, which put an untouched
+  // Rs 10K Travel budget in the top slot ahead of everything actually running
+  // out. Same ordering as the Home strip so the two agree.
+  const rows = useMemo(
+    () =>
+      [...standings].sort((a, b) => {
+        const pa = a.allowance > 0 ? a.spent / a.allowance : 0;
+        const pb = b.allowance > 0 ? b.spent / b.allowance : 0;
+        return pb - pa;
+      }),
+    [standings],
+  );
   const [openWeek, setOpenWeek] = useState<string | null>(null);
   const deleteBudget = useDeleteBudget();
 
@@ -82,7 +95,7 @@ export default function BudgetsPage() {
 
   return (
     <AppLayout>
-      <div className="sticky top-0 z-10 backdrop-blur-xl bg-background/80 border-b border-border/30 safe-area-top">
+      <div className="sticky top-0 z-10 backdrop-blur-xl bg-background/95 border-b border-border/30 safe-area-top">
         <div className="flex items-center gap-3 px-5 py-3 page-shell">
           <button
             onClick={() => navigate('/settings')}
@@ -147,7 +160,7 @@ export default function BudgetsPage() {
           </div>
         ) : (
           <div>
-            {standings.map((s, i) => {
+            {rows.map((s, i) => {
               const pct = s.allowance > 0 ? (s.spent / s.allowance) * 100 : 0;
               const over = s.remaining < 0;
               const color = entityColor(s.budget.id);

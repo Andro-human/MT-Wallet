@@ -77,7 +77,7 @@ export default function SubscriptionDetailPage() {
 
   return (
     <AppLayout>
-      <div className="sticky top-0 z-10 backdrop-blur-xl bg-background/80 border-b border-border/30 safe-area-top">
+      <div className="sticky top-0 z-10 backdrop-blur-xl bg-background/95 border-b border-border/30 safe-area-top">
         <div className="flex items-center gap-3 px-4 py-3 page-shell">
           <button onClick={() => navigate('/subscriptions')} className="p-1.5 -ml-1.5 rounded-lg hover:bg-muted/30" aria-label="Back">
             <ArrowLeft className="w-5 h-5" />

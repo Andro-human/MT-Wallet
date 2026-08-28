@@ -90,7 +90,7 @@ export default function SubscriptionsPage() {
 
   return (
     <AppLayout>
-      <div className="sticky top-0 z-10 backdrop-blur-xl bg-background/80 border-b border-border/30 safe-area-top">
+      <div className="sticky top-0 z-10 backdrop-blur-xl bg-background/95 border-b border-border/30 safe-area-top">
         <div className="flex items-center justify-between px-5 py-3 gap-3 page-shell">
           <h1 className="text-lg font-semibold flex items-center gap-2">
             <Repeat className="w-4 h-4" /> Subscriptions

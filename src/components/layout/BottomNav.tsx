@@ -1,11 +1,12 @@
 import { NavLink, useLocation } from 'react-router-dom';
-import { Home, Receipt, TrendingUp, Settings, Repeat, HandCoins } from 'lucide-react';
+import { Home, Receipt, TrendingUp, Settings, Repeat, HandCoins, Wallet } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 
 const navItems = [
   { to: '/', icon: Home, label: 'Home' },
   { to: '/transactions', icon: Receipt, label: 'Activity' },
+  { to: '/settings/budgets', icon: Wallet, label: 'Budgets' },
   { to: '/subscriptions', icon: Repeat, label: 'Subs' },
   { to: '/insights', icon: TrendingUp, label: 'Insights' },
   { to: '/debt', icon: HandCoins, label: 'Debt' },
@@ -17,7 +18,7 @@ export function BottomNav() {
 
   return (
     <nav className="fixed bottom-0 md:bottom-6 left-0 right-0 z-50 px-6 pointer-events-none safe-area-bottom pb-2 md:pb-0">
-      <div className="mx-auto max-w-sm pointer-events-auto">
+      <div className="mx-auto max-w-md pointer-events-auto">
         <div className="bg-card border border-border rounded-2xl shadow-2xl flex items-center justify-around h-16 px-2">
           {navItems.map((item) => {
             const isActive = location.pathname === item.to;
@@ -27,7 +28,7 @@ export function BottomNav() {
               <NavLink
                 key={item.to}
                 to={item.to}
-                className="relative flex flex-col items-center justify-center w-16 h-full group"
+                className="relative flex flex-col items-center justify-center w-12 sm:w-14 h-full group"
               >
                 <div className="relative z-10">
                   <Icon
