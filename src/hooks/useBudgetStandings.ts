@@ -39,6 +39,18 @@ export interface WeekStanding {
   orders: number;
   /** True for the week containing today. */
   isCurrent: boolean;
+  /** What made up the week, newest first. Combined rows share combineId, so the
+   *  list can show one purchase billed twice as one line. */
+  txns: WeekTxn[];
+}
+
+export interface WeekTxn {
+  id: string;
+  merchant: string | null;
+  note: string | null;
+  amount: number;
+  day: string;
+  combineId: string | null;
 }
 
 export interface BudgetStandings {
@@ -85,7 +97,7 @@ export function useBudgetStandings(month?: string): BudgetStandings {
 
     // budgetId -> month -> spend, and budgetId -> weekStart -> {spend, txns}.
     const byBudgetMonth = new Map<string, Map<string, number>>();
-    const byBudgetWeek = new Map<string, Map<string, { spent: number; txns: { id: string }[] }>>();
+    const byBudgetWeek = new Map<string, Map<string, { spent: number; txns: WeekTxn[] }>>();
 
     for (const t of txns) {
       if (
@@ -119,8 +131,16 @@ export function useBudgetStandings(month?: string): BudgetStandings {
         byBudgetWeek.set(id, weeks);
       }
       const slot = weeks.get(wk) ?? { spent: 0, txns: [] };
+      const full = t as { id: string; merchant?: string | null; notes?: string | null };
       slot.spent += amount;
-      slot.txns.push(t as { id: string });
+      slot.txns.push({
+        id: full.id,
+        merchant: full.merchant ?? null,
+        note: full.notes ?? null,
+        amount,
+        day,
+        combineId: (combineMaps?.combineByTxnId ?? {})[full.id] ?? null,
+      });
       weeks.set(wk, slot);
     }
 
@@ -146,11 +166,13 @@ export function useBudgetStandings(month?: string): BudgetStandings {
       const weekMap = byBudgetWeek.get(b.id);
       const weeks = weekStarts.map((start) => {
         const slot = weekMap?.get(start);
+        const txns = [...(slot?.txns ?? [])].sort((a, b) => (a.day < b.day ? 1 : -1));
         return {
           start,
           spent: slot?.spent ?? 0,
-          orders: countOrders(slot?.txns ?? [], combineByTxnId),
+          orders: countOrders(txns, combineByTxnId),
           isCurrent: start === currentWeek,
+          txns,
         };
       });
 

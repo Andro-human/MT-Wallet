@@ -4,10 +4,11 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { format, startOfMonth, subMonths, addMonths, isSameMonth } from 'date-fns';
 import { ArrowLeft, Plus, Pencil, Trash2, Wallet, ChevronLeft, ChevronRight, ChevronDown } from 'lucide-react';
 import { AppLayout } from '@/components/layout/AppLayout';
-import { useBudgetStandings } from '@/hooks/useBudgetStandings';
+import { useBudgetStandings, type WeekTxn } from '@/hooks/useBudgetStandings';
 import { useDeleteBudget } from '@/hooks/useBudgets';
 import { BudgetDialog } from '@/components/budgets/BudgetDialog';
 import { formatINR, formatINRCompact } from '@/lib/formatCurrency';
+import { Link } from 'react-router-dom';
 import { entityColor } from '@/lib/categoryColors';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
@@ -24,6 +25,37 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 
+/** One line per purchase rather than per row: transactions the user combined
+ *  are folded together, so this list agrees with the order count above it
+ *  instead of contradicting it. */
+function foldPurchases(txns: WeekTxn[]) {
+  const seen = new Set<string>();
+  const out: { key: string; label: string; amount: number; day: string; parts: number }[] = [];
+  for (const tx of txns) {
+    if (tx.combineId) {
+      if (seen.has(tx.combineId)) continue;
+      seen.add(tx.combineId);
+      const members = txns.filter((x) => x.combineId === tx.combineId);
+      out.push({
+        key: tx.combineId,
+        label: members.find((m) => m.note)?.note || tx.merchant || 'Unknown',
+        amount: members.reduce((a, m) => a + m.amount, 0),
+        day: tx.day,
+        parts: members.length,
+      });
+    } else {
+      out.push({
+        key: tx.id,
+        label: tx.note || tx.merchant || 'Unknown',
+        amount: tx.amount,
+        day: tx.day,
+        parts: 1,
+      });
+    }
+  }
+  return out;
+}
+
 export default function BudgetsPage() {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -34,6 +66,7 @@ export default function BudgetsPage() {
   const isCurrentMonth = isSameMonth(viewMonth, new Date());
   const { standings, ceiling, ceilingIsFallback, isLoading } = useBudgetStandings(monthKey);
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [openWeek, setOpenWeek] = useState<string | null>(null);
   const deleteBudget = useDeleteBudget();
 
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -68,7 +101,7 @@ export default function BudgetsPage() {
         </div>
       </div>
 
-      <div className="px-5 pt-safe pb-28 page-shell">
+      <div className="px-5 py-6 pb-28 page-shell">
         <div className="flex items-center justify-center gap-1 mb-5">
           <button
             onClick={() => setViewMonth((m) => subMonths(m, 1))}
@@ -233,26 +266,57 @@ export default function BudgetsPage() {
                             const overCount =
                               s.budget.weeklyCount != null && w.orders > s.budget.weeklyCount;
                             return (
-                              <div key={w.start} className="flex items-baseline gap-3 py-1 text-2xs">
-                                <span
-                                  className={cn(
-                                    'amount w-20 shrink-0',
-                                    w.isCurrent ? 'text-foreground' : 'text-muted-foreground',
-                                  )}
+                              <div key={w.start}>
+                                <button
+                                  onClick={() => {
+                                    const key = `${s.budget.id}|${w.start}`;
+                                    setOpenWeek(openWeek === key ? null : key);
+                                  }}
+                                  disabled={w.txns.length === 0}
+                                  aria-expanded={openWeek === `${s.budget.id}|${w.start}`}
+                                  className="w-full flex items-baseline gap-3 py-1 text-2xs text-left rounded hover:bg-muted/10 transition-colors disabled:cursor-default disabled:hover:bg-transparent"
                                 >
-                                  {format(new Date(`${w.start}T12:00:00`), 'MMM d')}
-                                  {w.isCurrent ? ' \u00B7' : ''}
-                                </span>
-                                <span className={cn('amount w-24 shrink-0', overWeek && 'text-warning')}>
-                                  {formatINRCompact(w.spent)}
-                                  {s.budget.weeklyAmount
-                                    ? ` / ${formatINRCompact(s.budget.weeklyAmount)}`
-                                    : ''}
-                                </span>
-                                <span className={cn('amount', overCount && 'text-warning')}>
-                                  {w.orders} order{w.orders === 1 ? '' : 's'}
-                                  {s.budget.weeklyCount ? ` / ${s.budget.weeklyCount}` : ''}
-                                </span>
+                                  <span
+                                    className={cn(
+                                      'amount w-20 shrink-0',
+                                      w.isCurrent ? 'text-foreground' : 'text-muted-foreground',
+                                    )}
+                                  >
+                                    {format(new Date(`${w.start}T12:00:00`), 'MMM d')}
+                                    {w.isCurrent ? ' \u00B7' : ''}
+                                  </span>
+                                  <span className={cn('amount w-24 shrink-0', overWeek && 'text-warning')}>
+                                    {formatINRCompact(w.spent)}
+                                    {s.budget.weeklyAmount
+                                      ? ` / ${formatINRCompact(s.budget.weeklyAmount)}`
+                                      : ''}
+                                  </span>
+                                  <span className={cn('amount', overCount && 'text-warning')}>
+                                    {w.orders} order{w.orders === 1 ? '' : 's'}
+                                    {s.budget.weeklyCount ? ` / ${s.budget.weeklyCount}` : ''}
+                                  </span>
+                                </button>
+
+                                {openWeek === `${s.budget.id}|${w.start}` && (
+                                  <div className="pl-3 pb-1.5 ml-1 border-l border-border/40">
+                                    {foldPurchases(w.txns).map((l) => (
+                                      <Link
+                                        key={l.key}
+                                        to={`/transactions?search=${encodeURIComponent(l.label)}`}
+                                        className="flex items-baseline gap-2 py-0.5 text-2xs text-muted-foreground hover:text-foreground transition-colors"
+                                      >
+                                        <span className="amount w-12 shrink-0">
+                                          {format(new Date(`${l.day}T12:00:00`), 'MMM d')}
+                                        </span>
+                                        <span className="truncate flex-1">
+                                          {l.label}
+                                          {l.parts > 1 ? ` (${l.parts} charges)` : ''}
+                                        </span>
+                                        <span className="amount shrink-0">{formatINR(l.amount)}</span>
+                                      </Link>
+                                    ))}
+                                  </div>
+                                )}
                               </div>
                             );
                           })}
