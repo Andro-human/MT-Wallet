@@ -55,6 +55,11 @@ export default function SubscriptionDetailPage() {
   // The subscription's own match term is what tells a bundled note from a
   // double purchase, so detection needs it: "2x ketchup" is one item, "mic and
   // ketchup" is two.
+  const charges = linked.filter((l) => l.kind !== 'contribution');
+  const contributions = linked.filter((l) => l.kind === 'contribution');
+  const contributed = contributions.reduce((sum, c) => sum + c.amount, 0);
+  const charged = charges.reduce((sum, c) => sum + c.amount, 0);
+
   const clubbed = useMemo(
     () =>
       analyseOccurrences(
@@ -73,11 +78,6 @@ export default function SubscriptionDetailPage() {
       clubbed.verdicts.get(l.transaction_id)?.clubbed &&
       l.amount >= l.txn_amount - 0.005,
   ).length;
-
-  const charges = linked.filter((l) => l.kind !== 'contribution');
-  const contributions = linked.filter((l) => l.kind === 'contribution');
-  const contributed = contributions.reduce((sum, c) => sum + c.amount, 0);
-  const charged = charges.reduce((sum, c) => sum + c.amount, 0);
 
   const editTarget = linked.find((l) => l.transaction_id === editingId);
   const editCheck = editTarget ? checkAttribution(draft, editTarget.txn_amount) : null;
