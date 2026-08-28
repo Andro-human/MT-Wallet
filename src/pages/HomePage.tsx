@@ -18,6 +18,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useProfile';
 import { useMonthlyCeiling } from '@/hooks/useMonthlyCeiling';
 import { BudgetStrip } from '@/components/dashboard/BudgetStrip';
+import { SuggestionsLine } from '@/components/dashboard/SuggestionsLine';
 import { useDaySummaries } from '@/hooks/useDaySummaries';
 import { cn } from '@/lib/utils';
 
@@ -212,6 +213,15 @@ export default function HomePage() {
           transition={{ delay: 0.25 }}
         >
           <BudgetStrip />
+        </motion.div>
+
+        {/* AI category suggestions: renders nothing when the inbox is empty. */}
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.28 }}
+        >
+          <SuggestionsLine />
         </motion.div>
 
         {/* Day Ledger: one row per day, tap to unfold that day */}
