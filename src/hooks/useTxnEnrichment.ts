@@ -10,6 +10,9 @@ export interface TxnEnrichment {
   /** A one-off no budget should count: a laptop, a big trip. Still counted in
    *  total spend; only budget attribution skips it. */
   budget_excluded: boolean;
+  /** Normalized name of a recurring service, naming the service rather than the
+   *  payment rail it went out on. Null when not a recurring service. */
+  service_identity: string | null;
 }
 
 const KEY = 'txn-enrichment';
@@ -27,7 +30,7 @@ export function useEnrichmentMap() {
       for (let from = 0; ; from += PAGE) {
         const { data, error } = await (supabase as any)
           .from('txn_enrichment')
-          .select('transaction_id, item_label, lending, category_suggestion, budget_excluded')
+          .select('transaction_id, item_label, lending, category_suggestion, budget_excluded, service_identity')
           .eq('user_id', user!.id)
           .order('transaction_id', { ascending: true })
           .range(from, from + PAGE - 1);

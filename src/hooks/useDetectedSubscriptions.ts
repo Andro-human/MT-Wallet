@@ -4,18 +4,14 @@ import { useFinanceContext } from '@/hooks/useFinanceData';
 import { useEnrichmentMap } from '@/hooks/useTxnEnrichment';
 import { detectSubscriptions, type DetectedSubscription } from '@/lib/subscriptionDetect';
 
-// For these enrichment labels the payment rail hides the payee (insurance paid
-// via Amazon Pay, YouTube via assorted UPI handles), so the note is the real
-// identity — cluster by it instead of the merchant.
-export const NOTE_CLUSTERED_LABELS = new Set(['insurance', 'subscriptions', 'dating-apps', 'cloud-and-api']);
-
-export function noteClusterKey(notes: string | null): string | null {
-  const cleaned = (notes ?? '')
-    .toLowerCase()
-    .replace(/^#\w+\s*\|\s*/, '')
-    .trim();
-  return cleaned || null;
-}
+// The payment rail hides the payee: insurance billed through Amazon Pay,
+// YouTube through assorted UPI handles. service_identity names the service
+// rather than the rail, so it is the cluster key whenever enrichment found one.
+//
+// This replaced a test against four hardcoded item_labels
+// (insurance, subscriptions, dating-apps, cloud-and-api) that fell back to raw
+// note text. The identity is normalized and is not limited to those four, so
+// any recurring service clusters now, not just the ones on that list.
 
 /**
  * Detection runs over FULL history (not any selected range) — cadence needs
@@ -30,11 +26,8 @@ export function useDetectedSubscriptions() {
     if (allTxns.length === 0) return [] as DetectedSubscription[];
     return detectSubscriptions(
       allTxns.map((t) => {
-        const label = enrichmentMap?.get(t.id)?.item_label;
-        const clusterByNote = label && NOTE_CLUSTERED_LABELS.has(label);
-        const merchant = clusterByNote
-          ? (noteClusterKey((t as any).notes) ?? t.merchant)
-          : t.merchant;
+        const identity = enrichmentMap?.get(t.id)?.service_identity?.trim();
+        const merchant = identity || t.merchant;
         return {
           id: t.id,
           merchant,
