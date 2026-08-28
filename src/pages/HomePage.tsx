@@ -10,7 +10,8 @@ import { StatCard } from '@/components/dashboard/StatCard';
 import { TransactionCard } from '@/components/transactions/TransactionCard';
 import { useBankDisplayMap, lookupBankDisplay } from '@/hooks/useBankDisplayMap';
 import { useDashboardStats } from '@/hooks/useDashboardStats';
-import { MonthNavigator } from '@/components/layout/MonthNavigator';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { useMonthsWithData } from '@/hooks/useMonthsWithData';
 import { useFinanceContext } from '@/hooks/useFinanceData';
 import { makeNetAmountFor } from '@/lib/dayLedger';
 import { formatINR, formatINRCompact } from '@/lib/formatCurrency';
@@ -31,6 +32,8 @@ export default function HomePage() {
   const [viewingMonth, setViewingMonth] = useState(startOfMonth(new Date()));
   const monthKey = format(viewingMonth, 'yyyy-MM');
   const isCurrentMonth = isSameMonth(viewingMonth, new Date());
+  const monthsWithData = useMonthsWithData();
+  const [monthPickerOpen, setMonthPickerOpen] = useState(false);
 
   const [openFold, setOpenFold] = useState(false);
   const { data: profile } = useProfile();
@@ -71,15 +74,46 @@ export default function HomePage() {
               Dashboard
             </h1>
           </div>
-        </motion.div>
 
-        {/* Its own row rather than beside the title: at 390px the arrows plus a
-            month name do not fit next to "Dashboard". */}
-        <MonthNavigator
-          month={viewingMonth}
-          onChange={setViewingMonth}
-          className="-mt-2 mb-5"
-        />
+          {/* Changing month is rare here, so it stays a label until touched
+              rather than carrying arrows that sit in the corner unused. */}
+          <Popover open={monthPickerOpen} onOpenChange={setMonthPickerOpen}>
+            <PopoverTrigger asChild>
+              <button
+                type="button"
+                className="group text-right rounded px-1.5 -mr-1.5 py-0.5 hover:bg-muted/30 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                aria-label="Change month"
+              >
+                <p className="text-sm font-bold text-gold">{format(viewingMonth, 'MMMM')}</p>
+                <p className="text-xs text-muted-foreground font-mono flex items-center gap-1 justify-end">
+                  {format(viewingMonth, 'yyyy')}
+                  <ChevronDown className="w-3 h-3 opacity-40 group-hover:opacity-100 transition-opacity" />
+                </p>
+              </button>
+            </PopoverTrigger>
+            <PopoverContent align="end" className="w-44 p-1">
+              <div className="max-h-72 overflow-y-auto">
+                {monthsWithData.map((m) => (
+                  <button
+                    key={m}
+                    onClick={() => {
+                      setViewingMonth(startOfMonth(new Date(`${m}-01T12:00:00`)));
+                      setMonthPickerOpen(false);
+                    }}
+                    className={cn(
+                      'w-full text-left px-2.5 py-1.5 rounded text-sm transition-colors',
+                      m === monthKey
+                        ? 'bg-muted/40 text-foreground font-medium'
+                        : 'text-muted-foreground hover:bg-muted/30 hover:text-foreground',
+                    )}
+                  >
+                    {format(new Date(`${m}-01T12:00:00`), 'MMMM yyyy')}
+                  </button>
+                ))}
+              </div>
+            </PopoverContent>
+          </Popover>
+        </motion.div>
 
         {/* Stat strip: the one-second answer, then the drill-down below */}
         <motion.div
