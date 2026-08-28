@@ -39,6 +39,9 @@ export interface LinkedTxn {
   txn_amount: number;
   transacted_at: string;
   linked_by: 'auto' | 'manual';
+  /** A charge is a cost of the subscription; a contribution is somebody paying
+   *  their share back. Only charges feed the cadence and amount maths. */
+  kind: 'charge' | 'contribution';
   /** Who decided the attributed amount. null means nobody has, so the nightly
    *  pass may still apportion it. */
   attribution_set_by: 'manual' | 'routine' | null;
@@ -78,7 +81,7 @@ export function useSubscriptionTransactions(subscriptionId: string | undefined) 
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from('subscription_transactions')
-        .select('transaction_id, amount, transacted_at, linked_by, attribution_set_by, transactions(merchant, notes, amount)')
+        .select('transaction_id, amount, transacted_at, linked_by, kind, attribution_set_by, transactions(merchant, notes, amount, direction)')
         .eq('subscription_id', subscriptionId!)
         .order('transacted_at', { ascending: false });
       if (error) throw error;
@@ -88,6 +91,7 @@ export function useSubscriptionTransactions(subscriptionId: string | undefined) 
         txn_amount: Number(r.transactions?.amount ?? r.amount),
         transacted_at: r.transacted_at,
         linked_by: r.linked_by,
+        kind: (r.kind ?? 'charge') as 'charge' | 'contribution',
         attribution_set_by: r.attribution_set_by ?? null,
         merchant: r.transactions?.merchant ?? null,
         notes: r.transactions?.notes ?? null,
@@ -101,7 +105,10 @@ export async function recomputeSubscription(subscriptionId: string) {
   const { data, error } = await (supabase as any)
     .from('subscription_transactions')
     .select('amount, transacted_at')
-    .eq('subscription_id', subscriptionId);
+    .eq('subscription_id', subscriptionId)
+    // A reimbursement is not an occurrence of the charge. Left in, one ₹450
+    // credit became the top of the range and the basis of the next prediction.
+    .eq('kind', 'charge');
   if (error) throw error;
   const occ = ((data ?? []) as Occurrence[]).map((o) => ({ amount: Number(o.amount), transacted_at: o.transacted_at }));
   const s = summarizeOccurrences(occ);
@@ -207,7 +214,7 @@ export function useLinkTransaction() {
       txn,
     }: {
       subscriptionId: string;
-      txn: { id: string; amount: number; transacted_at: string };
+      txn: { id: string; amount: number; transacted_at: string; direction?: string | null };
     }) => {
       const { error } = await (supabase as any).from('subscription_transactions').upsert(
         {
@@ -216,6 +223,7 @@ export function useLinkTransaction() {
           user_id: user!.id,
           amount: txn.amount,
           transacted_at: txn.transacted_at,
+          kind: txn.direction === 'credit' ? 'contribution' : 'charge',
           linked_by: 'manual',
         },
         { onConflict: 'transaction_id' },
@@ -236,7 +244,7 @@ export function useLinkTransactions() {
       txns,
     }: {
       subscriptionId: string;
-      txns: { id: string; amount: number; transacted_at: string }[];
+      txns: { id: string; amount: number; transacted_at: string; direction?: string | null }[];
     }) => {
       if (txns.length === 0) return;
       const rows = txns.map((t) => ({
@@ -245,6 +253,7 @@ export function useLinkTransactions() {
         user_id: user!.id,
         amount: t.amount,
         transacted_at: t.transacted_at,
+        kind: t.direction === 'credit' ? 'contribution' : 'charge',
         linked_by: 'manual',
       }));
       const { error } = await (supabase as any)
@@ -364,6 +373,7 @@ export function useAutoLinkSubscription() {
       notes: string | null;
       amount: number;
       transacted_at: string;
+      direction?: string | null;
       serviceIdentity?: string | null;
     }) => {
       if (!txn.notes && !txn.merchant) return null;
@@ -402,6 +412,7 @@ export function useAutoLinkSubscription() {
           user_id: user!.id,
           amount: txn.amount,
           transacted_at: txn.transacted_at,
+          kind: txn.direction === 'credit' ? 'contribution' : 'charge',
           linked_by: 'auto',
         },
         { onConflict: 'transaction_id' },

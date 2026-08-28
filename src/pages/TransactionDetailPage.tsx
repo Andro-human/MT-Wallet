@@ -172,6 +172,7 @@ export default function TransactionDetailPage() {
           notes: val,
           amount: Number(transaction.amount),
           transacted_at: transaction.transacted_at,
+          direction: (transaction as any).direction,
         })
         .catch(() => null);
       if (linked) toast({ title: `Linked to ${linked.subscriptionLabel}` });

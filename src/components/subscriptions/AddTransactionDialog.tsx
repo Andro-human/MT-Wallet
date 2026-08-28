@@ -16,6 +16,7 @@ interface PickTxn {
   transacted_at: string;
   merchant: string | null;
   notes: string | null;
+  direction: string | null;
 }
 
 export function AddTransactionDialog({
@@ -37,7 +38,7 @@ export function AddTransactionDialog({
   const results = useMemo(() => {
     const term = q.trim().toLowerCase();
     return allTxns
-      .filter((t) => t.direction === 'debit' && !linkedIds?.has(t.id))
+      .filter((t) => !linkedIds?.has(t.id))
       .filter((t) =>
         !term
           ? true
@@ -72,6 +73,7 @@ export function AddTransactionDialog({
             transacted_at: t.transacted_at,
             merchant: t.merchant,
             notes: t.notes,
+            direction: t.direction ?? null,
           });
         }
       }
@@ -92,6 +94,7 @@ export function AddTransactionDialog({
       id: t.id,
       amount: Number(t.amount),
       transacted_at: t.transacted_at,
+      direction: t.direction,
     }));
     if (txns.length === 0) return;
     try {
@@ -139,7 +142,7 @@ export function AddTransactionDialog({
                 <button
                   key={t.id}
                   onClick={() =>
-                    toggle({ id: t.id, amount: Number(t.amount), transacted_at: t.transacted_at, merchant: t.merchant, notes: t.notes })
+                    toggle({ id: t.id, amount: Number(t.amount), transacted_at: t.transacted_at, merchant: t.merchant, notes: t.notes, direction: t.direction ?? null })
                   }
                   className="w-full flex items-center gap-3 px-1 py-2.5 text-left hover:bg-muted/20 rounded-lg transition-colors"
                 >
@@ -155,7 +158,16 @@ export function AddTransactionDialog({
                     <span className="text-sm block truncate">{t.notes?.trim() || t.merchant || 'Transaction'}</span>
                     <span className="text-xs text-muted-foreground">{format(new Date(t.transacted_at), 'MMM d, yyyy')}</span>
                   </span>
-                  <span className="font-mono text-sm shrink-0">{formatINR(Number(t.amount))}</span>
+                  <span className="shrink-0 text-right">
+                    <span className={cn('font-mono text-sm block', t.direction === 'credit' && 'text-gold')}>
+                      {formatINR(Number(t.amount))}
+                    </span>
+                    {t.direction === 'credit' && (
+                      <span className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground">
+                        contribution
+                      </span>
+                    )}
+                  </span>
                 </button>
               );
             })
