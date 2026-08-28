@@ -26,9 +26,6 @@ export function MonthlySummaryCard({ month }: { month: string | null }) {
 
       {cached ? (
         <>
-          {/* The prose summary is deliberately not rendered. It restated these
-              same figures in a form you cannot compare: a dozen rupee amounts
-              in a paragraph is the thing a chart exists to replace. */}
           {cached.highlights.length > 0 && (
             <ol className="mt-1">
               {cached.highlights.map((h, i) => (
