@@ -4,6 +4,10 @@ import { motion } from 'framer-motion';
 import { format } from 'date-fns';
 import { ArrowLeft, HandCoins, X, Plus, Pencil } from 'lucide-react';
 import { RecordDebtDialog } from '@/components/debt/RecordDebtDialog';
+import {
+  RecordRepaymentDialog,
+  type RepaymentTarget,
+} from '@/components/debt/RecordRepaymentDialog';
 import { useQuery } from '@tanstack/react-query';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { supabase } from '@/integrations/supabase/client';
@@ -43,6 +47,7 @@ export default function DebtPage() {
   const { data: refundTotals = {} } = useRefundTotals();
   const updateEnrichment = useUpdateEnrichment();
   const [recordOpen, setRecordOpen] = useState(false);
+  const [repaying, setRepaying] = useState<RepaymentTarget | null>(null);
   const markLent = useMarkLentBulk();
   // Renaming a counterparty is re-marking every loan filed under it, which is
   // exactly what the bulk mark already does.
@@ -51,9 +56,12 @@ export default function DebtPage() {
   >(null);
   const [renameTo, setRenameTo] = useState('');
 
+  // Only what was lent out. The agent may also file a credit as
+  // lending.type 'repayment', and without the type check those rows would list
+  // here as debts owed to the user.
   const loanRows = useMemo(() => {
     if (!enrichmentMap) return [] as TxnEnrichment[];
-    return [...enrichmentMap.values()].filter((r) => r.lending);
+    return [...enrichmentMap.values()].filter((r) => r.lending?.type === 'lent');
   }, [enrichmentMap]);
 
   const loanIds = useMemo(() => loanRows.map((r) => r.transaction_id).sort(), [loanRows]);
@@ -219,14 +227,34 @@ export default function DebtPage() {
                             <div className="h-full rounded-full bg-gold" style={{ width: `${paid}%` }} />
                           </div>
                         </Link>
-                        <button
-                          onClick={() => unmark(loan)}
-                          disabled={updateEnrichment.isPending}
-                          aria-label="Remove from debt tracking"
-                          className="p-1.5 -mr-1.5 rounded-full text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors shrink-0"
-                        >
-                          <X className="w-3.5 h-3.5" />
-                        </button>
+                        <div className="flex items-center gap-1 shrink-0">
+                          {loan.outstanding > 0 && (
+                            <button
+                              onClick={() =>
+                                setRepaying({
+                                  transactionId: loan.txn.id,
+                                  label: loan.txn.notes || loan.txn.merchant || 'Loan',
+                                  counterparty: loan.enrichment.lending!.counterparty,
+                                  lent,
+                                  repaid: loan.repaid,
+                                  outstanding: loan.outstanding,
+                                })
+                              }
+                              aria-label="Record money back on this loan"
+                              className="p-1.5 rounded-full text-muted-foreground hover:bg-gold/10 hover:text-gold transition-colors"
+                            >
+                              <HandCoins className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                          <button
+                            onClick={() => unmark(loan)}
+                            disabled={updateEnrichment.isPending}
+                            aria-label="Remove from debt tracking"
+                            className="p-1.5 -mr-1.5 rounded-full text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
                       </div>
                     );
                   })}
@@ -234,7 +262,8 @@ export default function DebtPage() {
               ))}
             </div>
             <p className="text-xs text-muted-foreground mt-6">
-              Repayments are the credits you link to a loan from its transaction page (same flow as linking a refund).
+              Record money back with the coin icon on a loan, in full or in part. An
+              existing credit can still be linked from its own transaction page.
             </p>
           </>
         )}
@@ -291,6 +320,12 @@ export default function DebtPage() {
       </Dialog>
 
       <RecordDebtDialog open={recordOpen} onOpenChange={setRecordOpen} />
+      <RecordRepaymentDialog
+        target={repaying}
+        onOpenChange={(o) => {
+          if (!o) setRepaying(null);
+        }}
+      />
     </AppLayout>
   );
 }
