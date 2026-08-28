@@ -27,16 +27,45 @@ export function useEnrichmentMap() {
     queryKey: [KEY, user?.id],
     queryFn: async () => {
       const map = new Map<string, TxnEnrichment>();
+      // Newer columns are requested optionally. A column that has not been
+      // migrated yet makes PostgREST reject the whole select (42703), and this
+      // map gates the Debt page and subscription detection, so one missing
+      // column would empty both rather than degrade one feature.
+      const BASE = 'transaction_id, item_label, lending, category_suggestion';
+      const OPTIONAL = ['budget_excluded', 'service_identity'];
+      let columns = [BASE, ...OPTIONAL].join(', ');
+
       for (let from = 0; ; from += PAGE) {
-        const { data, error } = await (supabase as any)
+        let res = await (supabase as any)
           .from('txn_enrichment')
-          .select('transaction_id, item_label, lending, category_suggestion, budget_excluded, service_identity')
+          .select(columns)
           .eq('user_id', user!.id)
           .order('transaction_id', { ascending: true })
           .range(from, from + PAGE - 1);
-        if (error) throw error;
-        const rows = (data ?? []) as TxnEnrichment[];
-        for (const row of rows) map.set(row.transaction_id, row);
+
+        if (res.error?.code === '42703' && columns !== BASE) {
+          console.warn('[enrichment] a column is not migrated yet, falling back:', res.error.message);
+          columns = BASE;
+          res = await (supabase as any)
+            .from('txn_enrichment')
+            .select(columns)
+            .eq('user_id', user!.id)
+            .order('transaction_id', { ascending: true })
+            .range(from, from + PAGE - 1);
+        }
+        if (res.error) throw res.error;
+
+        const rows = (res.data ?? []) as Partial<TxnEnrichment>[];
+        for (const row of rows) {
+          map.set(row.transaction_id!, {
+            transaction_id: row.transaction_id!,
+            item_label: row.item_label ?? '',
+            lending: row.lending ?? null,
+            category_suggestion: row.category_suggestion ?? null,
+            budget_excluded: row.budget_excluded ?? false,
+            service_identity: row.service_identity ?? null,
+          });
+        }
         if (rows.length < PAGE) break;
       }
       return map;
