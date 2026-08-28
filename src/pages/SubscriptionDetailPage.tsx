@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { format } from 'date-fns';
-import { ArrowLeft, X, Pause, Play, Ban, Plus, Pencil } from 'lucide-react';
+import { ArrowLeft, X, Pause, Play, Ban, Plus, Pencil, Check } from 'lucide-react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import {
   useSubscriptions,
@@ -9,9 +9,12 @@ import {
   useUnlinkTransaction,
   useSetSubscriptionStatus,
   useUpdateSubscription,
+  useSetLinkedAmount,
+  type LinkedTxn,
 } from '@/hooks/useSubscriptions';
 import { AddTransactionDialog } from '@/components/subscriptions/AddTransactionDialog';
 import { formatINR, formatINRCompact } from '@/lib/formatCurrency';
+import { checkAttribution } from '@/lib/amountInput';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { Input } from '@/components/ui/input';
@@ -40,10 +43,17 @@ export default function SubscriptionDetailPage() {
   const { data: linked = [], isLoading: txnsLoading } = useSubscriptionTransactions(id);
   const unlink = useUnlinkTransaction();
   const setStatus = useSetSubscriptionStatus();
+  const setLinkedAmount = useSetLinkedAmount();
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [draft, setDraft] = useState('');
 
   const [addOpen, setAddOpen] = useState(false);
   const sub = useMemo(() => subs.find((s) => s.id === id), [subs, id]);
   const variable = sub && sub.amount_min != null && sub.amount_max != null && sub.amount_min !== sub.amount_max;
+
+  const editTarget = linked.find((l) => l.transaction_id === editingId);
+  const editCheck = editTarget ? checkAttribution(draft, editTarget.txn_amount) : null;
+  const editError = editCheck && !editCheck.ok ? editCheck.error : null;
 
   const doUnlink = async (transactionId: string) => {
     if (!id) return;
@@ -51,6 +61,30 @@ export default function SubscriptionDetailPage() {
       await unlink.mutateAsync({ subscriptionId: id, transactionId });
     } catch {
       toast({ title: 'Failed to unlink', variant: 'destructive' });
+    }
+  };
+
+  const saveAttribution = async (t: LinkedTxn) => {
+    if (!id) return;
+    const check = checkAttribution(draft, t.txn_amount);
+    if (!check.ok) {
+      toast({ title: check.error, variant: 'destructive' });
+      return;
+    }
+    try {
+      await setLinkedAmount.mutateAsync({
+        subscriptionId: id,
+        transactionId: t.transaction_id,
+        amount: check.amount,
+      });
+      setEditingId(null);
+      toast({
+        title: check.isWholeTransaction
+          ? 'Counting the whole transaction'
+          : `Counting ${formatINR(check.amount)} of ${formatINR(t.txn_amount)}`,
+      });
+    } catch (e) {
+      toast({ title: 'Could not save that', description: (e as Error).message, variant: 'destructive' });
     }
   };
 
@@ -143,26 +177,83 @@ export default function SubscriptionDetailPage() {
               <p className="text-sm text-muted-foreground py-6">No linked transactions yet.</p>
             ) : (
               <div>
-                {linked.map((t) => (
-                  <div key={t.transaction_id} className="flex items-center justify-between gap-3 py-3 border-b border-border/40">
-                    <Link to={`/transactions/${t.transaction_id}`} className="min-w-0 flex-1 group">
-                      <div className="text-sm truncate group-hover:text-primary transition-colors">
-                        {t.notes?.trim() || t.merchant || 'Transaction'}
-                        {t.linked_by === 'manual' && <span className="text-[9px] font-mono text-muted-foreground ml-1.5">manual</span>}
-                      </div>
-                      <div className="text-xs text-muted-foreground mt-0.5">{format(new Date(t.transacted_at), 'MMM d, yyyy')}</div>
-                    </Link>
-                    <span className="font-mono text-sm shrink-0">{formatINR(t.amount)}</span>
-                    <button
-                      onClick={() => doUnlink(t.transaction_id)}
-                      disabled={unlink.isPending}
-                      aria-label="Unlink"
-                      className="h-9 w-9 grid place-items-center rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors shrink-0"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  </div>
-                ))}
+                {linked.map((t) => {
+                  const partial = t.amount < t.txn_amount - 0.005;
+                  const editing = editingId === t.transaction_id;
+                  return (
+                    <div key={t.transaction_id} className="flex items-center justify-between gap-3 py-3 border-b border-border/40">
+                      <Link to={`/transactions/${t.transaction_id}`} className="min-w-0 flex-1 group">
+                        <div className="text-sm truncate group-hover:text-primary transition-colors">
+                          {t.notes?.trim() || t.merchant || 'Transaction'}
+                          {t.linked_by === 'manual' && <span className="text-[9px] font-mono text-muted-foreground ml-1.5">manual</span>}
+                        </div>
+                        <div className="text-xs text-muted-foreground mt-0.5">{format(new Date(t.transacted_at), 'MMM d, yyyy')}</div>
+                      </Link>
+
+                      {editing ? (
+                        <span className="flex items-center gap-1.5 shrink-0">
+                          <Input
+                            autoFocus
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            value={draft}
+                            onChange={(e) => setDraft(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') void saveAttribution(t);
+                              if (e.key === 'Escape') setEditingId(null);
+                            }}
+                            className="h-9 w-24 text-sm font-mono"
+                            aria-label={`Amount counted toward ${sub.label}`}
+                          />
+                          <button
+                            onClick={() => void saveAttribution(t)}
+                            disabled={!!editError || setLinkedAmount.isPending}
+                            aria-label="Save attributed amount"
+                            className="h-9 w-9 grid place-items-center rounded-lg text-primary hover:bg-primary/10 transition-colors disabled:opacity-40"
+                          >
+                            <Check className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => setEditingId(null)}
+                            aria-label="Cancel"
+                            className="h-9 w-9 grid place-items-center rounded-lg text-muted-foreground hover:bg-muted/30 transition-colors"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </span>
+                      ) : (
+                        <button
+                          onClick={() => {
+                            setEditingId(t.transaction_id);
+                            setDraft(String(t.amount));
+                          }}
+                          aria-label={`Change how much of this counts toward ${sub.label}`}
+                          className="text-right shrink-0 rounded px-1 -mx-1 hover:bg-muted/30 transition-colors"
+                        >
+                          <span className="font-mono text-sm block">{formatINR(t.amount)}</span>
+                          {partial && (
+                            <span className="text-2xs text-muted-foreground font-mono block">
+                              of {formatINR(t.txn_amount)}
+                            </span>
+                          )}
+                        </button>
+                      )}
+
+                      {!editing && (
+                        <button
+                          onClick={() => doUnlink(t.transaction_id)}
+                          disabled={unlink.isPending}
+                          aria-label="Unlink"
+                          className="h-9 w-9 grid place-items-center rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors shrink-0"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+                {editError && <p className="text-xs text-warning pt-2">{editError}</p>}
               </div>
             )}
 
