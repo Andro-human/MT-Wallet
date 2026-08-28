@@ -4,13 +4,22 @@ import { ArrowLeft, ArrowRight, Check, X, Sparkles } from 'lucide-react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
+import { ToastAction } from '@/components/ui/toast';
 import {
   useCategorySuggestions,
   useResolveSuggestions,
+  useUndoResolve,
+  useUndoStack,
   type CategorySuggestion,
   type SuggestionCategory,
   type SuggestionMove,
 } from '@/hooks/useCategorySuggestions';
+import {
+  clearUndo,
+  describeUndo,
+  getUndoEntries,
+  type UndoEntry,
+} from '@/lib/undoStore';
 import { formatINR } from '@/lib/formatCurrency';
 import { entityColor } from '@/lib/categoryColors';
 
@@ -36,6 +45,17 @@ export default function SuggestionsPage() {
   const { toast } = useToast();
   const { moves, count, isLoading } = useCategorySuggestions();
   const resolve = useResolveSuggestions();
+  const undo = useUndoResolve();
+  const undoStack = useUndoStack();
+
+  const runUndo = async (entry: UndoEntry) => {
+    try {
+      await undo.mutateAsync(entry);
+      toast({ title: 'Put back' });
+    } catch {
+      toast({ title: 'Could not undo that', variant: 'destructive' });
+    }
+  };
 
   const run = async (
     mode: 'apply' | 'dismiss',
@@ -43,10 +63,11 @@ export default function SuggestionsPage() {
     to: SuggestionCategory,
   ) => {
     try {
-      await resolve.mutateAsync({
+      const entryId = await resolve.mutateAsync({
         mode,
         categoryId: mode === 'apply' ? to.id : undefined,
         items,
+        toName: to.name,
       });
       const n = items.length;
       toast({
@@ -54,6 +75,19 @@ export default function SuggestionsPage() {
           mode === 'apply'
             ? `Moved ${n} to ${to.name}`
             : `Dismissed ${n} suggestion${n === 1 ? '' : 's'}`,
+        action: entryId ? (
+          <ToastAction
+            altText="Undo"
+            onClick={() => {
+              // Read the entry fresh: the stack may have shifted since the
+              // toast was created.
+              const entry = getUndoEntries().find((e) => e.id === entryId);
+              if (entry) void runUndo(entry);
+            }}
+          >
+            Undo
+          </ToastAction>
+        ) : undefined,
       });
     } catch {
       toast({ title: 'Could not save that', variant: 'destructive' });
@@ -83,6 +117,42 @@ export default function SuggestionsPage() {
           under the wrong category. Nothing here has been applied. Identical moves are
           grouped, so eight Amazon rows heading to Groceries are one decision.
         </p>
+
+        {/* Session-only. Nothing is stored: a reload clears this, by design. It
+            exists so a misclick noticed a minute later is still recoverable
+            once the toast has gone. */}
+        {undoStack.length > 0 && (
+          <div className="mb-6 pb-4 border-b border-border/50">
+            <div className="flex items-baseline justify-between mb-2">
+              <h2 className="text-2xs font-mono uppercase tracking-widest text-muted-foreground">
+                Changed this session
+              </h2>
+              <button
+                onClick={clearUndo}
+                className="text-2xs text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Clear
+              </button>
+            </div>
+            {undoStack.map((entry) => (
+              <div key={entry.id} className="flex items-center gap-3 py-1">
+                <span className="text-xs text-foreground/90 min-w-0 flex-1 truncate">
+                  {describeUndo(entry)}
+                </span>
+                <button
+                  onClick={() => void runUndo(entry)}
+                  disabled={undo.isPending}
+                  className="text-2xs font-medium text-primary px-2 py-0.5 rounded hover:bg-primary/10 transition-colors disabled:opacity-50 shrink-0"
+                >
+                  Undo
+                </button>
+              </div>
+            ))}
+            <p className="text-2xs text-muted-foreground mt-2">
+              Kept in memory only, until you reload.
+            </p>
+          </div>
+        )}
 
         {isLoading ? (
           <div>

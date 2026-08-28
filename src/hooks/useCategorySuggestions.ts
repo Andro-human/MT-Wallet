@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useSyncExternalStore } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { noteHash } from '@/lib/noteHash';
@@ -14,6 +14,15 @@ import {
   type MoveGroup,
   type SuggestionCategory,
 } from '@/lib/suggestionMath';
+import {
+  dropUndo,
+  getUndoEntries,
+  groupByPrevCategory,
+  pushUndo,
+  subscribeUndo,
+  type UndoEntry,
+  type UndoItem,
+} from '@/lib/undoStore';
 
 export type { SuggestionCategory };
 
@@ -98,8 +107,29 @@ export function useResolveSuggestions() {
       mode: 'apply' | 'dismiss';
       categoryId?: string;
       items: CategorySuggestion[];
+      /** Category name for the undo label. */
+      toName?: string;
     }) => {
       if (input.items.length === 0) return;
+
+      // Captured before the write, since afterwards the old values are gone.
+      // Only rows carrying a full enrichment row can be restored, which is all
+      // of them here: the suggestion came from one.
+      const undoItems: UndoItem[] = input.items
+        .filter((i) => i.existing)
+        .map((i) => ({
+          transactionId: i.transactionId,
+          prevCategoryId: i.from?.id ?? null,
+          prevEnrichment: {
+            lending: i.existing!.lending,
+            category_suggestion: i.existing!.category_suggestion,
+            service_identity: i.existing!.service_identity,
+            budget_excluded: i.existing!.budget_excluded,
+            model: i.existing!.model,
+            enriched_at: i.existing!.enriched_at,
+            note_hash: i.existing!.note_hash,
+          },
+        }));
 
       if (input.mode === 'apply') {
         if (!input.categoryId) throw new Error('apply needs a target category');
@@ -131,6 +161,13 @@ export function useResolveSuggestions() {
         .from('txn_enrichment')
         .upsert(rows, { onConflict: 'transaction_id' });
       if (error) throw error;
+
+      // Only after both writes land, so a failed action leaves nothing to undo.
+      return pushUndo({
+        mode: input.mode,
+        toName: input.mode === 'apply' ? (input.toName ?? null) : null,
+        items: undoItems,
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['txn-enrichment'] });
@@ -138,4 +175,52 @@ export function useResolveSuggestions() {
       queryClient.invalidateQueries({ queryKey: ['transaction'] });
     },
   });
+}
+
+/** Put a suggestion action back, restoring both the category and the enrichment
+ *  row as the agent left it.
+ *
+ *  Last-write-wins by design: if the transaction was recategorised by hand in
+ *  between, undo overwrites that. Acceptable for a recover-from-misclick window
+ *  measured in seconds, and the alternative is the audit trail the user
+ *  explicitly did not want.
+ */
+export function useUndoResolve() {
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (entry: UndoEntry) => {
+      for (const [categoryId, ids] of groupByPrevCategory(entry.items)) {
+        const { error } = await supabase
+          .from('transactions')
+          .update({ category_id: categoryId })
+          .in('id', ids)
+          .eq('user_id', user!.id);
+        if (error) throw error;
+      }
+
+      const rows = entry.items.map((i) => ({
+        transaction_id: i.transactionId,
+        user_id: user!.id,
+        ...i.prevEnrichment,
+      }));
+      const { error } = await (supabase as any)
+        .from('txn_enrichment')
+        .upsert(rows, { onConflict: 'transaction_id' });
+      if (error) throw error;
+
+      dropUndo(entry.id);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['txn-enrichment'] });
+      queryClient.invalidateQueries({ queryKey: ['transactions'] });
+      queryClient.invalidateQueries({ queryKey: ['transaction'] });
+    },
+  });
+}
+
+/** The session's undo stack. Empty after a reload, by design. */
+export function useUndoStack(): UndoEntry[] {
+  return useSyncExternalStore(subscribeUndo, getUndoEntries, getUndoEntries);
 }
