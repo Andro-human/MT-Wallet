@@ -229,9 +229,15 @@ export default function SubscriptionDetailPage() {
                             setDraft(String(t.amount));
                           }}
                           aria-label={`Change how much of this counts toward ${sub.label}`}
-                          className="text-right shrink-0 rounded px-1 -mx-1 hover:bg-muted/30 transition-colors"
+                          className="group/amt text-right shrink-0 rounded px-1.5 -mx-1.5 py-0.5 hover:bg-muted/30 transition-colors"
                         >
-                          <span className="font-mono text-sm block">{formatINR(t.amount)}</span>
+                          {/* The pencil is always drawn, not hover-only: without a
+                              standing mark nothing says the figure is editable, and
+                              a click target nobody can see is not a feature. */}
+                          <span className="flex items-baseline justify-end gap-1.5">
+                            <Pencil className="w-3 h-3 self-center text-muted-foreground/70 group-hover/amt:text-primary transition-colors" />
+                            <span className="font-mono text-sm">{formatINR(t.amount)}</span>
+                          </span>
                           {partial && (
                             <span className="text-2xs text-muted-foreground font-mono block">
                               of {formatINR(t.txn_amount)}
