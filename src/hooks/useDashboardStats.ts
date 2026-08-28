@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { startOfMonth, endOfMonth, subMonths, format, isWeekend } from 'date-fns';
+import { startOfMonth, endOfMonth, subMonths, format } from 'date-fns';
 import { useTransactions } from './useTransactions';
 import { useCategories } from './useCategories';
 import { useFinanceContext } from './useFinanceData';
@@ -11,29 +11,13 @@ import {
   spentByCategory,
   percentChange,
   classifyTransaction,
-  netAmount as computeNetAmount,
-  creditNet,
 } from '@/lib/transactionMath';
-import { assignColors, LONG_TAIL_COLOR } from '@/lib/categoryColors';
+import { assignColors } from '@/lib/categoryColors';
 import type { TransactionWithCategory } from '@/types/database';
+import { buildDayLedger, type DayLedgerRow as DayLedgerRowOf, type DaySegment } from '@/lib/dayLedger';
 
-export interface DaySegment {
-  categoryId: string;
-  name: string;
-  color: string;
-  value: number;
-}
-
-export interface DayLedgerRow {
-  key: string;
-  date: Date;
-  folio: string;
-  weekend: boolean;
-  spent: number;
-  income: number;
-  segments: DaySegment[];
-  txns: TransactionWithCategory[];
-}
+export type DayLedgerRow = DayLedgerRowOf<TransactionWithCategory>;
+export type { DaySegment };
 
 export function useDashboardStats() {
   const now = new Date();
@@ -90,54 +74,12 @@ export function useDashboardStats() {
         .map(([catId]) => catId),
     );
 
-    const byDay = new Map<string, TransactionWithCategory[]>();
-    for (const t of real) {
-      const key = format(new Date(t.transacted_at), 'yyyy-MM-dd');
-      const bucket = byDay.get(key);
-      if (bucket) bucket.push(t as TransactionWithCategory);
-      else byDay.set(key, [t as TransactionWithCategory]);
-    }
-
-    const dayLedger: DayLedgerRow[] = [...byDay.entries()]
-      .sort((a, b) => (a[0] < b[0] ? 1 : -1))
-      .map(([key, txns]) => {
-        const date = new Date(`${key}T12:00:00`);
-        const perCat = new Map<string, number>();
-        let spent = 0;
-        let income = 0;
-
-        for (const t of txns) {
-          if (t.is_expense) {
-            const value = computeNetAmount(t as any, refundTotals);
-            if (value <= 0) continue;
-            spent += value;
-            const catId = t.category_id || 'uncategorized';
-            perCat.set(catId, (perCat.get(catId) || 0) + value);
-          } else if (t.is_income) {
-            income += creditNet(t as any, refundAllocations);
-          }
-        }
-
-        const segments: DaySegment[] = [...perCat.entries()]
-          .sort((a, b) => b[1] - a[1])
-          .map(([categoryId, value]) => ({
-            categoryId,
-            value,
-            name: categories.find((c) => c.id === categoryId)?.name ?? 'Uncategorized',
-            color: monthColors.get(categoryId) ?? LONG_TAIL_COLOR,
-          }));
-
-        return {
-          key,
-          date,
-          folio: format(date, 'EEE d'),
-          weekend: isWeekend(date),
-          spent,
-          income,
-          segments,
-          txns,
-        };
-      });
+    const dayLedger = buildDayLedger(real as TransactionWithCategory[], {
+      categoryName: (id) => categories.find((c) => c.id === id)?.name ?? 'Uncategorized',
+      categoryColor: (id) => monthColors.get(id),
+      refundTotals,
+      refundAllocations,
+    });
 
     return {
       dayLedger,
