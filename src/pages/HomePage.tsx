@@ -11,7 +11,7 @@ import { TransactionCard } from '@/components/transactions/TransactionCard';
 import { useBankDisplayMap, lookupBankDisplay } from '@/hooks/useBankDisplayMap';
 import { useDashboardStats } from '@/hooks/useDashboardStats';
 import { useFinanceContext } from '@/hooks/useFinanceData';
-import { netAmount as computeNetAmount, creditNet } from '@/lib/transactionMath';
+import { makeNetAmountFor } from '@/lib/dayLedger';
 import { formatINR, formatINRCompact } from '@/lib/formatCurrency';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/hooks/useAuth';
@@ -251,13 +251,7 @@ export default function HomePage() {
               days={dayLedger}
               summaries={daySummaries}
               bankDisplayMap={bankDisplayMap}
-              netAmountFor={(id, direction) => {
-                if (!contextReady) return undefined;
-                if (direction === 'credit' && refundAllocations[id]) {
-                  return creditNet({ id } as any, refundAllocations);
-                }
-                return refundTotals[id] ? computeNetAmount({ id } as any, refundTotals) : undefined;
-              }}
+              netAmountFor={makeNetAmountFor(contextReady, refundTotals, refundAllocations)}
             />
           ) : (
             <div className="text-center py-12 text-muted-foreground font-mono text-xs">

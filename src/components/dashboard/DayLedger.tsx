@@ -11,7 +11,7 @@ import { lookupBankDisplay } from '@/hooks/useBankDisplayMap';
 interface DayLedgerProps {
   days: DayLedgerRow[];
   bankDisplayMap: Map<string, string>;
-  netAmountFor: (txnId: string, direction: string) => number | undefined;
+  netAmountFor: (txn: { id: string; direction?: string | null; amount: number | string; is_income?: boolean | null }) => number | undefined;
   summaries?: Record<string, string>;
 }
 
@@ -130,7 +130,7 @@ export function DayLedger({ days, bankDisplayMap, netAmountFor, summaries = {} }
                     <TransactionCard
                       transaction={txn}
                       index={j}
-                      netAmount={netAmountFor(txn.id, txn.direction)}
+                      netAmount={netAmountFor(txn)}
                       bankDisplay={lookupBankDisplay(bankDisplayMap, txn.bank_name, txn.account_last4)}
                     />
                   </Link>
