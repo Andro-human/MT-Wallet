@@ -65,14 +65,19 @@ export default function SubscriptionDetailPage() {
         })),
         sub?.match_note ?? sub?.label ?? null,
       ),
-    [linked, sub?.match_note, sub?.label],
+    [charges, sub?.match_note, sub?.label],
   );
 
-  const unresolvedClubbed = linked.filter(
+  const unresolvedClubbed = charges.filter(
     (l) =>
       clubbed.verdicts.get(l.transaction_id)?.clubbed &&
       l.amount >= l.txn_amount - 0.005,
   ).length;
+
+  const charges = linked.filter((l) => l.kind !== 'contribution');
+  const contributions = linked.filter((l) => l.kind === 'contribution');
+  const contributed = contributions.reduce((sum, c) => sum + c.amount, 0);
+  const charged = charges.reduce((sum, c) => sum + c.amount, 0);
 
   const editTarget = linked.find((l) => l.transaction_id === editingId);
   const editCheck = editTarget ? checkAttribution(draft, editTarget.txn_amount) : null;
@@ -199,6 +204,13 @@ export default function SubscriptionDetailPage() {
                   numbers are derived from the attributions, so while a bundled
                   order still counts in full the average and range above are
                   describing that order rather than the subscription. */}
+              {contributions.length > 0 && (
+                <div className="mt-2 text-sm text-muted-foreground">
+                  <span className="amount">{formatINR(charged)}</span> charged ·{' '}
+                  <span className="amount text-gold">{formatINR(contributed)}</span> back ·{' '}
+                  net <span className="amount text-foreground">{formatINR(charged - contributed)}</span>
+                </div>
+              )}
               {unresolvedClubbed > 0 && (
                 <p className="text-xs text-warning mt-2">
                   {unresolvedClubbed === 1
@@ -210,7 +222,7 @@ export default function SubscriptionDetailPage() {
 
             <div className="flex items-center justify-between mt-5 mb-1">
               <span className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
-                Linked transactions · {linked.length}
+                Charges · {charges.length}
               </span>
               <button
                 onClick={() => setAddOpen(true)}
@@ -221,11 +233,11 @@ export default function SubscriptionDetailPage() {
             </div>
             {txnsLoading ? (
               <Skeleton className="h-16 w-full bg-muted/20 mt-3" />
-            ) : linked.length === 0 ? (
+            ) : charges.length === 0 ? (
               <p className="text-sm text-muted-foreground py-6">No linked transactions yet.</p>
             ) : (
               <div>
-                {linked.map((t) => {
+                {charges.map((t) => {
                   const partial = t.amount < t.txn_amount - 0.005;
                   const editing = editingId === t.transaction_id;
                   return (
@@ -328,6 +340,47 @@ export default function SubscriptionDetailPage() {
                 })}
                 {editError && <p className="text-xs text-warning pt-2">{editError}</p>}
               </div>
+            )}
+
+            {contributions.length > 0 && (
+              <>
+                <div className="flex items-center justify-between mt-6 mb-1">
+                  <span className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
+                    Contributions · {contributions.length}
+                  </span>
+                  <span className="amount text-xs text-gold">{formatINR(contributed)}</span>
+                </div>
+                <div>
+                  {contributions.map((c) => (
+                    <div
+                      key={c.transaction_id}
+                      className="flex items-center justify-between gap-3 py-3 border-b border-border/40"
+                    >
+                      <Link to={`/transactions/${c.transaction_id}`} className="min-w-0 flex-1 group">
+                        <div className="text-sm truncate group-hover:text-primary transition-colors">
+                          {c.merchant || c.notes?.trim() || 'Contribution'}
+                        </div>
+                        <div className="text-xs text-muted-foreground mt-0.5">
+                          {format(new Date(c.transacted_at), 'MMM d, yyyy')}
+                        </div>
+                      </Link>
+                      <span className="amount text-sm text-gold shrink-0">{formatINR(c.amount)}</span>
+                      <button
+                        onClick={() => doUnlink(c.transaction_id)}
+                        disabled={unlink.isPending}
+                        aria-label="Unlink contribution"
+                        className="h-9 w-9 grid place-items-center rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors shrink-0"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-xs text-muted-foreground mt-2">
+                  Money paid back by other members. Counted against what this costs you, and
+                  never as income or as an occurrence of the charge.
+                </p>
+              </>
             )}
 
             <div className="flex gap-2 mt-6">
