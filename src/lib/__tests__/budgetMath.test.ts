@@ -81,19 +81,35 @@ describe('carry-forward', () => {
     expect(s.allowance).toBe(20000);
   });
 
-  it('a big overspend does not poison later months', () => {
-    // A 60k trip against a 10k budget. February resets to 10k, it does not
-    // start 50k in the hole.
-    const s = standingForMonth(TRAVEL, '2026-02', (m) => (m === '2026-01' ? 60000 : 0));
-    expect(s.carryIn).toBe(0);
-    expect(s.allowance).toBe(10000);
-    expect(s.remaining).toBe(10000);
+  it('a small overspend follows you into next month', () => {
+    // The Rs 493 Groceries overshoot should chase you; forgiving it makes the
+    // cap meaningless.
+    const s = standingForMonth(TRAVEL, '2026-02', (m) => (m === '2026-01' ? 10493 : 0));
+    expect(s.carryIn).toBe(-493);
+    expect(s.allowance).toBe(9507);
   });
 
-  it('a deficit does not survive even across several months', () => {
-    const s = standingForMonth(TRAVEL, '2026-04', (m) => (m === '2026-01' ? 60000 : 0));
-    // Feb and Mar each go unspent, so only those two roll in.
-    expect(s.carryIn).toBe(20000);
+  it('a big overspend is floored at one month, so it stays recoverable', () => {
+    // A 60k trip against a 10k budget is -50k before the floor. February gets
+    // 0, not -40k.
+    const s = standingForMonth(TRAVEL, '2026-02', (m) => (m === '2026-01' ? 60000 : 0));
+    expect(s.carryIn).toBe(-10000);
+    expect(s.allowance).toBe(0);
+  });
+
+  it('recovers within a couple of months rather than half a year', () => {
+    // Jan blows 60k. Feb spends nothing against a 0 allowance, so Feb ends flat
+    // and March is back to the full base.
+    const spend = (m: string) => (m === '2026-01' ? 60000 : 0);
+    expect(standingForMonth(TRAVEL, '2026-02', spend).allowance).toBe(0);
+    expect(standingForMonth(TRAVEL, '2026-03', spend).allowance).toBe(10000);
+  });
+
+  it('the floor is per month, not a running total', () => {
+    // Overspend twice in a row: each month floors at -base rather than stacking
+    // into an ever deeper hole.
+    const spend = (m: string) => (m === '2026-01' || m === '2026-02' ? 60000 : 0);
+    expect(standingForMonth(TRAVEL, '2026-03', spend).carryIn).toBe(-10000);
   });
 
   it('carries only the surplus, not the whole base', () => {

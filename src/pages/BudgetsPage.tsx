@@ -72,7 +72,7 @@ export default function BudgetsPage() {
   const [viewMonth, setViewMonth] = useState(() => startOfMonth(new Date()));
   const monthKey = format(viewMonth, 'yyyy-MM');
   const isCurrentMonth = isSameMonth(viewMonth, new Date());
-  const { standings, ceiling, ceilingIsFallback, isLoading } = useBudgetStandings(monthKey);
+  const { standings, ceiling, ceilingIsFallback, excluded, isLoading } = useBudgetStandings(monthKey);
   const [expanded, setExpanded] = useState<string | null>(null);
 
   // Heaviest pressure first. useBudgets orders by amount, which put an untouched
@@ -143,6 +143,13 @@ export default function BudgetsPage() {
             <ChevronRight className="w-5 h-5" />
           </button>
         </div>
+
+        {excluded > 0 && (
+          <p className="text-2xs text-muted-foreground text-center -mt-3 mb-4">
+            <span className="amount">{formatINR(excluded)}</span> excluded as one-off, counted in
+            spend but not against a budget
+          </p>
+        )}
 
         {isLoading ? (
           <div className="space-y-2">

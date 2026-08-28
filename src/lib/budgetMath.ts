@@ -95,7 +95,8 @@ function addMonth(month: string): string {
 
 export interface MonthStanding {
   base: number;
-  /** Unspent allowance rolled in from earlier months. Never negative. */
+  /** Carried in from earlier months. Negative when previous months overspent,
+   *  never worse than -base. */
   carryIn: number;
   /** base + carryIn: what is actually available this month. */
   allowance: number;
@@ -107,13 +108,18 @@ export interface MonthStanding {
 /** What a budget has available in `month`, with carry walked forward from
  *  activeFrom.
  *
- *  Deficits never carry. A 60k trip against a 10k Travel budget resets to 10k
- *  next month rather than leaving a hole that takes half a year to climb out
- *  of. Surpluses do carry when the budget opts in, so an untravelled 10k makes
- *  next month 20k.
+ *  Carry is SYMMETRIC: go over and next month starts down by that much, so a
+ *  cap you can exceed without consequence is not a cap. A surplus carries the
+ *  same way, so an untravelled 10k makes next month 20k.
+ *
+ *  The deficit is floored at one month's base. Overspend by 12k on a 5k budget
+ *  and next month is 0, not -7k: you recover in a month or two rather than half
+ *  a year, even if you forget to mark a big one-off as excluded. Without the
+ *  floor a single laptop could bury a budget until spring.
  *
  *  `spentIn` is asked per month rather than passed as a map so the caller can
- *  compute lazily; it must return counted, refund-netted spend.
+ *  compute lazily; it must return counted, refund-netted spend that excludes
+ *  anything the user flagged as a one-off.
  */
 export function standingForMonth(
   budget: BudgetDef,
@@ -131,9 +137,9 @@ export function standingForMonth(
   if (budget.carryover) {
     for (let m = start; m < month; m = addMonth(m)) {
       const allowance = base + carryIn;
-      // Only the surplus travels. max(0, ...) is what stops a big overspend
-      // from poisoning every month after it.
-      carryIn = Math.max(0, allowance - spentIn(m));
+      // Surplus and deficit both travel, but the deficit stops at one month's
+      // base so it stays recoverable.
+      carryIn = Math.max(-base, allowance - spentIn(m));
     }
   }
 

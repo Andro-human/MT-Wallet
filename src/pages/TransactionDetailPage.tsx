@@ -442,6 +442,32 @@ export default function TransactionDetailPage() {
                     <HandCoins className="w-4 h-4" />
                     {enrichment?.lending ? 'Edit Loan' : 'Track as Lent'}
                   </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={async () => {
+                      if (!transaction) return;
+                      const next = !enrichment?.budget_excluded;
+                      try {
+                        await updateEnrichment.mutateAsync({
+                          transactionId: transaction.id,
+                          notes: transaction.notes,
+                          existing: enrichment ?? null,
+                          budgetExcluded: next,
+                        });
+                        toast({
+                          title: next ? 'Excluded from budgets' : 'Counted in budgets again',
+                          description: next
+                            ? 'Still counted in total spend, just not against a monthly budget.'
+                            : undefined,
+                        });
+                      } catch {
+                        toast({ title: 'Could not update', variant: 'destructive' });
+                      }
+                    }}
+                    className="gap-2"
+                  >
+                    <Wallet className="w-4 h-4" />
+                    {enrichment?.budget_excluded ? 'Count in budgets' : 'One-off, skip budgets'}
+                  </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>

@@ -5,6 +5,7 @@ import { useFinanceContext } from './useFinanceData';
 import { useBudgets } from './useBudgets';
 import { useProfile } from './useProfile';
 import { useCombineMaps } from './useCombinedTransactions';
+import { useEnrichmentMap } from './useTxnEnrichment';
 import { classifyTransaction, netAmount } from '@/lib/transactionMath';
 import {
   buildBudgetIndex,
@@ -59,6 +60,9 @@ export interface BudgetStandings {
    *  exists so nothing renders as zero on a fresh install. */
   ceiling: number;
   ceilingIsFallback: boolean;
+  /** Spend in the viewed month the user marked as one-off. Reported so the
+   *  money is never silently missing from the budget totals. */
+  excluded: number;
   isLoading: boolean;
 }
 
@@ -75,6 +79,7 @@ export function useBudgetStandings(month?: string): BudgetStandings {
   const { data: txns = [], isLoading: txnsLoading } = useTransactions();
   const { data: profile } = useProfile();
   const { data: combineMaps } = useCombineMaps();
+  const { data: enrichment } = useEnrichmentMap();
   const { refundTotals, refundAllocations, duplicateExcludeIds, isReady } = useFinanceContext();
 
   return useMemo(() => {
@@ -86,6 +91,7 @@ export function useBudgetStandings(month?: string): BudgetStandings {
         standings: [],
         ceiling: budgets.length === 0 ? fallback : 0,
         ceilingIsFallback: budgets.length === 0,
+        excluded: 0,
         isLoading,
       };
     }
@@ -98,6 +104,7 @@ export function useBudgetStandings(month?: string): BudgetStandings {
     // budgetId -> month -> spend, and budgetId -> weekStart -> {spend, txns}.
     const byBudgetMonth = new Map<string, Map<string, number>>();
     const byBudgetWeek = new Map<string, Map<string, { spent: number; txns: WeekTxn[] }>>();
+    let excluded = 0;
 
     for (const t of txns) {
       if (
@@ -106,9 +113,18 @@ export function useBudgetStandings(month?: string): BudgetStandings {
       ) {
         continue;
       }
-      const row = t as { direction?: string | null; transacted_at: string };
+      const row = t as { id: string; direction?: string | null; transacted_at: string };
       // Budgets cap outgoings. A credit is not a negative expense here.
       if (row.direction === 'credit') continue;
+      // A one-off the user marked: still real spend, just not a monthly rhythm.
+      if (enrichment?.get(row.id)?.budget_excluded) {
+        // Only the viewed month is reported; the loop spans all history because
+        // carry needs it.
+        if (format(new Date(row.transacted_at), 'yyyy-MM') === monthKey) {
+          excluded += netAmount(t as never, refundTotals);
+        }
+        continue;
+      }
 
       const id = attributeTo(t as never, index);
       if (!id) continue;
@@ -194,6 +210,7 @@ export function useBudgetStandings(month?: string): BudgetStandings {
       standings,
       ceiling: monthlyCeiling(budgets, monthKey),
       ceilingIsFallback: false,
+      excluded,
       isLoading,
     };
   }, [
@@ -208,5 +225,6 @@ export function useBudgetStandings(month?: string): BudgetStandings {
     refundAllocations,
     duplicateExcludeIds,
     combineMaps,
+    enrichment,
   ]);
 }

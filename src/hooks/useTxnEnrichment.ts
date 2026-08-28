@@ -7,6 +7,9 @@ export interface TxnEnrichment {
   item_label: string;
   lending: { counterparty: string; type: 'lent' | 'repayment' } | null;
   category_suggestion: string | null;
+  /** A one-off no budget should count: a laptop, a big trip. Still counted in
+   *  total spend; only budget attribution skips it. */
+  budget_excluded: boolean;
 }
 
 const KEY = 'txn-enrichment';
@@ -24,7 +27,7 @@ export function useEnrichmentMap() {
       for (let from = 0; ; from += PAGE) {
         const { data, error } = await (supabase as any)
           .from('txn_enrichment')
-          .select('transaction_id, item_label, lending, category_suggestion')
+          .select('transaction_id, item_label, lending, category_suggestion, budget_excluded')
           .eq('user_id', user!.id)
           .order('transaction_id', { ascending: true })
           .range(from, from + PAGE - 1);
@@ -71,6 +74,7 @@ export function useUpdateEnrichment() {
       existing: TxnEnrichment | null;
       lending?: TxnEnrichment['lending'];
       categorySuggestion?: string | null;
+      budgetExcluded?: boolean;
     }) => {
       const row = {
         transaction_id: input.transactionId,
@@ -81,6 +85,10 @@ export function useUpdateEnrichment() {
           input.categorySuggestion !== undefined
             ? input.categorySuggestion
             : (input.existing?.category_suggestion ?? null),
+        budget_excluded:
+          input.budgetExcluded !== undefined
+            ? input.budgetExcluded
+            : (input.existing?.budget_excluded ?? false),
         note_hash: await sha256Hex((input.notes ?? '').trim()),
         model: 'manual',
       };
@@ -111,6 +119,7 @@ export function useMarkLentBulk() {
           item_label: t.existing?.item_label ?? 'loan',
           lending: { counterparty: input.counterparty, type: 'lent' as const },
           category_suggestion: t.existing?.category_suggestion ?? null,
+          budget_excluded: t.existing?.budget_excluded ?? false,
           note_hash: await sha256Hex((t.notes ?? '').trim()),
           model: 'manual',
         })),
