@@ -12,7 +12,6 @@ import { useTransactionGroups } from '@/hooks/useTransactionGroups';
 import { useBankAccounts } from '@/hooks/useBankAccounts';
 import { useFinanceContext } from '@/hooks/useFinanceData';
 import { MonthlySummaryCard } from '@/components/insights/MonthlySummaryCard';
-import { MonthDayLedger } from '@/components/insights/MonthDayLedger';
 import { useMonthlySummary } from '@/hooks/useMonthlySummary';
 import {
   netAmount as computeNetAmount,
@@ -1030,7 +1029,6 @@ export default function InsightsPage() {
               </div>
             )}
             <MonthlySummaryCard month={selectedReviewMonth} />
-            <MonthDayLedger month={selectedReviewMonth} />
           </div>
         )}
 
