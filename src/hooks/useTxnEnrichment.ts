@@ -13,6 +13,12 @@ export interface TxnEnrichment {
   /** Normalized name of a recurring service, naming the service rather than the
    *  payment rail it went out on. Null when not a recurring service. */
   service_identity: string | null;
+  /** Who wrote this row. 'manual' is never re-offered by the nightly backfill,
+   *  which is what makes a dismissal stick. Carried so an undo can put the
+   *  row back exactly as the agent left it rather than forging provenance. */
+  model: string;
+  enriched_at: string;
+  note_hash: string;
 }
 
 const KEY = 'txn-enrichment';
@@ -28,7 +34,7 @@ export function useEnrichmentMap() {
     queryFn: async () => {
       const map = new Map<string, TxnEnrichment>();
       const columns =
-        'transaction_id, lending, category_suggestion, budget_excluded, service_identity';
+        'transaction_id, lending, category_suggestion, budget_excluded, service_identity, model, enriched_at, note_hash';
 
       for (let from = 0; ; from += PAGE) {
         const res = await (supabase as any)
@@ -47,6 +53,9 @@ export function useEnrichmentMap() {
             category_suggestion: row.category_suggestion ?? null,
             budget_excluded: row.budget_excluded ?? false,
             service_identity: row.service_identity ?? null,
+            model: row.model ?? '',
+            enriched_at: row.enriched_at ?? '',
+            note_hash: row.note_hash ?? '',
           });
         }
         if (rows.length < PAGE) break;
