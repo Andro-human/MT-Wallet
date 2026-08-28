@@ -353,7 +353,7 @@ export default function TransactionDetailPage() {
       />
       
       {/* Header */}
-      <div className="sticky top-0 z-10 backdrop-blur-xl bg-background/80 border-b border-border/30 safe-area-top">
+      <div className="sticky top-0 z-10 backdrop-blur-xl bg-background/95 border-b border-border/30 safe-area-top">
         <div className="flex items-center gap-3 px-5 py-3 page-shell">
           <button 
             onClick={() => navigate(-1)}
@@ -441,6 +441,32 @@ export default function TransactionDetailPage() {
                   >
                     <HandCoins className="w-4 h-4" />
                     {enrichment?.lending ? 'Edit Loan' : 'Track as Lent'}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={async () => {
+                      if (!transaction) return;
+                      const next = !enrichment?.budget_excluded;
+                      try {
+                        await updateEnrichment.mutateAsync({
+                          transactionId: transaction.id,
+                          notes: transaction.notes,
+                          existing: enrichment ?? null,
+                          budgetExcluded: next,
+                        });
+                        toast({
+                          title: next ? 'Excluded from budgets' : 'Counted in budgets again',
+                          description: next
+                            ? 'Still counted in total spend, just not against a monthly budget.'
+                            : undefined,
+                        });
+                      } catch {
+                        toast({ title: 'Could not update', variant: 'destructive' });
+                      }
+                    }}
+                    className="gap-2"
+                  >
+                    <Wallet className="w-4 h-4" />
+                    {enrichment?.budget_excluded ? 'Count in budgets' : 'One-off, skip budgets'}
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>

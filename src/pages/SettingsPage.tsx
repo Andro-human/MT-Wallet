@@ -5,6 +5,7 @@ import {
     User, Key, Copy, RefreshCw, LogOut, Check, Loader2,
     History, ChevronRight, Building2, Tag, Lock, Bell, BellOff, Wand2, FileCheck, FolderKanban,
     Sun, Moon,
+    Wallet,
 } from 'lucide-react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { useAuth } from '@/hooks/useAuth';
@@ -12,6 +13,10 @@ import { useProfile, useRegenerateApiKey, useUpdateReviewMode } from '@/hooks/us
 import { useBankAccounts } from '@/hooks/useBankAccounts';
 import { useCategories } from '@/hooks/useCategories';
 import { useTransactionGroups } from '@/hooks/useTransactionGroups';
+import { useBudgets } from '@/hooks/useBudgets';
+import { monthlyCeiling } from '@/lib/budgetMath';
+import { formatINRCompact } from '@/lib/formatCurrency';
+import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -40,6 +45,8 @@ export default function SettingsPage() {
     const { data: transactionGroups = [] } = useTransactionGroups();
     const { toast } = useToast();
     const { theme, preference, setPreference } = useTheme();
+    const { data: budgets = [] } = useBudgets();
+    const budgetCeiling = monthlyCeiling(budgets, format(new Date(), 'yyyy-MM'));
     const { isSupported: pushSupported, permissionState, isSubscribed: pushSubscribed, isLoading: pushLoading, subscribe: pushSubscribe, unsubscribe: pushUnsubscribe } = usePushNotifications();
 
     const navigate = useNavigate();
@@ -261,6 +268,31 @@ export default function SettingsPage() {
                                 <h3 className="font-bold text-sm text-foreground">Groups</h3>
                                 <p className="text-xs font-mono text-muted-foreground mt-0.5">
                                     {transactionGroups.length} DEFINED
+                                </p>
+                            </div>
+                            <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
+                        </button>
+                    </motion.div>
+
+                    {/* Budgets */}
+                    <motion.div
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: 0.275 }}
+                    >
+                        <button
+                            onClick={() => navigate('/settings/budgets')}
+                            className="w-full neo-card p-4 flex items-center gap-4 group hover:bg-muted/5 transition-colors"
+                        >
+                            <div className="w-10 h-10 border border-border flex items-center justify-center group-hover:border-primary/50 transition-colors">
+                                <Wallet className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />
+                            </div>
+                            <div className="flex-1 text-left">
+                                <h3 className="font-bold text-sm text-foreground">Budgets</h3>
+                                <p className="text-xs font-mono text-muted-foreground mt-0.5">
+                                    {budgets.length > 0
+                                        ? `${budgets.length} SET · ${formatINRCompact(budgetCeiling)}/MO`
+                                        : 'PER CATEGORY & GROUP'}
                                 </p>
                             </div>
                             <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />

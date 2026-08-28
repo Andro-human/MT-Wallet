@@ -105,7 +105,7 @@ export default function GroupsPage() {
         }}
       />
 
-      <div className="sticky top-0 z-10 backdrop-blur-xl bg-background/80 border-b border-border/30 safe-area-top">
+      <div className="sticky top-0 z-10 backdrop-blur-xl bg-background/95 border-b border-border/30 safe-area-top">
         <div className="flex items-center justify-between px-5 py-3 page-shell">
           <div className="flex items-center gap-3">
             <button
