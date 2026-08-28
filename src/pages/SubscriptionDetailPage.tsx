@@ -15,6 +15,7 @@ import {
 import { AddTransactionDialog } from '@/components/subscriptions/AddTransactionDialog';
 import { formatINR, formatINRCompact } from '@/lib/formatCurrency';
 import { checkAttribution } from '@/lib/amountInput';
+import { analyseOccurrences } from '@/lib/clubbedDetect';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { Input } from '@/components/ui/input';
@@ -51,6 +52,28 @@ export default function SubscriptionDetailPage() {
   const sub = useMemo(() => subs.find((s) => s.id === id), [subs, id]);
   const variable = sub && sub.amount_min != null && sub.amount_max != null && sub.amount_min !== sub.amount_max;
 
+  // The subscription's own match term is what tells a bundled note from a
+  // double purchase, so detection needs it: "2x ketchup" is one item, "mic and
+  // ketchup" is two.
+  const clubbed = useMemo(
+    () =>
+      analyseOccurrences(
+        linked.map((l) => ({
+          transactionId: l.transaction_id,
+          note: l.notes,
+          txnAmount: l.txn_amount,
+        })),
+        sub?.match_note ?? sub?.label ?? null,
+      ),
+    [linked, sub?.match_note, sub?.label],
+  );
+
+  const unresolvedClubbed = linked.filter(
+    (l) =>
+      clubbed.verdicts.get(l.transaction_id)?.clubbed &&
+      l.amount >= l.txn_amount - 0.005,
+  ).length;
+
   const editTarget = linked.find((l) => l.transaction_id === editingId);
   const editCheck = editTarget ? checkAttribution(draft, editTarget.txn_amount) : null;
   const editError = editCheck && !editCheck.ok ? editCheck.error : null;
@@ -83,6 +106,20 @@ export default function SubscriptionDetailPage() {
           ? 'Counting the whole transaction'
           : `Counting ${formatINR(check.amount)} of ${formatINR(t.txn_amount)}`,
       });
+    } catch (e) {
+      toast({ title: 'Could not save that', description: (e as Error).message, variant: 'destructive' });
+    }
+  };
+
+  const useTypical = async (t: LinkedTxn) => {
+    if (!id || clubbed.typical == null) return;
+    try {
+      await setLinkedAmount.mutateAsync({
+        subscriptionId: id,
+        transactionId: t.transaction_id,
+        amount: clubbed.typical,
+      });
+      toast({ title: `Counting ${formatINR(clubbed.typical)} of ${formatINR(t.txn_amount)}` });
     } catch (e) {
       toast({ title: 'Could not save that', description: (e as Error).message, variant: 'destructive' });
     }
@@ -158,6 +195,17 @@ export default function SubscriptionDetailPage() {
                   ? <>next expected <b className="text-foreground">~{format(new Date(`${sub.predicted_next}T12:00:00`), 'MMM d, yyyy')}</b></>
                   : 'not enough history to predict yet'}
               </div>
+              {/* Said where the figures are, not buried in the list: these
+                  numbers are derived from the attributions, so while a bundled
+                  order still counts in full the average and range above are
+                  describing that order rather than the subscription. */}
+              {unresolvedClubbed > 0 && (
+                <p className="text-xs text-warning mt-2">
+                  {unresolvedClubbed === 1
+                    ? 'A charge below looks like a bundled order counted in full, so this average and range are overstated.'
+                    : `${unresolvedClubbed} charges below look like bundled orders counted in full, so this average and range are overstated.`}
+                </p>
+              )}
             </div>
 
             <div className="flex items-center justify-between mt-5 mb-1">
@@ -189,6 +237,22 @@ export default function SubscriptionDetailPage() {
                         </div>
                         <div className="text-xs text-muted-foreground mt-0.5">{format(new Date(t.transacted_at), 'MMM d, yyyy')}</div>
                       </Link>
+
+                      {clubbed.verdicts.get(t.transaction_id)?.clubbed &&
+                        t.amount >= t.txn_amount - 0.005 &&
+                        clubbed.typical != null &&
+                        clubbed.typical < t.txn_amount && (
+                          <button
+                            onClick={() => void useTypical(t)}
+                            disabled={setLinkedAmount.isPending}
+                            className="text-2xs text-warning hover:text-foreground transition-colors shrink-0 text-right disabled:opacity-50"
+                          >
+                            <span className="block">bundled order</span>
+                            <span className="amount block underline underline-offset-2">
+                              use {formatINR(clubbed.typical)}
+                            </span>
+                          </button>
+                        )}
 
                       {editing ? (
                         <span className="flex items-center gap-1.5 shrink-0">
