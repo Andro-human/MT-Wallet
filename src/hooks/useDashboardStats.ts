@@ -19,12 +19,18 @@ import { buildDayLedger, type DayLedgerRow as DayLedgerRowOf, type DaySegment } 
 export type DayLedgerRow = DayLedgerRowOf<TransactionWithCategory>;
 export type { DaySegment };
 
-export function useDashboardStats() {
-  const now = new Date();
-  const thisMonthStart = startOfMonth(now);
-  const thisMonthEnd = endOfMonth(now);
-  const lastMonthStart = startOfMonth(subMonths(now, 1));
-  const lastMonthEnd = endOfMonth(subMonths(now, 1));
+/** Every figure on the dashboard, for the month being viewed.
+ *
+ *  Defaults to the month in progress. Passing an earlier one makes the whole
+ *  dashboard describe that month instead, including "vs last month", which
+ *  compares against the month before the one on screen rather than against
+ *  today. */
+export function useDashboardStats(viewingMonth?: Date) {
+  const anchor = viewingMonth ?? new Date();
+  const thisMonthStart = startOfMonth(anchor);
+  const thisMonthEnd = endOfMonth(anchor);
+  const lastMonthStart = startOfMonth(subMonths(anchor, 1));
+  const lastMonthEnd = endOfMonth(subMonths(anchor, 1));
 
   const { data: thisMonthTxns = [], isLoading: thisMonthLoading } = useTransactions({
     startDate: thisMonthStart,

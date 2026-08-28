@@ -12,8 +12,8 @@ import { cn } from '@/lib/utils';
  *  buckets about to run out sit at the top where a glance lands. A budget that
  *  is over sorts above one that is merely large.
  */
-export function BudgetStrip() {
-  const { standings, ceiling, isLoading } = useBudgetStandings();
+export function BudgetStrip({ month }: { month?: string }) {
+  const { standings, ceiling, isLoading } = useBudgetStandings(month);
 
   const rows = useMemo(
     () =>
