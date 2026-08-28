@@ -30,14 +30,21 @@ import {
  *  instead of contradicting it. */
 function foldPurchases(txns: WeekTxn[]) {
   const seen = new Set<string>();
-  const out: { key: string; label: string; amount: number; day: string; parts: number }[] = [];
+  const out: { key: string; id: string; label: string; amount: number; day: string; parts: number }[] = [];
   for (const tx of txns) {
     if (tx.combineId) {
       if (seen.has(tx.combineId)) continue;
       seen.add(tx.combineId);
       const members = txns.filter((x) => x.combineId === tx.combineId);
+      // A combined purchase has no single row to open, so link to the member
+      // carrying the note, else the largest: the one whose detail page explains
+      // the purchase rather than the fee stuck to it.
+      const anchor =
+        members.find((m) => m.note?.trim()) ??
+        [...members].sort((a, b) => b.amount - a.amount)[0];
       out.push({
         key: tx.combineId,
+        id: anchor.id,
         label: members.find((m) => m.note)?.note || tx.merchant || 'Unknown',
         amount: members.reduce((a, m) => a + m.amount, 0),
         day: tx.day,
@@ -46,6 +53,7 @@ function foldPurchases(txns: WeekTxn[]) {
     } else {
       out.push({
         key: tx.id,
+        id: tx.id,
         label: tx.note || tx.merchant || 'Unknown',
         amount: tx.amount,
         day: tx.day,
@@ -315,7 +323,7 @@ export default function BudgetsPage() {
                                     {foldPurchases(w.txns).map((l) => (
                                       <Link
                                         key={l.key}
-                                        to={`/transactions?search=${encodeURIComponent(l.label)}`}
+                                        to={`/transactions/${l.id}`}
                                         className="flex items-baseline gap-2 py-0.5 text-2xs text-muted-foreground hover:text-foreground transition-colors"
                                       >
                                         <span className="amount w-12 shrink-0">
