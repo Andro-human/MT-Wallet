@@ -12,6 +12,7 @@ import HomePage from "./pages/HomePage";
 import TransactionsPage from "./pages/TransactionsPage";
 import TransactionDetailPage from "./pages/TransactionDetailPage";
 import InsightsPage from "./pages/InsightsPage";
+import SuggestionsPage from "./pages/SuggestionsPage";
 import DebtPage from "./pages/DebtPage";
 import SettingsPage from "./pages/SettingsPage";
 import SyncHistoryPage from "./pages/SyncHistoryPage";
@@ -132,6 +133,12 @@ const App = () => (
             <Route path="/insights" element={
               <ProtectedRoute>
                 <InsightsPage />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/suggestions" element={
+              <ProtectedRoute>
+                <SuggestionsPage />
               </ProtectedRoute>
             } />
 

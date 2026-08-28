@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
+import { noteHash } from '@/lib/noteHash';
 
 export interface TxnEnrichment {
   transaction_id: string;
@@ -65,14 +66,6 @@ export function useEnrichmentFor(transactionId: string | undefined) {
   };
 }
 
-async function sha256Hex(text: string): Promise<string> {
-  const bytes = new TextEncoder().encode(text);
-  const digest = await crypto.subtle.digest('SHA-256', bytes);
-  return Array.from(new Uint8Array(digest))
-    .map((b) => b.toString(16).padStart(2, '0'))
-    .join('');
-}
-
 /**
  * Manual writes to txn_enrichment: dismiss/clear a category suggestion, or
  * mark/unmark a transaction as a loan. Upserts carry the note's real hash so
@@ -102,8 +95,11 @@ export function useUpdateEnrichment() {
           input.budgetExcluded !== undefined
             ? input.budgetExcluded
             : (input.existing?.budget_excluded ?? false),
-        note_hash: await sha256Hex((input.notes ?? '').trim()),
+        note_hash: await noteHash(input.notes),
         model: 'manual',
+        // Otherwise the row keeps whatever date the agent wrote, so a label
+        // edited today claims it was written in July.
+        enriched_at: new Date().toISOString(),
       };
       const { error } = await (supabase as any)
         .from('txn_enrichment')
@@ -131,9 +127,11 @@ export function useMarkLentBulk() {
           user_id: user!.id,
           lending: { counterparty: input.counterparty, type: 'lent' as const },
           category_suggestion: t.existing?.category_suggestion ?? null,
+          service_identity: t.existing?.service_identity ?? null,
           budget_excluded: t.existing?.budget_excluded ?? false,
-          note_hash: await sha256Hex((t.notes ?? '').trim()),
+          note_hash: await noteHash(t.notes),
           model: 'manual',
+          enriched_at: new Date().toISOString(),
         })),
       );
       const { error } = await (supabase as any)
