@@ -39,6 +39,9 @@ export interface LinkedTxn {
   txn_amount: number;
   transacted_at: string;
   linked_by: 'auto' | 'manual';
+  /** Who decided the attributed amount. null means nobody has, so the nightly
+   *  pass may still apportion it. */
+  attribution_set_by: 'manual' | 'routine' | null;
   merchant: string | null;
   notes: string | null;
 }
@@ -75,7 +78,7 @@ export function useSubscriptionTransactions(subscriptionId: string | undefined) 
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from('subscription_transactions')
-        .select('transaction_id, amount, transacted_at, linked_by, transactions(merchant, notes, amount)')
+        .select('transaction_id, amount, transacted_at, linked_by, attribution_set_by, transactions(merchant, notes, amount)')
         .eq('subscription_id', subscriptionId!)
         .order('transacted_at', { ascending: false });
       if (error) throw error;
@@ -85,6 +88,7 @@ export function useSubscriptionTransactions(subscriptionId: string | undefined) 
         txn_amount: Number(r.transactions?.amount ?? r.amount),
         transacted_at: r.transacted_at,
         linked_by: r.linked_by,
+        attribution_set_by: r.attribution_set_by ?? null,
         merchant: r.transactions?.merchant ?? null,
         notes: r.transactions?.notes ?? null,
       })) as LinkedTxn[];
@@ -279,7 +283,7 @@ export function useSetLinkedAmount() {
       if (!(amount > 0)) throw new Error('amount must be positive');
       const { error } = await (supabase as any)
         .from('subscription_transactions')
-        .update({ amount })
+        .update({ amount, attribution_set_by: 'manual' })
         .eq('subscription_id', subscriptionId)
         .eq('transaction_id', transactionId);
       if (error) throw error;

@@ -202,8 +202,8 @@ export default function SubscriptionDetailPage() {
               {unresolvedClubbed > 0 && (
                 <p className="text-xs text-warning mt-2">
                   {unresolvedClubbed === 1
-                    ? 'A charge below looks like a bundled order counted in full, so this average and range are overstated.'
-                    : `${unresolvedClubbed} charges below look like bundled orders counted in full, so this average and range are overstated.`}
+                    ? 'A charge below looks like a bundled order counted in full, so this average and range are overstated. Tonight\u2019s routine will set it to the typical amount unless you set one yourself.'
+                    : `${unresolvedClubbed} charges below look like bundled orders counted in full, so this average and range are overstated. Tonight\u2019s routine will set them to the typical amount unless you set them yourself.`}
                 </p>
               )}
             </div>
@@ -234,6 +234,9 @@ export default function SubscriptionDetailPage() {
                         <div className="text-sm truncate group-hover:text-primary transition-colors">
                           {t.notes?.trim() || t.merchant || 'Transaction'}
                           {t.linked_by === 'manual' && <span className="text-[9px] font-mono text-muted-foreground ml-1.5">manual</span>}
+                          {t.attribution_set_by === 'routine' && (
+                            <span className="text-[9px] font-mono text-muted-foreground ml-1.5">routine set the amount</span>
+                          )}
                         </div>
                         <div className="text-xs text-muted-foreground mt-0.5">{format(new Date(t.transacted_at), 'MMM d, yyyy')}</div>
                       </Link>
