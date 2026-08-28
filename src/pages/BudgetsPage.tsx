@@ -95,6 +95,11 @@ export default function BudgetsPage() {
   const [deleting, setDeleting] = useState<BudgetDef | null>(null);
 
   const totalSpent = standings.reduce((s, x) => s + x.spent, 0);
+  const earliestStart = standings.length
+    ? new Date(
+        `${standings.reduce((min, s) => (s.budget.activeFrom < min ? s.budget.activeFrom : min), standings[0].budget.activeFrom)}T12:00:00`,
+      )
+    : viewMonth;
 
   const openNew = () => {
     setEditing(null);
@@ -173,6 +178,16 @@ export default function BudgetsPage() {
               <Plus className="w-4 h-4" /> New budget
             </button>
           </div>
+        ) : rows.every((s) => s.base === 0) ? (
+          <div className="text-center py-16">
+            <Wallet className="w-10 h-10 mx-auto mb-4 text-muted-foreground/30" />
+            <p className="font-medium">No budgets ran in {format(viewMonth, 'MMMM yyyy')}</p>
+            <p className="text-sm text-muted-foreground mt-1 max-w-sm mx-auto">
+              Your budgets start {format(earliestStart, 'MMMM yyyy')}. Earlier months are left
+              alone rather than judged against limits that did not exist yet. Edit a budget to
+              move its start date back if you want to score an earlier month.
+            </p>
+          </div>
         ) : (
           <div>
             {rows.map((s, i) => {
@@ -232,12 +247,12 @@ export default function BudgetsPage() {
                     {s.carryIn > 0 && (
                       <span className="amount">{formatINRCompact(s.carryIn)} rolled over</span>
                     )}
-                    {s.budget.weeklyAmount ? (
+                    {isCurrentMonth && s.budget.weeklyAmount ? (
                       <span className="amount">
                         {formatINRCompact(s.spentThisWeek)} of {formatINRCompact(s.budget.weeklyAmount)} this week
                       </span>
                     ) : null}
-                    {s.ordersThisWeek !== null && s.budget.weeklyCount ? (
+                    {isCurrentMonth && s.ordersThisWeek !== null && s.budget.weeklyCount ? (
                       <span
                         className={cn(
                           'amount',
