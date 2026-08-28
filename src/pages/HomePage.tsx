@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { TrendingDown, TrendingUp, ChevronRight, ChevronDown, ArrowUpRight, ArrowDownRight, Activity } from 'lucide-react';
-import { format, startOfMonth, endOfMonth } from 'date-fns';
+import { format, startOfMonth, endOfMonth, isSameMonth } from 'date-fns';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { SpendingDonut } from '@/components/dashboard/SpendingDonut';
 import { DayLedger } from '@/components/dashboard/DayLedger';
@@ -10,6 +10,7 @@ import { StatCard } from '@/components/dashboard/StatCard';
 import { TransactionCard } from '@/components/transactions/TransactionCard';
 import { useBankDisplayMap, lookupBankDisplay } from '@/hooks/useBankDisplayMap';
 import { useDashboardStats } from '@/hooks/useDashboardStats';
+import { MonthNavigator } from '@/components/layout/MonthNavigator';
 import { useFinanceContext } from '@/hooks/useFinanceData';
 import { makeNetAmountFor } from '@/lib/dayLedger';
 import { formatINR, formatINRCompact } from '@/lib/formatCurrency';
@@ -27,11 +28,15 @@ import { cn } from '@/lib/utils';
 
 export default function HomePage() {
   const { user } = useAuth();
+  const [viewingMonth, setViewingMonth] = useState(startOfMonth(new Date()));
+  const monthKey = format(viewingMonth, 'yyyy-MM');
+  const isCurrentMonth = isSameMonth(viewingMonth, new Date());
+
   const [openFold, setOpenFold] = useState(false);
   const { data: profile } = useProfile();
   // Ceiling is the sum of the budgets, falling back to the single monthly
   // budget only while none exist.
-  const { ceiling: budget } = useMonthlyCeiling();
+  const { ceiling: budget } = useMonthlyCeiling(monthKey);
   const bankDisplayMap = useBankDisplayMap();
   const {
     thisMonthSpent,
@@ -41,12 +46,10 @@ export default function HomePage() {
     dayLedger,
     transactionCount,
     isLoading,
-  } = useDashboardStats();
+  } = useDashboardStats(viewingMonth);
 
-  const { data: daySummaries } = useDaySummaries(startOfMonth(new Date()), endOfMonth(new Date()));
+  const { data: daySummaries } = useDaySummaries(startOfMonth(viewingMonth), endOfMonth(viewingMonth));
 
-  const monthName = format(new Date(), 'MMMM');
-  const year = format(new Date(), 'yyyy');
 
   const { refundTotals, refundAllocations, isReady: contextReady } = useFinanceContext();
 
@@ -68,11 +71,15 @@ export default function HomePage() {
               Dashboard
             </h1>
           </div>
-          <div className="text-right">
-            <p className="text-sm font-bold text-gold">{monthName}</p>
-            <p className="text-xs text-muted-foreground font-mono">{year}</p>
-          </div>
         </motion.div>
+
+        {/* Its own row rather than beside the title: at 390px the arrows plus a
+            month name do not fit next to "Dashboard". */}
+        <MonthNavigator
+          month={viewingMonth}
+          onChange={setViewingMonth}
+          className="-mt-2 mb-5"
+        />
 
         {/* Stat strip: the one-second answer, then the drill-down below */}
         <motion.div
@@ -212,7 +219,7 @@ export default function HomePage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.25 }}
         >
-          <BudgetStrip />
+          <BudgetStrip month={monthKey} />
         </motion.div>
 
         {/* AI category suggestions: renders nothing when the inbox is empty. */}
@@ -221,7 +228,7 @@ export default function HomePage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.28 }}
         >
-          <SuggestionsLine />
+          {isCurrentMonth && <SuggestionsLine />}
         </motion.div>
 
         {/* Day Ledger: one row per day, tap to unfold that day */}
