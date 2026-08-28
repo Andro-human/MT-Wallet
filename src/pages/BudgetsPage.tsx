@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
-import { ArrowLeft, Plus, Pencil, Trash2, Wallet } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { format, startOfMonth, subMonths, addMonths, isSameMonth } from 'date-fns';
+import { ArrowLeft, Plus, Pencil, Trash2, Wallet, ChevronLeft, ChevronRight, ChevronDown } from 'lucide-react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { useBudgetStandings } from '@/hooks/useBudgetStandings';
 import { useDeleteBudget } from '@/hooks/useBudgets';
@@ -26,7 +27,13 @@ import {
 export default function BudgetsPage() {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { standings, ceiling, ceilingIsFallback, isLoading } = useBudgetStandings();
+  // The month being viewed. Carry already walks history, so an earlier month
+  // shows what was actually available then.
+  const [viewMonth, setViewMonth] = useState(() => startOfMonth(new Date()));
+  const monthKey = format(viewMonth, 'yyyy-MM');
+  const isCurrentMonth = isSameMonth(viewMonth, new Date());
+  const { standings, ceiling, ceilingIsFallback, isLoading } = useBudgetStandings(monthKey);
+  const [expanded, setExpanded] = useState<string | null>(null);
   const deleteBudget = useDeleteBudget();
 
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -62,6 +69,27 @@ export default function BudgetsPage() {
       </div>
 
       <div className="px-5 pt-safe pb-28 page-shell">
+        <div className="flex items-center justify-center gap-1 mb-5">
+          <button
+            onClick={() => setViewMonth((m) => subMonths(m, 1))}
+            className="w-10 h-10 rounded-full grid place-items-center text-muted-foreground hover:text-foreground hover:bg-muted/40 transition-colors"
+            aria-label="Previous month"
+          >
+            <ChevronLeft className="w-5 h-5" />
+          </button>
+          <span className="text-sm font-medium min-w-[130px] text-center tabular-nums select-none">
+            {format(viewMonth, 'MMMM yyyy')}
+          </span>
+          <button
+            onClick={() => setViewMonth((m) => addMonths(m, 1))}
+            disabled={isCurrentMonth}
+            className="w-10 h-10 rounded-full grid place-items-center text-muted-foreground hover:text-foreground hover:bg-muted/40 transition-colors disabled:opacity-30 disabled:hover:bg-transparent"
+            aria-label="Next month"
+          >
+            <ChevronRight className="w-5 h-5" />
+          </button>
+        </div>
+
         {isLoading ? (
           <div className="space-y-2">
             {Array.from({ length: 5 }).map((_, i) => (
@@ -174,6 +202,64 @@ export default function BudgetsPage() {
                       }}
                     />
                   </div>
+
+                  <button
+                    onClick={() => setExpanded(expanded === s.budget.id ? null : s.budget.id)}
+                    className="mt-1.5 flex items-center gap-1 text-2xs text-muted-foreground hover:text-foreground transition-colors"
+                    aria-expanded={expanded === s.budget.id}
+                  >
+                    week by week
+                    <ChevronDown
+                      className={cn(
+                        'w-3 h-3 transition-transform',
+                        expanded === s.budget.id && 'rotate-180',
+                      )}
+                    />
+                  </button>
+
+                  <AnimatePresence initial={false}>
+                    {expanded === s.budget.id && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        transition={{ duration: 0.18 }}
+                        className="overflow-hidden"
+                      >
+                        <div className="mt-2 pl-3 border-l border-border/50">
+                          {s.weeks.map((w) => {
+                            const overWeek =
+                              s.budget.weeklyAmount != null && w.spent > s.budget.weeklyAmount;
+                            const overCount =
+                              s.budget.weeklyCount != null && w.orders > s.budget.weeklyCount;
+                            return (
+                              <div key={w.start} className="flex items-baseline gap-3 py-1 text-2xs">
+                                <span
+                                  className={cn(
+                                    'amount w-20 shrink-0',
+                                    w.isCurrent ? 'text-foreground' : 'text-muted-foreground',
+                                  )}
+                                >
+                                  {format(new Date(`${w.start}T12:00:00`), 'MMM d')}
+                                  {w.isCurrent ? ' \u00B7' : ''}
+                                </span>
+                                <span className={cn('amount w-24 shrink-0', overWeek && 'text-warning')}>
+                                  {formatINRCompact(w.spent)}
+                                  {s.budget.weeklyAmount
+                                    ? ` / ${formatINRCompact(s.budget.weeklyAmount)}`
+                                    : ''}
+                                </span>
+                                <span className={cn('amount', overCount && 'text-warning')}>
+                                  {w.orders} order{w.orders === 1 ? '' : 's'}
+                                  {s.budget.weeklyCount ? ` / ${s.budget.weeklyCount}` : ''}
+                                </span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </motion.div>
               );
             })}

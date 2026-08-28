@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { format, startOfMonth, startOfWeek } from 'date-fns';
+import { format, startOfMonth, endOfMonth, startOfWeek, addWeeks, isBefore } from 'date-fns';
 import { useTransactions } from './useTransactions';
 import { useFinanceContext } from './useFinanceData';
 import { useBudgets } from './useBudgets';
@@ -26,6 +26,19 @@ export interface BudgetStanding extends MonthStanding {
   /** Orders this week, using the Activity page's combine feature: transactions
    *  combined by the user count once. Null when the budget sets no order cap. */
   ordersThisWeek: number | null;
+  /** Every week overlapping the month being viewed, oldest first. Present for
+   *  all budgets so a weekly rhythm can be read even without a weekly target. */
+  weeks: WeekStanding[];
+}
+
+export interface WeekStanding {
+  /** Monday, yyyy-MM-dd. */
+  start: string;
+  spent: number;
+  /** Combines folded, so this is purchases rather than rows. */
+  orders: number;
+  /** True for the week containing today. */
+  isCurrent: boolean;
 }
 
 export interface BudgetStandings {
@@ -66,12 +79,13 @@ export function useBudgetStandings(month?: string): BudgetStandings {
     }
 
     const index = buildBudgetIndex(budgets);
-    const weekStart = format(startOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd');
+    const wkOf = (day: string) =>
+      format(startOfWeek(new Date(`${day}T12:00:00`), { weekStartsOn: 1 }), 'yyyy-MM-dd');
+    const currentWeek = wkOf(format(new Date(), 'yyyy-MM-dd'));
 
-    // budgetId -> month -> spend, plus a separate this-week tally.
+    // budgetId -> month -> spend, and budgetId -> weekStart -> {spend, txns}.
     const byBudgetMonth = new Map<string, Map<string, number>>();
-    const weekSpend = new Map<string, number>();
-    const weekTxns = new Map<string, { id: string }[]>();
+    const byBudgetWeek = new Map<string, Map<string, { spent: number; txns: { id: string }[] }>>();
 
     for (const t of txns) {
       if (
@@ -98,28 +112,59 @@ export function useBudgetStandings(month?: string): BudgetStandings {
       }
       months.set(m, (months.get(m) ?? 0) + amount);
 
-      if (day >= weekStart) {
-        weekSpend.set(id, (weekSpend.get(id) ?? 0) + amount);
-        const bucket = weekTxns.get(id) ?? [];
-        bucket.push(t as { id: string });
-        weekTxns.set(id, bucket);
+      const wk = wkOf(day);
+      let weeks = byBudgetWeek.get(id);
+      if (!weeks) {
+        weeks = new Map();
+        byBudgetWeek.set(id, weeks);
       }
+      const slot = weeks.get(wk) ?? { spent: 0, txns: [] };
+      slot.spent += amount;
+      slot.txns.push(t as { id: string });
+      weeks.set(wk, slot);
     }
+
+    // Every Monday that overlaps the viewed month, so a straddling week still
+    // appears rather than being dropped for belonging to neither month.
+    const monthStart = new Date(`${monthKey}-01T12:00:00`);
+    const weekStarts: string[] = [];
+    for (
+      let w = startOfWeek(monthStart, { weekStartsOn: 1 });
+      isBefore(w, endOfMonth(monthStart));
+      w = addWeeks(w, 1)
+    ) {
+      weekStarts.push(format(w, 'yyyy-MM-dd'));
+    }
+
+    const combineByTxnId = combineMaps?.combineByTxnId ?? {};
 
     const standings = budgets.map((b) => {
       const months = byBudgetMonth.get(b.id);
       const spentIn = (m: string) => months?.get(m) ?? 0;
       const standing = standingForMonth(b, monthKey, spentIn);
-      const spentThisWeek = weekSpend.get(b.id) ?? 0;
-      const ordersThisWeek = b.weeklyCount
-        ? countOrders(weekTxns.get(b.id) ?? [], combineMaps?.combineByTxnId ?? {})
-        : null;
+
+      const weekMap = byBudgetWeek.get(b.id);
+      const weeks = weekStarts.map((start) => {
+        const slot = weekMap?.get(start);
+        return {
+          start,
+          spent: slot?.spent ?? 0,
+          orders: countOrders(slot?.txns ?? [], combineByTxnId),
+          isCurrent: start === currentWeek,
+        };
+      });
+
+      const thisWeek = weekMap?.get(currentWeek);
+      const spentThisWeek = thisWeek?.spent ?? 0;
       return {
         budget: b,
         ...standing,
         spentThisWeek,
         pace: weeklyPace(b, spentThisWeek),
-        ordersThisWeek,
+        ordersThisWeek: b.weeklyCount
+          ? countOrders(thisWeek?.txns ?? [], combineByTxnId)
+          : null,
+        weeks,
       };
     });
 

@@ -17,6 +17,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useProfile';
 import { useMonthlyCeiling } from '@/hooks/useMonthlyCeiling';
+import { BudgetStrip } from '@/components/dashboard/BudgetStrip';
 import { useDaySummaries } from '@/hooks/useDaySummaries';
 import { cn } from '@/lib/utils';
 
@@ -202,6 +203,15 @@ export default function HomePage() {
               ))}
             </div>
           </div>
+        </motion.div>
+
+        {/* Budgets: renders nothing until at least one exists. */}
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.25 }}
+        >
+          <BudgetStrip />
         </motion.div>
 
         {/* Day Ledger: one row per day, tap to unfold that day */}
