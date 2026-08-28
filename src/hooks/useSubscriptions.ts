@@ -31,7 +31,12 @@ export interface Subscription {
 
 export interface LinkedTxn {
   transaction_id: string;
+  /** How much of the transaction counts toward this subscription. Usually the
+   *  whole charge, less when a word match caught a bigger order. */
   amount: number;
+  /** What the transaction itself was for, so a partial attribution can be shown
+   *  against it rather than silently reading as the full charge. */
+  txn_amount: number;
   transacted_at: string;
   linked_by: 'auto' | 'manual';
   merchant: string | null;
@@ -70,13 +75,14 @@ export function useSubscriptionTransactions(subscriptionId: string | undefined) 
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from('subscription_transactions')
-        .select('transaction_id, amount, transacted_at, linked_by, transactions(merchant, notes)')
+        .select('transaction_id, amount, transacted_at, linked_by, transactions(merchant, notes, amount)')
         .eq('subscription_id', subscriptionId!)
         .order('transacted_at', { ascending: false });
       if (error) throw error;
       return ((data ?? []) as any[]).map((r) => ({
         transaction_id: r.transaction_id,
         amount: Number(r.amount),
+        txn_amount: Number(r.transactions?.amount ?? r.amount),
         transacted_at: r.transacted_at,
         linked_by: r.linked_by,
         merchant: r.transactions?.merchant ?? null,
@@ -240,6 +246,42 @@ export function useLinkTransactions() {
       const { error } = await (supabase as any)
         .from('subscription_transactions')
         .upsert(rows, { onConflict: 'transaction_id' });
+      if (error) throw error;
+      await recomputeSubscription(subscriptionId);
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: [KEY] }),
+  });
+}
+
+/** Change how much of a transaction counts toward a subscription.
+ *
+ *  A match on a word catches the whole charge, which is wrong when the word
+ *  appears on a bigger order: the Swiggy One fee inside a food order, a gym
+ *  renewal inside a club bill. Only the attributed figure moves; the transaction
+ *  keeps its real amount everywhere else in the app.
+ *
+ *  Recomputes afterwards because the cadence, median and range are all derived
+ *  from these figures, so leaving them stale would keep predicting off the full
+ *  charge.
+ */
+export function useSetLinkedAmount() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      subscriptionId,
+      transactionId,
+      amount,
+    }: {
+      subscriptionId: string;
+      transactionId: string;
+      amount: number;
+    }) => {
+      if (!(amount > 0)) throw new Error('amount must be positive');
+      const { error } = await (supabase as any)
+        .from('subscription_transactions')
+        .update({ amount })
+        .eq('subscription_id', subscriptionId)
+        .eq('transaction_id', transactionId);
       if (error) throw error;
       await recomputeSubscription(subscriptionId);
     },
