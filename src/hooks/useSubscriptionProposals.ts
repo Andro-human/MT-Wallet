@@ -4,7 +4,7 @@ import { useAuth } from './useAuth';
 
 const KEY = 'subscription-proposals';
 
-/** A recurring cost the nightly discovery run found in your history and you do
+/** A recurring cost the monthly discovery run found in your history and you do
  *  not yet track. Every figure here was computed server-side from the named
  *  transactions; the agent chose only which rows belong together. */
 export interface SubscriptionProposal {
@@ -52,7 +52,7 @@ export function useSubscriptionProposals() {
 }
 
 /** Dismissal is kept, not deleted: the discovery run reads dismissed labels as a
- *  do-not-propose list, so forgetting one means being offered it every week. */
+ *  do-not-propose list, so forgetting one means being offered it every month. */
 export function useDismissProposal() {
   const { user } = useAuth();
   const qc = useQueryClient();
