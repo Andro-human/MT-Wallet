@@ -6,6 +6,12 @@ import { Plus, X, Repeat, ChevronRight, Sparkles } from 'lucide-react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { useSubscriptions, subscriptionMonthly, type Subscription } from '@/hooks/useSubscriptions';
 import { useDetectedSubscriptions } from '@/hooks/useDetectedSubscriptions';
+import {
+  useSubscriptionProposals,
+  useAcceptProposal,
+  useDismissProposal,
+  type SubscriptionProposal,
+} from '@/hooks/useSubscriptionProposals';
 import { useSubscriptionOverrides, useSetSubscriptionOverride } from '@/hooks/useSubscriptionOverrides';
 import { CreateSubscriptionDialog, type CreateSeed } from '@/components/subscriptions/CreateSubscriptionDialog';
 import { formatINR, formatINRCompact } from '@/lib/formatCurrency';
@@ -35,6 +41,9 @@ export default function SubscriptionsPage() {
   const { detected } = useDetectedSubscriptions();
   const { data: overrides } = useSubscriptionOverrides();
   const setOverride = useSetSubscriptionOverride();
+  const { data: proposals = [] } = useSubscriptionProposals();
+  const acceptProposal = useAcceptProposal();
+  const dismissProposal = useDismissProposal();
   const [createOpen, setCreateOpen] = useState(false);
   const [seed, setSeed] = useState<CreateSeed | undefined>(undefined);
 
@@ -75,6 +84,26 @@ export default function SubscriptionsPage() {
     });
   }, [detected, overrides, trackedKeys]);
 
+  // The routine and the client-side detector can land on the same service. One
+  // section, one entry per service — a second "we also found" block would be
+  // the same finding wearing a different hat.
+  const openProposals = useMemo(
+    () =>
+      proposals.filter(
+        (p) => !trackedKeys.has(normalize(p.label)) && !suggestions.some((s) => normalize(s.label) === normalize(p.label)),
+      ),
+    [proposals, suggestions, trackedKeys],
+  );
+
+  const acceptProposalRow = async (p: SubscriptionProposal) => {
+    try {
+      await acceptProposal.mutateAsync(p);
+      toast({ title: `${p.label} is now tracked`, description: `${p.occurrences} charges linked.` });
+    } catch (e) {
+      toast({ title: 'Could not add it', description: (e as Error).message, variant: 'destructive' });
+    }
+  };
+
   const openCreate = (s?: CreateSeed) => {
     setSeed(s);
     setCreateOpen(true);
@@ -107,17 +136,61 @@ export default function SubscriptionsPage() {
       </div>
 
       <div className="px-4 pb-28 pt-5 page-shell">
-        {suggestions.length > 0 && (
+        {suggestions.length + openProposals.length > 0 && (
           <div className="mb-6">
             <div className="flex items-center gap-2 mb-3 px-1">
               <Sparkles className="w-4 h-4 text-primary" />
               <h2 className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
                 Detected from your spending
               </h2>
-              <span className="text-xs text-muted-foreground">({suggestions.length})</span>
+              <span className="text-xs text-muted-foreground">
+                ({suggestions.length + openProposals.length})
+              </span>
             </div>
             <div className="space-y-3">
               <AnimatePresence mode="popLayout">
+                {openProposals.map((p) => (
+                  <motion.div
+                    key={p.id}
+                    layout
+                    initial={{ opacity: 0, y: 12 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, x: -60 }}
+                    className="neo-card p-4 rounded-xl border border-dashed border-border/60"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="font-bold truncate">{p.label}</div>
+                        <div className="text-xs text-muted-foreground mt-0.5 amount">
+                          {formatINR(p.median_amount)} · {p.cadence} ·{' '}
+                          {p.occurrences} charges since{' '}
+                          {format(new Date(`${p.first_seen}T12:00:00`), 'MMM yyyy')}
+                        </div>
+                        {p.rationale && (
+                          <p className="text-xs text-muted-foreground mt-1.5 leading-relaxed">
+                            {p.rationale}
+                          </p>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button
+                          onClick={() => acceptProposalRow(p)}
+                          disabled={acceptProposal.isPending}
+                          className="flex items-center gap-1 px-3 h-9 rounded-lg bg-primary text-primary-foreground text-xs font-medium disabled:opacity-50"
+                        >
+                          <Plus className="w-3.5 h-3.5" /> Add
+                        </button>
+                        <button
+                          onClick={() => dismissProposal.mutate(p.id)}
+                          aria-label="Dismiss"
+                          className="h-9 w-9 grid place-items-center rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  </motion.div>
+                ))}
                 {suggestions.map((d) => (
                   <motion.div
                     key={d.clusterKey}
@@ -162,7 +235,7 @@ export default function SubscriptionsPage() {
             <div className="neo-card h-20 rounded-xl bg-muted/10" />
             <div className="neo-card h-20 rounded-xl bg-muted/10" />
           </div>
-        ) : active.length === 0 && suggestions.length === 0 ? (
+        ) : active.length === 0 && suggestions.length === 0 && openProposals.length === 0 ? (
           <div className="text-center py-16">
             <Repeat className="w-10 h-10 mx-auto mb-4 text-muted-foreground/30" />
             <p className="font-medium">No subscriptions yet</p>
