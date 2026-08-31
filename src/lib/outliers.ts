@@ -24,6 +24,9 @@ export interface SliceRow {
   month: string;
   label: string;
   amount: number;
+  /** Where the theme's money went. Absent on months written before slice
+   *  one-liners; the maths never reads it, only the view does. */
+  one_liner?: string | null;
 }
 
 export interface MonthOutliers {
@@ -45,6 +48,7 @@ export interface Outlier {
   amount: number;
   reason: 'rare' | 'large';
   detail: string;
+  one_liner: string | null;
   /** Share of the month, for the bar. */
   share: number;
 }
@@ -132,7 +136,15 @@ export function monthOutliers(
       const verdict = isDismissed(dismissed, month, r.label)
         ? null
         : classify(hist, r.label, month, r.amount, total);
-      if (verdict) outliers.push({ label: r.label, amount: r.amount, share: r.amount / total, ...verdict });
+      if (verdict) {
+        outliers.push({
+          label: r.label,
+          amount: r.amount,
+          share: r.amount / total,
+          one_liner: r.one_liner ?? null,
+          ...verdict,
+        });
+      }
       else baseline += r.amount;
     }
     // The current budget is applied to every month on purpose, as a fixed line

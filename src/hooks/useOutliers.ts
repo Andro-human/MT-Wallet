@@ -24,7 +24,12 @@ function useSliceHistory() {
       const totals = new Map<string, number>();
       for (const r of data ?? []) {
         for (const s of r.spend_slices ?? []) {
-          rows.push({ month: r.month, label: s.label, amount: Number(s.amount) });
+          rows.push({
+            month: r.month,
+            label: s.label,
+            amount: Number(s.amount),
+            one_liner: s.one_liner ?? null,
+          });
         }
         // aggregates.total_spent is rounded; the slices sum to the exact figure,
         // and they must, because the server refused the review otherwise.

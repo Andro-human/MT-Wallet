@@ -25,6 +25,9 @@ export interface SpendSlice {
   label: string;
   amount: number;
   count: number;
+  /** Where the theme's money actually went, at the granularity of the things
+   *  bought. Absent on rows written before slice one-liners existed. */
+  one_liner?: string | null;
 }
 
 export interface MonthlySummary {

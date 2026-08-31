@@ -7,6 +7,7 @@ interface Slice {
   label: string;
   amount: number;
   count: number;
+  one_liner?: string | null;
 }
 
 interface SpendTreemapProps {
@@ -113,6 +114,7 @@ export function SpendTreemap({ slices, minShare = 0.035 }: SpendTreemapProps) {
     const cells = kept.map((s) => ({
       label: s.label,
       amount: s.amount,
+      one_liner: s.one_liner ?? null,
       fill: colors.get(s.label) ?? LONG_TAIL_COLOR,
     }));
 
@@ -120,6 +122,7 @@ export function SpendTreemap({ slices, minShare = 0.035 }: SpendTreemapProps) {
       cells.push({
         label: FOLD_LABEL,
         amount: tail.reduce((s, x) => s + x.amount, 0),
+        one_liner: null,
         fill: LONG_TAIL_COLOR,
       });
     }
@@ -158,7 +161,7 @@ export function SpendTreemap({ slices, minShare = 0.035 }: SpendTreemapProps) {
       </div>
 
       {/* Fixed height so revealing the fold does not shove the page around. */}
-      <div className="mt-2 min-h-[2.25rem] text-2xs leading-relaxed">
+      <div className="mt-2 min-h-[3.5rem] text-2xs leading-relaxed">
         {showingFold ? (
           <p className="text-muted-foreground">
             <span className="text-foreground">{FOLD_LABEL}</span> is{' '}
@@ -171,11 +174,16 @@ export function SpendTreemap({ slices, minShare = 0.035 }: SpendTreemapProps) {
             ))}
           </p>
         ) : activeCell ? (
-          <p className="text-muted-foreground">
-            <span className="text-foreground">{activeCell.label}</span>{' '}
-            <span className="amount">{formatINRCompact(activeCell.amount)}</span> ·{' '}
-            {((activeCell.amount / total) * 100).toFixed(0)}% of the month
-          </p>
+          <div>
+            <p className="text-muted-foreground">
+              <span className="text-foreground">{activeCell.label}</span>{' '}
+              <span className="amount">{formatINRCompact(activeCell.amount)}</span> ·{' '}
+              {((activeCell.amount / total) * 100).toFixed(0)}% of the month
+            </p>
+            {activeCell.one_liner && (
+              <p className="mt-1 text-muted-foreground/85">{activeCell.one_liner}</p>
+            )}
+          </div>
         ) : foldMembers.length > 0 ? (
           <p className="text-muted-foreground">
             {FOLD_LABEL} groups {foldMembers.length} smaller items. Hover or tap a block to

@@ -26,6 +26,7 @@ export function MonthDifferences({ only }: { only?: string[] }) {
   const dismissEverywhere = useDismissLabelEverywhere();
   const restore = useRestoreOutlier();
   const [showDismissed, setShowDismissed] = useState(false);
+  const [openMark, setOpenMark] = useState<string | null>(null);
 
   const scale = useMemo(() => Math.max(1, ...months.map((m) => m.total)), [months]);
   const ordinary = useMemo(() => {
@@ -61,8 +62,8 @@ export function MonthDifferences({ only }: { only?: string[] }) {
       </p>
       <p className="mt-1.5 max-w-[46ch] text-[13px] leading-relaxed text-muted-foreground">
         Bars share one scale. The quiet part recurs every month; each vermilion mark is a theme that
-        did not, or that came in far above its usual size. Cross it off for this month, or strike it
-        out everywhere if the label is never worth flagging.
+        did not, or that came in far above its usual size. Tap a mark to see where its money went;
+        cross it off for this month, or strike it out everywhere if the label is never worth flagging.
       </p>
 
       <div className="mt-7">
@@ -116,8 +117,20 @@ export function MonthDifferences({ only }: { only?: string[] }) {
                       className="group inline-flex items-center gap-1.5 text-[13px] text-foreground"
                     >
                       <span className="h-[5px] w-[5px] shrink-0 rounded-full bg-primary" />
-                      {o.label} <span className="amount">{formatINR(o.amount)}</span>
-                      <span className="text-[11px] text-muted-foreground">{o.detail}</span>
+                      <button
+                        onClick={() =>
+                          setOpenMark((k) => (k === `${m.month}|${o.label}` ? null : `${m.month}|${o.label}`))
+                        }
+                        disabled={!o.one_liner}
+                        className={cn(
+                          'inline-flex items-baseline gap-1.5 text-left',
+                          o.one_liner && 'underline decoration-dotted decoration-border underline-offset-4',
+                        )}
+                      >
+                        <span>{o.label}</span>
+                        <span className="amount">{formatINR(o.amount)}</span>
+                        <span className="text-[11px] text-muted-foreground">{o.detail}</span>
+                      </button>
                       <span className="ml-0.5 flex items-center opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
                         <button
                           onClick={() => dismiss.mutate({ month: m.month, label: o.label })}
@@ -141,6 +154,15 @@ export function MonthDifferences({ only }: { only?: string[] }) {
                 </AnimatePresence>
               </div>
             )}
+
+            {(() => {
+              const open = m.outliers.find((o) => `${m.month}|${o.label}` === openMark);
+              return open?.one_liner ? (
+                <p className="mt-2 max-w-[60ch] text-[12px] leading-relaxed text-muted-foreground/85">
+                  {open.one_liner}
+                </p>
+              ) : null;
+            })()}
 
             <p className="mt-2 text-[12px] text-muted-foreground">
               {m.outliers.length > 0 && (
