@@ -1029,6 +1029,13 @@ export default function InsightsPage() {
               </div>
             )}
             <MonthlySummaryCard month={selectedReviewMonth} />
+            <Link
+              to="/insights/outliers"
+              className="mt-3 flex items-center justify-between rounded-xl border border-dashed border-border/60 px-4 py-3 text-sm text-muted-foreground transition-colors hover:text-foreground"
+            >
+              <span>What made each month different</span>
+              <ChevronRight className="h-4 w-4" />
+            </Link>
           </div>
         )}
 
