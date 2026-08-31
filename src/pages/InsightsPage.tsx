@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import { ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { startOfMonth, endOfMonth, subMonths, format, eachMonthOfInterval, startOfDay, endOfDay } from 'date-fns';
-import { ChevronRight, ChevronDown, Folder, Calendar, X, Filter, BarChart3, Layers, LayoutGrid, HandCoins } from 'lucide-react';
+import { ChevronDown, Folder, Calendar, X, Filter, BarChart3, Layers, LayoutGrid, HandCoins } from 'lucide-react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { MonthYearPicker } from '@/components/ui/MonthYearPicker';
 import { useTransactions } from '@/hooks/useTransactions';
@@ -12,6 +12,7 @@ import { useTransactionGroups } from '@/hooks/useTransactionGroups';
 import { useBankAccounts } from '@/hooks/useBankAccounts';
 import { useFinanceContext } from '@/hooks/useFinanceData';
 import { MonthlySummaryCard } from '@/components/insights/MonthlySummaryCard';
+import { MonthDifferences } from '@/components/insights/MonthDifferences';
 import { useMonthlySummary } from '@/hooks/useMonthlySummary';
 import {
   netAmount as computeNetAmount,
@@ -93,6 +94,8 @@ export default function InsightsPage() {
   const [showCustomPicker, setShowCustomPicker] = useState(timeRange === 'custom');
   const [excludedGroups, setExcludedGroups] = useState<Set<string>>(new Set());
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+  const [showBanks, setShowBanks] = useState(false);
+  const [showMerchants, setShowMerchants] = useState(false);
 
   const { data: categories = [] } = useCategories();
   const { data: groups = [] } = useTransactionGroups();
@@ -1029,14 +1032,23 @@ export default function InsightsPage() {
               </div>
             )}
             <MonthlySummaryCard month={selectedReviewMonth} />
-            <Link
-              to="/insights/outliers"
-              className="mt-3 flex items-center justify-between rounded-xl border border-dashed border-border/60 px-4 py-3 text-sm text-muted-foreground transition-colors hover:text-foreground"
-            >
-              <span>What made each month different</span>
-              <ChevronRight className="h-4 w-4" />
-            </Link>
           </div>
+        )}
+
+        {/* Every month with a review, not just the range on screen — the point of
+            the section is reading one month against all the others. */}
+        {!isLoading && (
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.18 }}
+            className="neo-card p-6 mb-6"
+          >
+            <h3 className="mb-4 font-heading font-bold text-foreground">
+              What made each month different
+            </h3>
+            <MonthDifferences />
+          </motion.div>
         )}
 
         {/* Allocation — groups + ungrouped categories, de-duped */}
@@ -1206,12 +1218,19 @@ export default function InsightsPage() {
             transition={{ delay: 0.23 }}
             className="neo-card p-6 mb-6"
           >
-            <div className="flex items-center justify-between mb-4">
+            <button
+              onClick={() => setShowBanks(v => !v)}
+              className="flex w-full items-center justify-between gap-3 text-left"
+              aria-expanded={showBanks}
+            >
               <h3 className="font-heading font-bold text-foreground">By Bank Account</h3>
-              <span className="text-xs font-mono text-muted-foreground uppercase tracking-wider">Spend By Source</span>
-            </div>
+              <span className="flex items-center gap-2 text-xs font-mono text-muted-foreground uppercase tracking-wider">
+                {formatINRCompact(totalBankSpent)}
+                <ChevronDown className={cn('h-4 w-4 transition-transform', showBanks && 'rotate-180')} />
+              </span>
+            </button>
 
-            <div className="space-y-9">
+            <div className={cn('space-y-9 mt-4', !showBanks && 'hidden')}>
               {bankBreakdown.map((b) => {
                 const percentage = bankMax > 0 ? (b.amount / bankMax) * 100 : 0;
                 const params = new URLSearchParams();
@@ -1258,8 +1277,16 @@ export default function InsightsPage() {
           transition={{ delay: 0.25 }}
           className="neo-card p-6"
         >
-          <h3 className="font-heading font-bold text-foreground mb-4">Top Merchants</h3>
+          <button
+            onClick={() => setShowMerchants(v => !v)}
+            className="flex w-full items-center justify-between gap-3 text-left"
+            aria-expanded={showMerchants}
+          >
+            <h3 className="font-heading font-bold text-foreground">Top Merchants</h3>
+            <ChevronDown className={cn('h-4 w-4 shrink-0 text-muted-foreground transition-transform', showMerchants && 'rotate-180')} />
+          </button>
 
+          <div className={cn('mt-4', !showMerchants && 'hidden')}>
           {isLoading ? (
             <div className="space-y-2">
               <Skeleton className="h-10 w-full" />
@@ -1290,6 +1317,7 @@ export default function InsightsPage() {
           ) : (
             <p className="text-center text-muted-foreground py-4 font-mono text-xs">NO DATA</p>
           )}
+          </div>
         </motion.div>
       </div>
     </AppLayout>
