@@ -145,10 +145,11 @@ export default function OutliersPage() {
           </div>
         )}
 
-        {budget !== null && budgetFrom && (
+        {budget !== null && (
           <p className="mt-6 text-[12px] leading-relaxed text-muted-foreground">
-            The budget tick is your current {formatINR(budget)} a month, shown only from{' '}
-            {monthLabel(budgetFrom)} when it started applying. Earlier months had no budget to miss.
+            The tick is your current {formatINR(budget)} a month, drawn on every month as one fixed line
+            {budgetFrom ? <> to read history against. You only set it in {monthLabel(budgetFrom)}, so
+            earlier months were not actually measured against it.</> : '.'}
           </p>
         )}
 

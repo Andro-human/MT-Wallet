@@ -33,8 +33,8 @@ export interface MonthOutliers {
   baseline: number;
   outliers: Outlier[];
   budget: number | null;
-  /** Was the month inside budget once the one-offs are set aside? Null when no
-   *  budget covers that month, which is every month before budgets existed. */
+  /** Was the month inside budget once the one-offs are set aside? Null only when
+   *  no budget exists at all. */
   ordinaryWithinBudget: boolean | null;
 }
 
@@ -108,7 +108,6 @@ export function monthOutliers(
   totals: Map<string, number>,
   dismissed: Set<string>,
   monthlyBudget: number | null,
-  budgetFrom: string | null,
 ): MonthOutliers[] {
   const hist = buildHistory(rows);
   const months = [...new Set(rows.map((r) => r.month))].sort().reverse();
@@ -122,9 +121,10 @@ export function monthOutliers(
       if (verdict) outliers.push({ label: r.label, amount: r.amount, share: r.amount / total, ...verdict });
       else baseline += r.amount;
     }
-    // A budget only applies to months it was actually in force for. Drawing
-    // today's number across last year would invent a target that never existed.
-    const budget = monthlyBudget !== null && budgetFrom !== null && month >= budgetFrom ? monthlyBudget : null;
+    // The current budget is applied to every month on purpose, as a fixed line
+    // to read history against. It is not a claim that this budget was in force
+    // then; the page says so. Which is why the label matters more than the maths.
+    const budget = monthlyBudget;
     return {
       month,
       total: Math.round(total * 100) / 100,

@@ -46,14 +46,14 @@ describe('classify', () => {
 
 describe('monthOutliers', () => {
   it('splits each month into a baseline and its one-offs', () => {
-    const out = monthOutliers(ROWS, TOTALS, new Set(), null, null);
+    const out = monthOutliers(ROWS, TOTALS, new Set(), null);
     const aug = out.find((m) => m.month === '2026-08')!;
     expect(aug.baseline).toBe(10000);
     expect(aug.outliers.map((o) => o.label)).toEqual(['PC build']);
   });
 
   it('the baseline is what stays still across months', () => {
-    const out = monthOutliers(ROWS, TOTALS, new Set(), null, null);
+    const out = monthOutliers(ROWS, TOTALS, new Set(), null);
     // Every month is 10,000 of eating out, except July which also absorbs the
     // ₹268 metro commute: a one-off under the floor is ordinary, not hidden.
     expect(out.find((m) => m.month === '2026-07')!.baseline).toBe(10268);
@@ -61,7 +61,7 @@ describe('monthOutliers', () => {
   });
 
   it('a sub-floor one-off still counts toward the month, never dropped', () => {
-    const out = monthOutliers(ROWS, TOTALS, new Set(), null, null);
+    const out = monthOutliers(ROWS, TOTALS, new Set(), null);
     for (const m of out) {
       const flagged = m.outliers.reduce((s, o) => s + o.amount, 0);
       expect(m.baseline + flagged).toBeCloseTo(m.total, 2);
@@ -81,15 +81,19 @@ describe('monthOutliers', () => {
     expect(out.find((m) => m.month === '2026-06')!.outliers.map((o) => o.label)).toEqual(['Meghalaya trip']);
   });
 
-  it('a budget applies only to months it was in force for', () => {
-    const out = monthOutliers(ROWS, TOTALS, new Set(), 40000, '2026-08');
-    expect(out.find((m) => m.month === '2026-08')!.budget).toBe(40000);
-    expect(out.find((m) => m.month === '2026-01')!.budget).toBeNull();
-    expect(out.find((m) => m.month === '2026-01')!.ordinaryWithinBudget).toBeNull();
+  it('the current budget is drawn on every month, including ones before it existed', () => {
+    const out = monthOutliers(ROWS, TOTALS, new Set(), 40000);
+    expect(out.every((m) => m.budget === 40000)).toBe(true);
+    expect(out.every((m) => m.ordinaryWithinBudget !== null)).toBe(true);
+  });
+
+  it('no budget at all leaves the comparison undrawn rather than assuming zero', () => {
+    const out = monthOutliers(ROWS, TOTALS, new Set(), null);
+    expect(out.every((m) => m.budget === null && m.ordinaryWithinBudget === null)).toBe(true);
   });
 
   it('reports whether the ordinary month would have fit the budget', () => {
-    const out = monthOutliers(ROWS, TOTALS, new Set(), 40000, '2026-08');
+    const out = monthOutliers(ROWS, TOTALS, new Set(), 40000);
     const aug = out.find((m) => m.month === '2026-08')!;
     // Spent 50,331 against 40,000, but the recurring part is only 10,000.
     expect(aug.total).toBe(50331);
@@ -97,13 +101,13 @@ describe('monthOutliers', () => {
   });
 
   it('says so when even the ordinary month misses budget', () => {
-    const out = monthOutliers(ROWS, TOTALS, new Set(), 5000, '2025-12');
+    const out = monthOutliers(ROWS, TOTALS, new Set(), 5000);
     expect(out.every((m) => m.ordinaryWithinBudget === false)).toBe(true);
   });
 
   it('a month with nothing unusual reports an empty list, not a fabricated one', () => {
     const flat = ['2026-08','2026-07','2026-06','2026-05'].map((m) => row(m, 'Eating out & delivery', 10000));
     const t = new Map(flat.map((r) => [r.month, r.amount]));
-    expect(monthOutliers(flat, t, new Set(), null, null).every((m) => m.outliers.length === 0)).toBe(true);
+    expect(monthOutliers(flat, t, new Set(), null).every((m) => m.outliers.length === 0)).toBe(true);
   });
 });

@@ -36,8 +36,9 @@ function useSliceHistory() {
   });
 }
 
-/** The monthly ceiling, and the date it started applying. Drawing today's budget
- *  across months that never had one would invent a target. */
+/** The monthly ceiling, plus the month it started applying. The ceiling is drawn
+ *  on every month so history can be read against one fixed line; `from` is only
+ *  used to tell the reader which months predate it. */
 function useBudgetCeiling() {
   const { user } = useAuth();
   return useQuery({
@@ -121,7 +122,6 @@ export function useOutliers() {
       history.data.totals,
       dismissed.data ?? new Set(),
       budget.data?.monthly ?? null,
-      budget.data?.from ?? null,
     );
   }, [history.data, dismissed.data, budget.data]);
 
