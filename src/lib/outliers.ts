@@ -119,6 +119,21 @@ function countMonths(hist: Map<string, Map<string, number>>): number {
   return months.size;
 }
 
+export interface OutlierTotals {
+  total: number;
+  baseline: number;
+  flagged: number;
+}
+
+/** What the months on screen add up to. Follows whatever is displayed, so a
+ *  6-month range totals six months and a dismissal moves money from flagged to
+ *  baseline without changing the total. */
+export function totalsAcross(months: MonthOutliers[]): OutlierTotals {
+  const sum = (pick: (m: MonthOutliers) => number) =>
+    Math.round(months.reduce((t, m) => t + pick(m), 0) * 100) / 100;
+  return { total: sum((m) => m.total), baseline: sum((m) => m.baseline), flagged: sum((m) => m.flagged) };
+}
+
 export function monthOutliers(
   rows: SliceRow[],
   totals: Map<string, number>,

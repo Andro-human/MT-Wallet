@@ -10,7 +10,7 @@ import {
   useRestoreOutlier,
   useDismissedOutliers,
 } from '@/hooks/useOutliers';
-import { EVERY_MONTH } from '@/lib/outliers';
+import { EVERY_MONTH, totalsAcross } from '@/lib/outliers';
 import { cn } from '@/lib/utils';
 
 const monthLabel = (m: string) => format(new Date(`${m}-01T12:00:00`), 'MMMM yyyy');
@@ -19,7 +19,7 @@ const monthLabel = (m: string) => format(new Date(`${m}-01T12:00:00`), 'MMMM yyy
  *  anomaly colour and there is nothing else it could be here. */
 const OPACITY = [1, 0.78, 0.62, 0.5, 0.42, 0.36, 0.32, 0.3];
 
-export function MonthDifferences({ only }: { only?: string[] }) {
+export function MonthDifferences({ only, title }: { only?: string[]; title?: string }) {
   const { months, budget, budgetFrom, isLoading } = useOutliers(only);
   const { data: dismissed } = useDismissedOutliers();
   const dismiss = useDismissOutlier();
@@ -29,6 +29,7 @@ export function MonthDifferences({ only }: { only?: string[] }) {
   const [openMark, setOpenMark] = useState<string | null>(null);
 
   const scale = useMemo(() => Math.max(1, ...months.map((m) => m.total)), [months]);
+  const totals = useMemo(() => totalsAcross(months), [months]);
   const ordinary = useMemo(() => {
     if (months.length === 0) return 0;
     const s = months.map((m) => m.baseline).sort((a, b) => a - b);
@@ -36,26 +37,54 @@ export function MonthDifferences({ only }: { only?: string[] }) {
     return s.length % 2 ? s[mid] : (s[mid - 1] + s[mid]) / 2;
   }, [months]);
 
+  const header = (
+    <div className="mb-4 flex flex-wrap items-start justify-between gap-x-6 gap-y-2">
+      {title ? <h3 className="font-heading font-bold text-foreground">{title}</h3> : <span />}
+      {months.length > 0 && (
+        <div className="text-right">
+          <div className="amount text-[15px] text-foreground">{formatINR(totals.total)}</div>
+          <div className="mt-0.5 flex items-center justify-end gap-3 text-[11px] text-muted-foreground">
+            <span className="inline-flex items-center gap-1.5">
+              <span className="h-[5px] w-[5px] rounded-full bg-muted-foreground/40" />
+              <span className="amount">{formatINR(totals.baseline)}</span> ordinary
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <span className="h-[5px] w-[5px] rounded-full bg-primary" />
+              <span className="amount">{formatINR(totals.flagged)}</span> one-offs
+            </span>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
   if (isLoading) {
     return (
-      <div className="space-y-4">
-        {[0, 1, 2].map((i) => (
-          <div key={i} className="h-16 rounded-xl bg-muted/10" />
-        ))}
+      <div>
+        {header}
+        <div className="space-y-4">
+          {[0, 1, 2].map((i) => (
+            <div key={i} className="h-16 rounded-xl bg-muted/10" />
+          ))}
+        </div>
       </div>
     );
   }
 
   if (months.length === 0) {
     return (
-      <p className="text-sm text-muted-foreground">
-        No monthly reviews in this range, so there is nothing to compare.
-      </p>
+      <div>
+        {header}
+        <p className="text-sm text-muted-foreground">
+          No monthly reviews in this range, so there is nothing to compare.
+        </p>
+      </div>
     );
   }
 
   return (
     <div>
+      {header}
       <p className="text-[15px] text-foreground">
         An ordinary month costs <span className="amount">{formatINR(ordinary)}</span>. Everything past
         that is one-offs.

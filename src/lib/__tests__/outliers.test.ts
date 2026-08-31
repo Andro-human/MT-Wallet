@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildHistory, classify, floorFor, monthOutliers, isDismissed, EVERY_MONTH, type SliceRow } from '@/lib/outliers';
+import { buildHistory, classify, floorFor, monthOutliers, totalsAcross, isDismissed, EVERY_MONTH, type SliceRow } from '@/lib/outliers';
 
 const row = (month: string, label: string, amount: number): SliceRow => ({ month, label, amount });
 
@@ -152,5 +152,30 @@ describe('flagged', () => {
     const out = monthOutliers(ROWS, TOTALS, new Set(), null);
     const quiet = out.find((m) => m.outliers.length === 0);
     expect(quiet?.flagged).toBe(0);
+  });
+});
+
+describe('totalsAcross', () => {
+  it('adds up only the months it is given', () => {
+    const all = monthOutliers(ROWS, TOTALS, new Set(), null);
+    const two = totalsAcross(all.slice(0, 2));
+    expect(two.total).toBeCloseTo(all[0].total + all[1].total, 2);
+  });
+
+  it('splits the total into ordinary and one-offs, losing nothing', () => {
+    const t = totalsAcross(monthOutliers(ROWS, TOTALS, new Set(), 40000));
+    expect(t.baseline + t.flagged).toBeCloseTo(t.total, 2);
+  });
+
+  it('a dismissal moves money to ordinary without changing the total', () => {
+    const before = totalsAcross(monthOutliers(ROWS, TOTALS, new Set(), null));
+    const after = totalsAcross(monthOutliers(ROWS, TOTALS, new Set(['2026-08|PC build']), null));
+    expect(after.total).toBeCloseTo(before.total, 2);
+    expect(after.flagged).toBeCloseTo(before.flagged - 40331, 2);
+    expect(after.baseline).toBeCloseTo(before.baseline + 40331, 2);
+  });
+
+  it('no months is zero, not NaN', () => {
+    expect(totalsAcross([])).toEqual({ total: 0, baseline: 0, flagged: 0 });
   });
 });

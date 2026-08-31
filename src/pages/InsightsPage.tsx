@@ -1046,10 +1046,7 @@ export default function InsightsPage() {
             transition={{ delay: 0.18 }}
             className="neo-card p-6 mb-6"
           >
-            <h3 className="mb-4 font-heading font-bold text-foreground">
-              What made each month different
-            </h3>
-            <MonthDifferences only={monthKeysInRange} />
+            <MonthDifferences only={monthKeysInRange} title="What made each month different" />
           </motion.div>
         )}
 
