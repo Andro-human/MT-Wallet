@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildHistory, classify, floorFor, monthOutliers, type SliceRow } from '@/lib/outliers';
+import { buildHistory, classify, floorFor, monthOutliers, isDismissed, EVERY_MONTH, type SliceRow } from '@/lib/outliers';
 
 const row = (month: string, label: string, amount: number): SliceRow => ({ month, label, amount });
 
@@ -69,14 +69,14 @@ describe('monthOutliers', () => {
   });
 
   it('a dismissed slice returns to the baseline and stops being flagged', () => {
-    const out = monthOutliers(ROWS, TOTALS, new Set(['2026-08|PC build']), null, null);
+    const out = monthOutliers(ROWS, TOTALS, new Set(['2026-08|PC build']), null);
     const aug = out.find((m) => m.month === '2026-08')!;
     expect(aug.outliers).toEqual([]);
     expect(aug.baseline).toBe(50331);
   });
 
   it('dismissing one month does not dismiss the same label elsewhere', () => {
-    const out = monthOutliers(ROWS, TOTALS, new Set(['2026-07|Meghalaya trip']), null, null);
+    const out = monthOutliers(ROWS, TOTALS, new Set(['2026-07|Meghalaya trip']), null);
     expect(out.find((m) => m.month === '2026-07')!.outliers).toEqual([]);
     expect(out.find((m) => m.month === '2026-06')!.outliers.map((o) => o.label)).toEqual(['Meghalaya trip']);
   });
@@ -109,5 +109,48 @@ describe('monthOutliers', () => {
     const flat = ['2026-08','2026-07','2026-06','2026-05'].map((m) => row(m, 'Eating out & delivery', 10000));
     const t = new Map(flat.map((r) => [r.month, r.amount]));
     expect(monthOutliers(flat, t, new Set(), null).every((m) => m.outliers.length === 0)).toBe(true);
+  });
+});
+
+describe('dismissing a label everywhere', () => {
+  const everywhere = new Set([`${EVERY_MONTH}|Meghalaya trip`]);
+
+  it('clears the label from every month at once, not just the one tapped', () => {
+    const out = monthOutliers(ROWS, TOTALS, everywhere, null);
+    const labels = out.flatMap((m) => m.outliers.map((o) => o.label));
+    expect(labels).not.toContain('Meghalaya trip');
+  });
+
+  it('returns the amount to each month\'s baseline rather than dropping it', () => {
+    const out = monthOutliers(ROWS, TOTALS, everywhere, null);
+    const july = out.find((m) => m.month === '2026-07')!;
+    expect(july.baseline).toBeCloseTo(july.total, 2);
+    expect(july.flagged).toBeCloseTo(0, 2);
+  });
+
+  it('leaves other labels alone', () => {
+    const out = monthOutliers(ROWS, TOTALS, everywhere, null);
+    const aug = out.find((m) => m.month === '2026-08')!;
+    expect(aug.outliers.map((o) => o.label)).toEqual(['PC build']);
+  });
+
+  it('a per-month dismissal still only covers that month', () => {
+    expect(isDismissed(new Set(['2026-08|PC build']), '2026-08', 'PC build')).toBe(true);
+    expect(isDismissed(new Set(['2026-08|PC build']), '2026-07', 'PC build')).toBe(false);
+  });
+});
+
+describe('flagged', () => {
+  it('is what the marks add up to, and always completes the baseline', () => {
+    for (const m of monthOutliers(ROWS, TOTALS, new Set(), 40000)) {
+      expect(m.flagged).toBeCloseTo(m.outliers.reduce((s, o) => s + o.amount, 0), 2);
+      expect(m.baseline + m.flagged).toBeCloseTo(m.total, 2);
+    }
+  });
+
+  it('is zero for a month with nothing unusual', () => {
+    const out = monthOutliers(ROWS, TOTALS, new Set(), null);
+    const quiet = out.find((m) => m.outliers.length === 0);
+    expect(quiet?.flagged).toBe(0);
   });
 });

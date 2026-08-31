@@ -497,6 +497,8 @@ export default function InsightsPage() {
     }));
   }, [dateRange, now]);
 
+  const monthKeysInRange = useMemo(() => monthsInRange.map((m) => m.key), [monthsInRange]);
+
   const [selectedReviewMonth, setSelectedReviewMonth] = useState<string | null>(null);
   useEffect(() => {
     const keys = monthsInRange.map((m) => m.key);
@@ -748,7 +750,7 @@ export default function InsightsPage() {
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="mb-6 overflow-x-auto"
+          className="rail-scroll mb-6 overflow-x-auto"
         >
           <div className="flex gap-0 border border-border bg-card w-fit">
             {timeRangeOptions.map((range) => (
@@ -1014,7 +1016,7 @@ export default function InsightsPage() {
         {!isLoading && selectedReviewMonth && (
           <div>
             {monthsInRange.length > 1 && (
-              <div className="flex gap-2 overflow-x-auto pb-3 -mx-1 px-1">
+              <div className="rail-scroll rail-fade flex gap-2 overflow-x-auto pb-3 -mx-1 px-1">
                 {monthsInRange.map((m) => (
                   <button
                     key={m.key}
@@ -1035,8 +1037,8 @@ export default function InsightsPage() {
           </div>
         )}
 
-        {/* Every month with a review, not just the range on screen — the point of
-            the section is reading one month against all the others. */}
+        {/* Follows the range picker. Rarity is still measured against every stored
+            month — only the rows shown are narrowed. */}
         {!isLoading && (
           <motion.div
             initial={{ opacity: 0, y: 16 }}
@@ -1047,7 +1049,7 @@ export default function InsightsPage() {
             <h3 className="mb-4 font-heading font-bold text-foreground">
               What made each month different
             </h3>
-            <MonthDifferences />
+            <MonthDifferences only={monthKeysInRange} />
           </motion.div>
         )}
 

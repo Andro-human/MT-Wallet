@@ -31,6 +31,8 @@ export interface MonthOutliers {
   total: number;
   /** Spending that shows up every month. The interesting number: it barely moves. */
   baseline: number;
+  /** What the marks add up to. `baseline + flagged === total` to the paisa. */
+  flagged: number;
   outliers: Outlier[];
   budget: number | null;
   /** Was the month inside budget once the one-offs are set aside? Null only when
@@ -45,6 +47,16 @@ export interface Outlier {
   detail: string;
   /** Share of the month, for the bar. */
   share: number;
+}
+
+/** A dismissal stored against this instead of a real month means "never flag
+ *  this label anywhere". The column is NOT NULL, so a sentinel is cheaper than
+ *  a nullable month and a partial unique index. `*` cannot collide: every real
+ *  month is `YYYY-MM`. */
+export const EVERY_MONTH = '*';
+
+export function isDismissed(dismissed: Set<string>, month: string, label: string): boolean {
+  return dismissed.has(`${month}|${label}`) || dismissed.has(`${EVERY_MONTH}|${label}`);
 }
 
 export const RARE_MAX_MONTHS = 3;
@@ -117,7 +129,9 @@ export function monthOutliers(
     const outliers: Outlier[] = [];
     let baseline = 0;
     for (const r of rows.filter((x) => x.month === month).sort((a, b) => b.amount - a.amount)) {
-      const verdict = dismissed.has(`${month}|${r.label}`) ? null : classify(hist, r.label, month, r.amount, total);
+      const verdict = isDismissed(dismissed, month, r.label)
+        ? null
+        : classify(hist, r.label, month, r.amount, total);
       if (verdict) outliers.push({ label: r.label, amount: r.amount, share: r.amount / total, ...verdict });
       else baseline += r.amount;
     }
@@ -129,6 +143,7 @@ export function monthOutliers(
       month,
       total: Math.round(total * 100) / 100,
       baseline: Math.round(baseline * 100) / 100,
+      flagged: Math.round((total - baseline) * 100) / 100,
       outliers,
       budget,
       ordinaryWithinBudget: budget === null ? null : baseline <= budget,

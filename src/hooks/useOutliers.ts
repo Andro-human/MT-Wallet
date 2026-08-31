@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
-import { monthOutliers, type SliceRow } from '@/lib/outliers';
+import { monthOutliers, EVERY_MONTH, type SliceRow } from '@/lib/outliers';
 
 const KEY = 'outliers';
 
@@ -79,6 +79,14 @@ export function useDismissedOutliers() {
   });
 }
 
+export function useDismissLabelEverywhere() {
+  const dismiss = useDismissOutlier();
+  return {
+    ...dismiss,
+    mutate: ({ label }: { label: string }) => dismiss.mutate({ month: EVERY_MONTH, label }),
+  };
+}
+
 export function useDismissOutlier() {
   const { user } = useAuth();
   const qc = useQueryClient();
@@ -110,12 +118,15 @@ export function useRestoreOutlier() {
   });
 }
 
-export function useOutliers() {
+/** `only` narrows what is shown, never what is measured: rarity is "3 of 19
+ *  months", and recomputing it over a 6-month view would relabel a staple as a
+ *  one-off. Classification always sees the whole history. */
+export function useOutliers(only?: string[]) {
   const history = useSliceHistory();
   const budget = useBudgetCeiling();
   const dismissed = useDismissedOutliers();
 
-  const months = useMemo(() => {
+  const all = useMemo(() => {
     if (!history.data) return [];
     return monthOutliers(
       history.data.rows,
@@ -125,8 +136,15 @@ export function useOutliers() {
     );
   }, [history.data, dismissed.data, budget.data]);
 
+  const months = useMemo(() => {
+    if (!only) return all;
+    const want = new Set(only);
+    return all.filter((m) => want.has(m.month));
+  }, [all, only]);
+
   return {
     months,
+    monthsMeasured: all.length,
     dismissedCount: dismissed.data?.size ?? 0,
     budget: budget.data?.monthly ?? null,
     budgetFrom: budget.data?.from ?? null,

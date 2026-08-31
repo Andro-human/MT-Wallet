@@ -212,6 +212,23 @@
     mask-image: linear-gradient(to bottom, #000 calc(100% - 22px), transparent 100%);
   }
 
+  /* Horizontal chip rails. A scrollbar under nineteen month chips is the widest
+     element on the card and reads as a UI seam, so the rail hides it and fades
+     its right edge instead — the fade is the only affordance saying there's more. */
+  .rail-scroll {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .rail-scroll::-webkit-scrollbar {
+    display: none;
+  }
+
+  .rail-fade {
+    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent 100%);
+    mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent 100%);
+  }
+
   /* Every rupee amount: mono + tabular figures (DESIGN.md iron rule) */
   .amount,
   .currency-display {
