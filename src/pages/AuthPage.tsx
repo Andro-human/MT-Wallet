@@ -145,11 +145,11 @@ export default function AuthPage() {
         </div>
 
         <p className="font-heading text-4xl font-normal leading-tight max-w-sm text-foreground/90">
-          Every rupee, where it went, and what you said about it.
+          Every rupee, and where it went.
         </p>
 
         <p className="text-2xs font-mono text-muted-foreground">
-          Built for one person. Yours.
+          Reads the SMS. Keeps the ledger.
         </p>
       </div>
 

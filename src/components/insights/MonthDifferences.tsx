@@ -38,21 +38,19 @@ export function MonthDifferences({ only, title }: { only?: string[]; title?: str
   }, [months]);
 
   const header = (
-    <div className="mb-4 flex flex-wrap items-start justify-between gap-x-6 gap-y-2">
+    <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-baseline sm:justify-between sm:gap-6">
       {title ? <h3 className="font-heading font-bold text-foreground">{title}</h3> : <span />}
       {months.length > 0 && (
-        <div className="text-right">
-          <div className="amount text-[15px] text-foreground">{formatINR(totals.total)}</div>
-          <div className="mt-0.5 flex items-center justify-end gap-3 text-[11px] text-muted-foreground">
-            <span className="inline-flex items-center gap-1.5">
-              <span className="h-[5px] w-[5px] rounded-full bg-muted-foreground/40" />
-              <span className="amount">{formatINR(totals.baseline)}</span> ordinary
-            </span>
-            <span className="inline-flex items-center gap-1.5">
-              <span className="h-[5px] w-[5px] rounded-full bg-primary" />
-              <span className="amount">{formatINR(totals.flagged)}</span> one-offs
-            </span>
-          </div>
+        <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 sm:justify-end">
+          <span className="amount text-[15px] text-foreground">{formatINR(totals.total)}</span>
+          <span className="inline-flex items-baseline gap-1.5 text-[11px] text-muted-foreground">
+            <span className="h-[5px] w-[5px] shrink-0 translate-y-[-2px] rounded-full bg-muted-foreground/40" />
+            <span className="amount">{formatINR(totals.baseline)}</span> ordinary
+          </span>
+          <span className="inline-flex items-baseline gap-1.5 text-[11px] text-muted-foreground">
+            <span className="h-[5px] w-[5px] shrink-0 translate-y-[-2px] rounded-full bg-primary" />
+            <span className="amount">{formatINR(totals.flagged)}</span> one-offs
+          </span>
         </div>
       )}
     </div>
@@ -89,10 +87,8 @@ export function MonthDifferences({ only, title }: { only?: string[]; title?: str
         An ordinary month costs <span className="amount">{formatINR(ordinary)}</span>. Everything past
         that is one-offs.
       </p>
-      <p className="mt-1.5 max-w-[46ch] text-[13px] leading-relaxed text-muted-foreground">
-        Bars share one scale. The quiet part recurs every month; each vermilion mark is a theme that
-        did not, or that came in far above its usual size. Tap a mark to see where its money went;
-        cross it off for this month, or strike it out everywhere if the label is never worth flagging.
+      <p className="mt-1 text-[12px] text-muted-foreground">
+        Tap a mark for detail, cross it off if it is not unusual.
       </p>
 
       <div className="mt-7">

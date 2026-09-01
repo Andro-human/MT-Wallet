@@ -1023,6 +1023,8 @@ export default function TransactionDetailPage() {
           open={merchantRulesOpen}
           onOpenChange={setMerchantRulesOpen}
           merchantName={transaction.merchant}
+          amount={Number(transaction.amount)}
+          transactedAt={transaction.transacted_at}
         />
       )}
 

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { describeRule, conflictingFields } from '@/lib/describeRule';
+import { describeRule, conflictingFields, ruleMatches } from '@/lib/describeRule';
 import type { UserMerchantMapping } from '@/hooks/useMerchantMappings';
 
 const rule = (over: Partial<UserMerchantMapping> = {}): UserMerchantMapping => ({
@@ -92,5 +92,47 @@ describe('conflictingFields', () => {
 
   it('a single rule never conflicts with itself', () => {
     expect(conflictingFields([rule({ default_is_expense: false })])).toEqual([]);
+  });
+});
+
+describe('ruleMatches', () => {
+  const ctx = { merchant: 'swiggy', amount: 350, transactedAt: '2026-03-10T00:00:00Z' };
+
+  it('a contains rule fires on a longer merchant string', () => {
+    expect(ruleMatches(rule({ raw_merchant: 'Swiggy', match_type: 'contains' }), {
+      ...ctx,
+      merchant: 'swiggy instamart',
+    })).toBe(true);
+  });
+
+  it('an exact rule does not fire on a longer merchant string', () => {
+    expect(ruleMatches(rule(), { ...ctx, merchant: 'swiggy instamart' })).toBe(false);
+  });
+
+  it("Swiggy's two amount rules never fire on the same transaction", () => {
+    const under = rule({ id: 'u', match_type: 'contains', amount_operator: '<', amount_threshold: 200 });
+    const over = rule({ id: 'o', match_type: 'contains', amount_operator: '>', amount_threshold: 200 });
+    for (const amount of [150, 350]) {
+      const firing = [under, over].filter((r) => ruleMatches(r, { ...ctx, amount }));
+      expect(firing).toHaveLength(1);
+    }
+  });
+
+  it('so two category rules split by amount are not a conflict', () => {
+    const under = rule({ id: 'u', match_type: 'contains', amount_operator: '<', amount_threshold: 200, default_category_id: 'cat-junk' });
+    const over = rule({ id: 'o', match_type: 'contains', amount_operator: '>', amount_threshold: 200, default_category_id: 'cat-food' });
+    const firing = [under, over].filter((r) => ruleMatches(r, { ...ctx, amount: 350 }));
+    expect(conflictingFields(firing)).toEqual([]);
+    // ...while the same two with no amount gate genuinely do clash.
+    expect(conflictingFields([
+      rule({ id: 'a', default_category_id: 'cat-junk' }),
+      rule({ id: 'b', default_category_id: 'cat-food' }),
+    ])).toEqual(['category']);
+  });
+
+  it('a day-of-month gate keeps a rule out', () => {
+    const late = rule({ date_operator: '>', date_threshold: 20 });
+    expect(ruleMatches(late, ctx)).toBe(false);
+    expect(ruleMatches(late, { ...ctx, transactedAt: '2026-03-25T00:00:00Z' })).toBe(true);
   });
 });

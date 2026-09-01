@@ -51,9 +51,48 @@ export function describeRule(
   return { conditions, effects };
 }
 
+/** Mirrors the ingest matcher in mtwallet-backend `sms.ts` (`evaluateRule`).
+ *  Duplicated on purpose: the app has to say which rules act on the transaction
+ *  in front of you, and it cannot ask the ingest path. Keep the two in step. */
+export function ruleMatches(
+  rule: UserMerchantMapping,
+  ctx: { merchant: string; amount: number; transactedAt: string },
+): boolean {
+  const raw = (rule.raw_merchant ?? '').toLowerCase();
+  const target = ctx.merchant.toLowerCase();
+  const nameMatch = rule.match_type === 'contains' ? target.includes(raw) : target === raw;
+  if (!nameMatch) return false;
+
+  if (rule.amount_operator && rule.amount_threshold !== null) {
+    const t = rule.amount_threshold;
+    const a = ctx.amount;
+    if (rule.amount_operator === '<' && !(a < t)) return false;
+    if (rule.amount_operator === '<=' && !(a <= t)) return false;
+    if (rule.amount_operator === '>' && !(a > t)) return false;
+    if (rule.amount_operator === '>=' && !(a >= t)) return false;
+    if (rule.amount_operator === '=' && !(a === t)) return false;
+  }
+
+  if (rule.date_operator && rule.date_threshold !== null && ctx.transactedAt) {
+    const d = new Date(ctx.transactedAt).getDate();
+    const t = rule.date_threshold;
+    if (rule.date_operator === '<' && !(d < t)) return false;
+    if (rule.date_operator === '<=' && !(d <= t)) return false;
+    if (rule.date_operator === '>' && !(d > t)) return false;
+    if (rule.date_operator === '>=' && !(d >= t)) return false;
+    if (rule.date_operator === '=' && !(d === t)) return false;
+  }
+
+  return true;
+}
+
 /** Rules that set the same field, where only the earliest actually decides it.
  *  Surfacing the clash is the point: a merchant behaving oddly usually has two
- *  rules disagreeing, and the loser is invisible otherwise. */
+ *  rules disagreeing, and the loser is invisible otherwise.
+ *
+ *  Pass only the rules that fire on one transaction. Two Swiggy rules split by
+ *  `under ₹200` and `over ₹200` both set a category and never clash, because no
+ *  transaction can satisfy both. */
 export function conflictingFields(rules: UserMerchantMapping[]): string[] {
   const fields: [keyof UserMerchantMapping, string][] = [
     ['default_category_id', 'category'],
