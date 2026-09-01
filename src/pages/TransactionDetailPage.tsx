@@ -1,7 +1,7 @@
 import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ArrowLeft, MessageSquare, TrendingUp, TrendingDown, ChevronRight, Folder, MoreVertical, RefreshCw, Pencil, Trash2, Wallet, Banknote, Copy, AlertTriangle, Link2, Repeat, HandCoins, Sparkles } from 'lucide-react';
+import { ArrowLeft, MessageSquare, TrendingUp, TrendingDown, ChevronRight, Folder, MoreVertical, RefreshCw, Sliders, Pencil, Trash2, Wallet, Banknote, Copy, AlertTriangle, Link2, Repeat, HandCoins, Sparkles } from 'lucide-react';
 import { format } from 'date-fns';
 import { useTransaction, useUpdateTransaction } from '@/hooks/useTransactions';
 import { useAutoLinkSubscription } from '@/hooks/useSubscriptions';
@@ -28,6 +28,7 @@ import { DeleteTransactionDialog } from '@/components/transactions/DeleteTransac
 import { LinkRefundDialog } from '@/components/transactions/LinkRefundDialog';
 import { LinkDuplicateDialog } from '@/components/transactions/LinkDuplicateDialog';
 import { BulkEditSuggestion } from '@/components/transactions/BulkEditSuggestion';
+import { MerchantRulesDialog } from '@/components/transactions/MerchantRulesDialog';
 import { InlineEditableField } from '@/components/transactions/InlineEditableField';
 import { InlineSelectField } from '@/components/transactions/InlineSelectField';
 import { InlineDateField } from '@/components/transactions/InlineDateField';
@@ -70,6 +71,7 @@ export default function TransactionDetailPage() {
   const [linkDuplicateOpen, setLinkDuplicateOpen] = useState(false);
   const [trackSubOpen, setTrackSubOpen] = useState(false);
   const [bulkEditOpen, setBulkEditOpen] = useState(false);
+  const [merchantRulesOpen, setMerchantRulesOpen] = useState(false);
   const [bulkEditConfig, setBulkEditConfig] = useState<{
     field: 'category_id' | 'group_id' | 'merchant' | 'is_expense' | 'is_income';
     newValue: string | boolean | null;
@@ -433,6 +435,12 @@ export default function TransactionDetailPage() {
                     <Repeat className="w-4 h-4" />
                     Track as subscription
                   </DropdownMenuItem>
+                  {transaction.merchant && (
+                    <DropdownMenuItem onClick={() => setMerchantRulesOpen(true)} className="gap-2">
+                      <Sliders className="w-4 h-4" />
+                      Merchant rules
+                    </DropdownMenuItem>
+                  )}
                   <DropdownMenuItem
                     onClick={() => {
                       setCounterparty(enrichment?.lending?.counterparty ?? '');
@@ -1010,6 +1018,14 @@ export default function TransactionDetailPage() {
       />
 
       {/* Bulk Edit Suggestion */}
+      {transaction.merchant && (
+        <MerchantRulesDialog
+          open={merchantRulesOpen}
+          onOpenChange={setMerchantRulesOpen}
+          merchantName={transaction.merchant}
+        />
+      )}
+
       {bulkEditConfig && (
         <BulkEditSuggestion
           open={bulkEditOpen}
