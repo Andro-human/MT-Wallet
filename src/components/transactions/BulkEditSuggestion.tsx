@@ -54,22 +54,34 @@ export function BulkEditSuggestion({
   // Fetch saved mapping rules
   const { data: mappings = [] } = useMerchantMappings();
 
-  // If a rule ALREADY exists for this exact field & merchant combination, block the popup
-  // If the user is just changing a transaction, let them change it without bothering them about a rule they already created.
-  const hasExistingRuleForField = useMemo(() => {
-    if (!open) return false;
-    
-    // The raw merchant string is what rules are bound to
-    const existingRule = mappings.find(m => m.raw_merchant.toLowerCase() === merchantName.toLowerCase());
-    if (!existingRule) return false;
+  const ruleFieldColumn =
+    field === 'category_id' ? 'default_category_id'
+      : field === 'is_expense' ? 'default_is_expense'
+        : field === 'is_income' ? 'default_is_income'
+          : null;
 
-    if (field === 'merchant' && existingRule.mapped_merchant) return true;
-    if (field === 'category_id' && existingRule.default_category_id !== null) return true;
-    if (field === 'is_expense' && existingRule.default_is_expense !== null) return true;
-    if (field === 'is_income' && existingRule.default_is_income !== null) return true;
-    
-    return false;
-  }, [open, mappings, merchantName, field]);
+  /** The rule this save would replace. Rules are bound to the raw merchant string
+   *  and nothing stops two rows sharing one, so prefer the row that already sets
+   *  this field: that is the one actually deciding the outcome today. */
+  const existingRule = useMemo(() => {
+    const mine = mappings.filter(
+      (m) => (m.raw_merchant ?? '').toLowerCase() === merchantName.toLowerCase(),
+    );
+    if (mine.length === 0) return null;
+    if (!ruleFieldColumn) return mine[0];
+    return mine.find((m) => (m as any)[ruleFieldColumn] !== null) ?? mine[0];
+  }, [mappings, merchantName, ruleFieldColumn]);
+
+  const ruleAlreadySetsField =
+    !!existingRule && !!ruleFieldColumn && (existingRule as any)[ruleFieldColumn] !== null;
+
+  const currentRuleReads = useMemo(() => {
+    if (!ruleAlreadySetsField || !ruleFieldColumn) return null;
+    const v = (existingRule as any)[ruleFieldColumn];
+    if (field === 'is_expense') return v ? 'count as expense' : 'not count as expense';
+    if (field === 'is_income') return v ? 'count as income' : 'not count as income';
+    return null;
+  }, [ruleAlreadySetsField, ruleFieldColumn, existingRule, field]);
 
   // Fetch transactions with the same merchant
   const { data: allTransactions = [] } = useTransactions({
@@ -128,26 +140,31 @@ export function BulkEditSuggestion({
       }
 
       if (applyToFuture && user) {
-        // Save the rule to memory
         const ruleData: any = {
-          user_id: user.id,
-          raw_merchant: merchantName,
           mapped_merchant: field === 'merchant' ? (newValue || merchantName) : merchantName,
         };
-        
         if (field === 'category_id') ruleData.default_category_id = newValue;
         if (field === 'is_expense') ruleData.default_is_expense = newValue;
         if (field === 'is_income') ruleData.default_is_income = newValue;
 
-        const { error: ruleError } = await (supabase as any)
-          .from('user_merchant_mappings')
-          .insert(ruleData);
+        // Update the rule already deciding this field rather than inserting beside
+        // it. Nothing in the schema stops two rows sharing a raw_merchant, and when
+        // they disagree the winner is whichever the query happens to return first.
+        const { error: ruleError } = existingRule
+          ? await (supabase as any)
+              .from('user_merchant_mappings')
+              .update(ruleData)
+              .eq('id', existingRule.id)
+          : await (supabase as any)
+              .from('user_merchant_mappings')
+              .insert({ ...ruleData, user_id: user.id, raw_merchant: merchantName });
 
         if (ruleError) {
-          console.error("Failed to save rule:", ruleError);
+          console.error('Failed to save rule:', ruleError);
           toast({ title: 'Failed to save future rule', variant: 'destructive' });
         } else {
-          toast({ title: 'Mapping Rule saved for future!' });
+          queryClient.invalidateQueries({ queryKey: ['merchant-mappings'] });
+          toast({ title: existingRule ? 'Rule updated' : 'Rule saved for future' });
         }
       }
 
@@ -168,14 +185,6 @@ export function BulkEditSuggestion({
       setIsApplying(false);
     }
   };
-
-  // If there's already an automation rule for this exact edit, quietly hide the popup entirely
-  if (hasExistingRuleForField) {
-    if (open) {
-      setTimeout(() => onOpenChange(false), 0);
-    }
-    return null;
-  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -257,9 +266,18 @@ export function BulkEditSuggestion({
               htmlFor="apply-future"
               className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer text-foreground"
             >
-              Remember this for all future transactions
+              {ruleAlreadySetsField
+                ? 'Update the saved rule for future transactions'
+                : 'Remember this for all future transactions'}
             </Label>
           </div>
+          {ruleAlreadySetsField && (
+            <p className="text-xs text-muted-foreground mb-2.5">
+              A rule already says {merchantName} should{' '}
+              <span className="text-foreground">{currentRuleReads ?? 'something else'}</span>. Saving
+              replaces it.
+            </p>
+          )}
           <p className="text-xs text-muted-foreground mt-1.5 ml-7">
             Automatically applies this exact {changeLabel} mapping to any new SMS from {merchantName}.
           </p>
