@@ -29,7 +29,12 @@ describe('cashback', () => {
 
   it('is never income, even when a flag writer turned is_income back on', () => {
     expect(sumIncome([credit({ is_income: true }) as any], new Set())).toBe(0);
-    expect(classifyTransaction(credit({ is_income: true }) as any, noLinks)).toBe('non-counted');
+    expect(classifyTransaction(credit({ is_income: true }) as any, noLinks)).toBe('cashback');
+  });
+
+  it('is its own bucket, so lists that hide not-counted rows still show it', () => {
+    expect(classifyTransaction(credit() as any, noLinks)).toBe('cashback');
+    expect(classifyTransaction(credit({ cashback_month: null }) as any, noLinks)).toBe('non-counted');
   });
 
   it('a plain income credit still counts as income', () => {

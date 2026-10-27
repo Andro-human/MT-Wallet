@@ -388,7 +388,7 @@ export default function TransactionsPage() {
         refundTotals,
         refundAllocations,
       });
-      if (bucket === 'real') return true;
+      if (bucket === 'real' || bucket === 'cashback') return true;
       if (bucket === 'duplicate') return hideDuplicates !== '1';
       if (bucket === 'non-counted') return hideNonCounted !== '1';
       return hideRefunded !== '1'; // 'refunded'

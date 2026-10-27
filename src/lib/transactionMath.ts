@@ -24,7 +24,7 @@ export function isCountable(
   return !duplicateExcludeIds.has(txn.id);
 }
 
-export type TransactionBucket = 'duplicate' | 'non-counted' | 'refunded' | 'real';
+export type TransactionBucket = 'duplicate' | 'non-counted' | 'refunded' | 'cashback' | 'real';
 
 // Precedence matters: a confirmed duplicate also has is_expense=false, so 'duplicate'
 // must be checked before 'non-counted' or the duplicate filter appears broken.
@@ -37,8 +37,11 @@ export function classifyTransaction(
   },
 ): TransactionBucket {
   if (opts.duplicateExcludeIds.has(txn.id)) return 'duplicate';
+  // Its own bucket so the list keeps showing it: it lowers a month's total but
+  // is neither a day's spending nor income, so every 'real' gate skips it.
+  if (txn.direction === 'credit' && txn.cashback_month) return 'cashback';
   const isDebit = txn.direction !== 'credit';
-  const counted = isDebit ? txn.is_expense : txn.is_income && !txn.cashback_month;
+  const counted = isDebit ? txn.is_expense : txn.is_income;
   if (!counted) return 'non-counted';
   const net = isDebit
     ? netAmount(txn, opts.refundTotals)
