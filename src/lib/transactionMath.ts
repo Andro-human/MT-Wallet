@@ -50,6 +50,19 @@ export function classifyTransaction(
   return 'real';
 }
 
+/** Flags for a transaction coming back from being a duplicate. Marking one
+ *  zeroes both flags without recording them, so direction is all that is left
+ *  to go on. Exactly one is set: with both, any reader of the flags alone (the
+ *  nightly review) counts a credit as income and as spend. A row that was a
+ *  transfer before it was marked comes back counted and needs re-flagging. */
+export function flagsForDirection(direction: string | null | undefined): {
+  is_expense: boolean;
+  is_income: boolean;
+} {
+  const isCredit = direction === 'credit';
+  return { is_expense: !isCredit, is_income: isCredit };
+}
+
 export function sumSpent(
   txns: AnyTxn[],
   refundTotals: RefundTotalsMap,

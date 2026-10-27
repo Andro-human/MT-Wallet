@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 import { TransactionWithCategory } from '@/types/database';
+import { flagsForDirection } from '@/lib/transactionMath';
 
 export interface DuplicateLink {
   id: string;
@@ -230,11 +231,18 @@ export function useDeleteDuplicateLink() {
 
       if (e1 && e2) throw e1; // Only throw if BOTH actually threw real PostgREST errors
 
-      // Restore the duplicate's expense/income flags
-      await supabase
+      const { data: row, error: readError } = await supabase
         .from('transactions')
-        .update({ is_expense: true, is_income: true } as any)
+        .select('direction')
+        .eq('id', duplicateTransactionId)
+        .single();
+      if (readError) throw readError;
+
+      const { error: updateError } = await supabase
+        .from('transactions')
+        .update(flagsForDirection(row?.direction) as any)
         .eq('id', duplicateTransactionId);
+      if (updateError) throw updateError;
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['duplicate-links', variables.primaryTransactionId] });
