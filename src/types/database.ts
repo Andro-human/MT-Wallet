@@ -48,6 +48,9 @@ export interface Transaction {
   notes: string | null;
   is_expense: boolean;
   is_income: boolean;
+  /** First of the month whose spending this credit lowers; null unless it is
+   *  a cashback. Takes precedence over is_income. */
+  cashback_month?: string | null;
   needs_review?: boolean;
   created_at: string;
   updated_at: string;

@@ -345,6 +345,7 @@ export type Database = {
           account_last4: string | null
           amount: number
           bank_name: string | null
+          cashback_month: string | null
           category_id: string | null
           created_at: string
           direction: string
@@ -367,6 +368,7 @@ export type Database = {
           account_last4?: string | null
           amount: number
           bank_name?: string | null
+          cashback_month?: string | null
           category_id?: string | null
           created_at?: string
           direction: string
@@ -388,6 +390,7 @@ export type Database = {
           account_last4?: string | null
           amount?: number
           bank_name?: string | null
+          cashback_month?: string | null
           category_id?: string | null
           created_at?: string
           direction?: string

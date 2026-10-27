@@ -1,9 +1,10 @@
+import { format, startOfMonth, subMonths } from 'date-fns';
 import type { Transaction, TransactionWithCategory } from '@/types/database';
 import { FOLD_DONUT, foldTail, assignColors } from './categoryColors';
 
 type AnyTxn = Pick<
   Transaction,
-  'id' | 'amount' | 'is_expense' | 'is_income' | 'category_id'
+  'id' | 'amount' | 'is_expense' | 'is_income' | 'category_id' | 'cashback_month'
 >;
 
 export type RefundTotalsMap = Record<string, number>;
@@ -37,7 +38,7 @@ export function classifyTransaction(
 ): TransactionBucket {
   if (opts.duplicateExcludeIds.has(txn.id)) return 'duplicate';
   const isDebit = txn.direction !== 'credit';
-  const counted = isDebit ? txn.is_expense : txn.is_income;
+  const counted = isDebit ? txn.is_expense : txn.is_income && !txn.cashback_month;
   if (!counted) return 'non-counted';
   const net = isDebit
     ? netAmount(txn, opts.refundTotals)
@@ -65,7 +66,7 @@ export function creditNet(
   txn: AnyTxn & { direction?: string | null },
   allocations: RefundAllocationsMap,
 ): number {
-  if (!txn.is_income) return 0;
+  if (!txn.is_income || txn.cashback_month) return 0;
   const allocated = allocations[txn.id] ?? 0;
   return Math.max(Number(txn.amount) - allocated, 0);
 }
@@ -152,6 +153,29 @@ export function categoryChartData(
   }
 
   return folded;
+}
+
+// Cashback is paid on the statement after the spending that earned it.
+export function defaultCashbackMonth(transactedAt: string): string {
+  return format(startOfMonth(subMonths(new Date(transactedAt), 1)), 'yyyy-MM-dd');
+}
+
+export function sumCashback(
+  txns: AnyTxn[],
+  duplicateExcludeIds: DuplicateExcludeSet,
+): number {
+  let total = 0;
+  for (const t of txns) {
+    if (!t.cashback_month) continue;
+    if (!isCountable(t, duplicateExcludeIds)) continue;
+    total += Number(t.amount);
+  }
+  return total;
+}
+
+// Clamped at 0: a cashback larger than the month's spending is not negative spend.
+export function netOfCashback(spent: number, cashback: number): number {
+  return Math.max(spent - cashback, 0);
 }
 
 export function filterOutDuplicates<T extends { id: string }>(

@@ -31,8 +31,9 @@ export function TransactionCard({ transaction, onClick, index = 0, netAmount, on
   const needsReview = (transaction as any).needs_review;
   const swipeEnabled = !!onSwipeApprove && needsReview;
 
+  const isCashback = isCredit && !!transaction.cashback_month;
   const isNotCounted = isCredit
-    ? transaction.is_income === false
+    ? transaction.is_income === false && !isCashback
     : transaction.is_expense === false;
 
   const displayAmount = netAmount !== undefined ? netAmount : Number(transaction.amount);
@@ -118,6 +119,9 @@ export function TransactionCard({ transaction, onClick, index = 0, netAmount, on
             <span className="text-muted-foreground mr-0.5">₹</span>
             {formatINR(displayAmount).replace('₹', '')}
           </span>
+          {isCashback && (
+            <p className="text-[10px] text-muted-foreground font-mono uppercase tracking-wide">cashback</p>
+          )}
           {hasRefund && !isNotCounted && (
             <p className="text-[10px] text-muted-foreground line-through font-mono">
               ₹{formatINR(transaction.amount).replace('₹', '')}
