@@ -43,6 +43,8 @@ export default function HomePage() {
   const bankDisplayMap = useBankDisplayMap();
   const {
     thisMonthSpent,
+    grossSpent,
+    thisMonthCashback,
     monthChange,
     thisMonthIncome,
     chartData,
@@ -128,9 +130,16 @@ export default function HomePage() {
             {isLoading ? (
               <Skeleton className="h-7 w-28 bg-muted/20" />
             ) : (
-              <p className="text-xl sm:text-2xl font-semibold text-foreground currency-display">
-                {formatINR(thisMonthSpent)}
-              </p>
+              <>
+                <p className="text-xl sm:text-2xl font-semibold text-foreground currency-display">
+                  {formatINR(thisMonthSpent)}
+                </p>
+                {thisMonthCashback > 0 && (
+                  <p className="text-2xs font-mono text-muted-foreground mt-0.5">
+                    after <span className="text-gold">{formatINR(thisMonthCashback)}</span> cashback
+                  </p>
+                )}
+              </>
             )}
           </div>
 
@@ -201,7 +210,7 @@ export default function HomePage() {
                 <Skeleton className="w-40 h-40 rounded-full bg-muted/10" />
               ) : chartData.length > 0 ? (
                 <div className="w-48">
-                  <SpendingDonut data={chartData} totalSpent={thisMonthSpent} />
+                  <SpendingDonut data={chartData} totalSpent={grossSpent} />
                 </div>
               ) : (
                 <div className="h-40 flex items-center justify-center text-muted-foreground text-xs font-mono border border-dashed border-border w-full">
@@ -229,7 +238,7 @@ export default function HomePage() {
                         className={cn('w-3 h-3 shrink-0 text-muted-foreground transition-transform', openFold && 'rotate-180')}
                       />
                     )}
-                    <span className="text-xs font-mono ml-auto">{((item.value / thisMonthSpent) * 100).toFixed(0)}%</span>
+                    <span className="text-xs font-mono ml-auto">{((item.value / grossSpent) * 100).toFixed(0)}%</span>
                   </button>
                   {item.detail && openFold && (
                     <div className="mt-1.5 ml-4 pl-2 border-l border-border/60 space-y-1">

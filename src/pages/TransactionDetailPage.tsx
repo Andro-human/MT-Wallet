@@ -1,8 +1,8 @@
 import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ArrowLeft, MessageSquare, TrendingUp, TrendingDown, ChevronRight, Folder, MoreVertical, RefreshCw, Sliders, Pencil, Trash2, Wallet, Banknote, Copy, AlertTriangle, Link2, Repeat, HandCoins, Sparkles } from 'lucide-react';
-import { format } from 'date-fns';
+import { ArrowLeft, MessageSquare, TrendingUp, TrendingDown, ChevronRight, Folder, MoreVertical, RefreshCw, Sliders, Pencil, Trash2, Wallet, Copy, AlertTriangle, Link2, Repeat, HandCoins, Sparkles } from 'lucide-react';
+import { format, parseISO } from 'date-fns';
 import { useTransaction, useUpdateTransaction } from '@/hooks/useTransactions';
 import { useAutoLinkSubscription } from '@/hooks/useSubscriptions';
 import { useTransactionGroups } from '@/hooks/useTransactionGroups';
@@ -32,6 +32,7 @@ import { MerchantRulesDialog } from '@/components/transactions/MerchantRulesDial
 import { InlineEditableField } from '@/components/transactions/InlineEditableField';
 import { InlineSelectField } from '@/components/transactions/InlineSelectField';
 import { InlineDateField } from '@/components/transactions/InlineDateField';
+import { CreditKindControl, creditKindOf, type CreditKind } from '@/components/transactions/CreditKindControl';
 import { entityColor } from '@/lib/categoryColors';
 import {
   DropdownMenu,
@@ -259,18 +260,28 @@ export default function TransactionDetailPage() {
     }
   };
 
-  const toggleIncome = async () => {
+  const setCreditKind = async (kind: CreditKind, cashbackMonth: string | null) => {
     try {
-      const newValue = !transaction.is_income;
       await updateMutation.mutateAsync({
         id: transaction.id,
-        updates: { is_income: newValue },
+        updates:
+          kind === 'cashback'
+            ? { is_income: false, is_expense: false, cashback_month: cashbackMonth }
+            : { is_income: kind === 'income', cashback_month: null },
       });
-      toast({ 
-        title: newValue ? 'Counted as income' : 'Not counted as income' 
+      toast({
+        title:
+          kind === 'cashback'
+            ? `Cashback for ${format(parseISO(cashbackMonth!), 'MMMM')}`
+            : kind === 'income'
+              ? 'Counted as income'
+              : 'Not counted',
       });
-      
-      if (transaction.merchant) {
+
+      // Merchant-wide suggestions are only offered for income. A card issuer's
+      // cashback and its bill-payment credits share one merchant name.
+      if (kind !== 'cashback' && transaction.merchant) {
+        const newValue = kind === 'income';
         setBulkEditConfig({
           field: 'is_income',
           newValue,
@@ -398,7 +409,12 @@ export default function TransactionDetailPage() {
             
             {/* Hamburger Menu + Expense/Income badges - in top right of main content */}
             <div className="flex items-center gap-2">
-              {isCredit && !transaction.is_income && (
+              {isCredit && creditKindOf(transaction) === 'cashback' && (
+                <span className="text-2xs bg-gold/10 px-2.5 py-1 rounded-full text-gold font-medium uppercase tracking-wide">
+                  Cashback · {format(parseISO(transaction.cashback_month!), 'MMM')}
+                </span>
+              )}
+              {isCredit && creditKindOf(transaction) === 'none' && (
                 <span className="text-2xs bg-muted/50 px-2.5 py-1 rounded-full text-muted-foreground font-medium uppercase tracking-wide">
                   Not Income
                 </span>
@@ -869,31 +885,15 @@ export default function TransactionDetailPage() {
             </button>
           )}
 
-          {/* Income toggle - shown for credit transactions */}
+          {/* Income / cashback / not counted - shown for credit transactions */}
           {isCredit && (
-            <button
-              onClick={toggleIncome}
-              className={cn(
-                "w-full flex items-center justify-between gap-3 h-12 px-4 rounded-xl border transition-colors",
-                transaction.is_income
-                  ? "border-success/30 bg-success/5 hover:bg-success/10"
-                  : "border-border/50 hover:bg-muted/50"
-              )}
-            >
-              <div className="flex items-center gap-3">
-                <Banknote className="w-4 h-4" />
-                <span className="text-sm">Count as Income</span>
-              </div>
-              <div className={cn(
-                "w-10 h-6 rounded-full relative transition-colors duration-200",
-                transaction.is_income ? "bg-success" : "bg-muted"
-              )}>
-                <div className={cn(
-                  "absolute top-1 w-4 h-4 rounded-full bg-white transition-transform duration-200",
-                  transaction.is_income ? "translate-x-5" : "translate-x-1"
-                )} />
-              </div>
-            </button>
+            <CreditKindControl
+              transactedAt={transaction.transacted_at}
+              isIncome={transaction.is_income}
+              cashbackMonth={transaction.cashback_month}
+              onChange={setCreditKind}
+              disabled={updateMutation.isPending}
+            />
           )}
         </motion.div>
 

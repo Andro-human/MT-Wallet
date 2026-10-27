@@ -207,6 +207,7 @@ export function useUpdateTransaction() {
       queryClient.invalidateQueries({ queryKey: ['bank-accounts'] });
       queryClient.invalidateQueries({ queryKey: ['merchants-autocomplete'] });
       queryClient.invalidateQueries({ queryKey: ['merchants-raw'] });
+      queryClient.invalidateQueries({ queryKey: ['month-summary'] });
     },
   });
 }

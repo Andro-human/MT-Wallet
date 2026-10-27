@@ -9,7 +9,8 @@ import { formatINR } from '@/lib/formatCurrency';
 import { useProfile, useUpdateBudget } from '@/hooks/useProfile';
 import { useFinanceContext } from '@/hooks/useFinanceData';
 import { useMonthlyCeiling } from '@/hooks/useMonthlyCeiling';
-import { sumSpent, sumIncome } from '@/lib/transactionMath';
+import { useCashbackTotal } from '@/hooks/useCashbackTotal';
+import { sumSpent, sumIncome, netOfCashback } from '@/lib/transactionMath';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 
@@ -28,11 +29,13 @@ export function ActivitySummary({ transactions, dateRange, isLoading, refundTota
   const [editingBudget, setEditingBudget] = useState(false);
   const [budgetInput, setBudgetInput] = useState('');
 
+  const { total: cashback } = useCashbackTotal(dateRange.startDate, dateRange.endDate);
+
   const stats = useMemo(() => {
-    const expenses = sumSpent(transactions, refundTotals, duplicateExcludeIds);
+    const expenses = netOfCashback(sumSpent(transactions, refundTotals, duplicateExcludeIds), cashback);
     const income = sumIncome(transactions, duplicateExcludeIds, refundAllocations);
     return { expenses, income, net: income - expenses };
-  }, [transactions, refundTotals, duplicateExcludeIds, refundAllocations]);
+  }, [transactions, cashback, refundTotals, duplicateExcludeIds, refundAllocations]);
 
   // Safe/day and pacing are projections for a month still in progress. Composing
   // them from today's date while looking at a past month produced a figure that
@@ -99,6 +102,11 @@ export function ActivitySummary({ transactions, dateRange, isLoading, refundTota
     >
       {/* Budget Circle */}
       <BudgetCircle spent={stats.expenses} budget={budget} />
+      {cashback > 0 && (
+        <p className="text-2xs font-mono text-muted-foreground text-center mt-2">
+          after <span className="text-gold">{formatINR(cashback)}</span> cashback
+        </p>
+      )}
 
       {/* Stats Row */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-0 mt-5">

@@ -4,7 +4,9 @@ import { useTransactions } from './useTransactions';
 import { useCategories } from './useCategories';
 import { useFinanceContext } from './useFinanceData';
 import { useMonthSummary } from './useMonthSummary';
+import { useCashbackTotal } from './useCashbackTotal';
 import {
+  netOfCashback,
   sumSpent,
   sumIncome,
   categoryChartData,
@@ -43,11 +45,18 @@ export function useDashboardStats(viewingMonth?: Date) {
     lastMonthEnd,
   );
 
+  const { total: thisMonthCashback, isLoading: cashbackLoading } = useCashbackTotal(
+    thisMonthStart,
+    thisMonthEnd,
+  );
+
   const { data: categories = [] } = useCategories();
   const { refundTotals, refundAllocations, duplicateExcludeIds, isReady: contextReady } = useFinanceContext();
 
   const stats = useMemo(() => {
-    const thisMonthSpent = sumSpent(thisMonthTxns, refundTotals, duplicateExcludeIds);
+    // Categories stay gross: cashback lowers the month's total, never a category.
+    const grossSpent = sumSpent(thisMonthTxns, refundTotals, duplicateExcludeIds);
+    const thisMonthSpent = netOfCashback(grossSpent, thisMonthCashback);
     const lastMonthSpent = lastMonthSummary?.spent ?? 0;
     const monthChange = percentChange(thisMonthSpent, lastMonthSpent);
     const thisMonthIncome = sumIncome(thisMonthTxns, duplicateExcludeIds, refundAllocations);
@@ -90,6 +99,8 @@ export function useDashboardStats(viewingMonth?: Date) {
     return {
       dayLedger,
       thisMonthSpent,
+      grossSpent,
+      thisMonthCashback,
       lastMonthSpent,
       monthChange,
       thisMonthIncome,
@@ -98,10 +109,10 @@ export function useDashboardStats(viewingMonth?: Date) {
       recentTxns,
       transactionCount: thisMonthTxns.length,
     };
-  }, [thisMonthTxns, lastMonthSummary, categories, refundTotals, refundAllocations, duplicateExcludeIds]);
+  }, [thisMonthTxns, thisMonthCashback, lastMonthSummary, categories, refundTotals, refundAllocations, duplicateExcludeIds]);
 
   return {
     ...stats,
-    isLoading: thisMonthLoading || lastMonthLoading || !contextReady,
+    isLoading: thisMonthLoading || lastMonthLoading || cashbackLoading || !contextReady,
   };
 }

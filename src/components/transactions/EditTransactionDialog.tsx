@@ -160,6 +160,7 @@ export function EditTransactionDialog({
       if (directionChanged) {
         updates.is_expense = direction === 'debit';
         updates.is_income = direction === 'credit';
+        updates.cashback_month = null;
       }
 
       await updateMutation.mutateAsync({
