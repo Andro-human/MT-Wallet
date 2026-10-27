@@ -62,18 +62,21 @@ export function InlineSelectField({
     const minW = Math.max(rect.width, 220);
 
     // If the trigger's left edge is too close to the left, anchor from the left instead
+    // Document coordinates, not viewport: iOS pans the visual viewport when the keyboard
+    // opens, and a position:fixed dropdown drifts away from its trigger.
+    const top = rect.bottom + window.scrollY + 4;
     if (rect.left < minW) {
       setDropdownPos({
-        top: rect.bottom + 4,
-        left: Math.max(8, rect.left),
+        top,
+        left: Math.max(8, rect.left) + window.scrollX,
         right: undefined,
         minWidth: minW,
       });
     } else {
       setDropdownPos({
-        top: rect.bottom + 4,
+        top,
         left: undefined,
-        right: window.innerWidth - rect.right,
+        right: window.innerWidth - rect.right - window.scrollX,
         minWidth: minW,
       });
     }
@@ -189,7 +192,7 @@ export function InlineSelectField({
       {isOpen && createPortal(
         <div
           ref={dropdownRef}
-          className="fixed rounded-xl border border-border/50 bg-popover shadow-lg overflow-hidden"
+          className="absolute rounded-xl border border-border/50 bg-popover shadow-lg overflow-hidden"
           style={{
             top: dropdownPos.top,
             ...(dropdownPos.right != null ? { right: dropdownPos.right } : {}),
