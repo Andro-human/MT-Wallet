@@ -49,6 +49,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useQueryClient } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
+import { updateSearchParams } from '@/lib/searchParams';
 import { useProfile } from '@/hooks/useProfile';
 import { useReviewBookmark, useSetReviewBookmark } from '@/hooks/useReviewBookmark';
 import { countNewSince } from '@/lib/countNewSince';
@@ -81,15 +82,13 @@ function useParamState(key: string, defaultValue: string) {
   const value = searchParams.get(key) || defaultValue;
 
   const setValue = useCallback((newValue: string) => {
-    setSearchParams(prev => {
-      const next = new URLSearchParams(prev);
+    updateSearchParams(setSearchParams, (next) => {
       if (newValue === defaultValue) {
         next.delete(key);
       } else {
         next.set(key, newValue);
       }
-      return next;
-    }, { replace: true });
+    });
   }, [key, defaultValue, setSearchParams]);
 
   return [value, setValue] as const;
@@ -137,20 +136,16 @@ export default function TransactionsPage() {
 
   const setCustomStart = useCallback((d: Date) => {
     setCustomStartState(d);
-    setSearchParams(prev => {
-      const next = new URLSearchParams(prev);
+    updateSearchParams(setSearchParams, (next) => {
       next.set('from', format(d, 'yyyy-MM-dd'));
-      return next;
-    }, { replace: true });
+    });
   }, [setSearchParams]);
 
   const setCustomEnd = useCallback((d: Date) => {
     setCustomEndState(d);
-    setSearchParams(prev => {
-      const next = new URLSearchParams(prev);
+    updateSearchParams(setSearchParams, (next) => {
       next.set('to', format(d, 'yyyy-MM-dd'));
-      return next;
-    }, { replace: true });
+    });
   }, [setSearchParams]);
 
   const effectiveSearch = merchant || search;
@@ -259,17 +254,13 @@ export default function TransactionsPage() {
   const [hideRefunded, setHideRefunded] = useParamState('hideRef', '1');
   const [hideNonCounted, setHideNonCounted] = useParamState('hideNc', '1');
 
-  // One setSearchParams call — separate setters each read the same stale URL, so
-  // only the last would persist.
   const setAllNoise = useCallback((show: boolean) => {
-    setSearchParams((prev) => {
-      const next = new URLSearchParams(prev);
+    updateSearchParams(setSearchParams, (next) => {
       for (const key of ['hideDup', 'hideRef', 'hideNc']) {
         if (show) next.set(key, '0');
         else next.delete(key);
       }
-      return next;
-    }, { replace: true });
+    });
   }, [setSearchParams]);
 
   // Detect potential duplicate pairs across loaded transactions
@@ -1155,18 +1146,18 @@ export default function TransactionsPage() {
                     : 'all'
                 }
                 onValueChange={(v) => {
-                  const next = new URLSearchParams(searchParams);
-                  if (v === 'all') {
-                    next.delete('bank');
-                    next.delete('account');
-                  } else {
-                    const [bn, last4] = v.split('|');
-                    if (bn) next.set('bank', bn);
-                    else next.delete('bank');
-                    if (last4) next.set('account', last4);
-                    else next.delete('account');
-                  }
-                  setSearchParams(next, { replace: true });
+                  updateSearchParams(setSearchParams, (next) => {
+                    if (v === 'all') {
+                      next.delete('bank');
+                      next.delete('account');
+                    } else {
+                      const [bn, last4] = v.split('|');
+                      if (bn) next.set('bank', bn);
+                      else next.delete('bank');
+                      if (last4) next.set('account', last4);
+                      else next.delete('account');
+                    }
+                  });
                 }}
                 options={[
                   { value: 'all', label: 'All Banks' },
