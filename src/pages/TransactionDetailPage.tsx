@@ -34,6 +34,7 @@ import { InlineSelectField } from '@/components/transactions/InlineSelectField';
 import { InlineDateField } from '@/components/transactions/InlineDateField';
 import { CreditKindControl, creditKindOf, type CreditKind } from '@/components/transactions/CreditKindControl';
 import { entityColor } from '@/lib/categoryColors';
+import { visibleGroups } from '@/lib/visibleGroups';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -145,8 +146,8 @@ export default function TransactionDetailPage() {
 
   const groupOptions = useMemo(() => [
     { value: 'none', label: 'No group' },
-    ...groups.map(g => ({ value: g.id, label: g.name, icon: g.icon, color: entityColor(g.id) }))
-  ], [groups]);
+    ...visibleGroups(groups, transaction?.group_id).map(g => ({ value: g.id, label: g.name, icon: g.icon, color: entityColor(g.id) }))
+  ], [groups, transaction?.group_id]);
 
   const bankAccountOptions = useMemo(
     () =>
