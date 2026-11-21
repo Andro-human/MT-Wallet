@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { Plus } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -14,6 +15,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ToastAction } from '@/components/ui/toast';
 import { SearchableSelect } from '@/components/ui/SearchableSelect';
+import { CreateCategoryDialog } from './CreateCategoryDialog';
+import { CreateGroupDialog } from './CreateGroupDialog';
 
 const KEEP = 'keep';
 const NONE = 'none';
@@ -60,6 +63,8 @@ export function BulkEditDialog({ open, onOpenChange, transactions, onApplied }: 
   const [counted, setCounted] = useState<Counted>(KEEP);
   const [merchant, setMerchant] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [showCreateCategory, setShowCreateCategory] = useState(false);
+  const [showCreateGroup, setShowCreateGroup] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -159,12 +164,32 @@ export function BulkEditDialog({ open, onOpenChange, transactions, onApplied }: 
 
         <div className="space-y-4">
           <div className="space-y-2">
-            <Label>Category</Label>
+            <div className="flex items-center justify-between">
+              <Label>Category</Label>
+              <button
+                type="button"
+                onClick={() => setShowCreateCategory(true)}
+                className="text-xs text-primary hover:underline flex items-center gap-1"
+              >
+                <Plus className="w-3 h-3" />
+                New
+              </button>
+            </div>
             <SearchableSelect value={categoryId} onValueChange={setCategoryId} options={categoryOptions} />
           </div>
 
           <div className="space-y-2">
-            <Label>Group</Label>
+            <div className="flex items-center justify-between">
+              <Label>Group</Label>
+              <button
+                type="button"
+                onClick={() => setShowCreateGroup(true)}
+                className="text-xs text-primary hover:underline flex items-center gap-1"
+              >
+                <Plus className="w-3 h-3" />
+                New
+              </button>
+            </div>
             <SearchableSelect value={groupId} onValueChange={setGroupId} options={groupOptions} />
           </div>
 
@@ -218,6 +243,18 @@ export function BulkEditDialog({ open, onOpenChange, transactions, onApplied }: 
           </Button>
         </div>
       </DialogContent>
+
+      <CreateCategoryDialog
+        open={showCreateCategory}
+        onOpenChange={setShowCreateCategory}
+        onCreated={setCategoryId}
+      />
+
+      <CreateGroupDialog
+        open={showCreateGroup}
+        onOpenChange={setShowCreateGroup}
+        onCreated={setGroupId}
+      />
     </Dialog>
   );
 }

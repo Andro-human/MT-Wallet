@@ -21,6 +21,11 @@ vi.mock('@/hooks/useTransactionGroups', () => ({
     ],
   }),
 }));
+vi.mock('../CreateGroupDialog', () => ({
+  CreateGroupDialog: ({ open, onCreated }: { open: boolean; onCreated: (id: string) => void }) =>
+    open ? <button onClick={() => onCreated('g-new')}>Save new group</button> : null,
+}));
+vi.mock('../CreateCategoryDialog', () => ({ CreateCategoryDialog: () => null }));
 vi.mock('@/integrations/supabase/client', () => ({
   supabase: {
     from: () => ({
@@ -81,5 +86,17 @@ describe('BulkEditDialog', () => {
       { patch: { group_id: null, is_expense: true }, ids: ['d1'] },
       { patch: { group_id: null, is_income: false, cashback_month: '2026-09-01' }, ids: ['c1'] },
     ]);
+  });
+
+  it('a group created from the panel is selected and applied to every row', async () => {
+    const onApplied = vi.fn();
+    render(wrap(<BulkEditDialog open onOpenChange={() => {}} transactions={[debit, credit]} onApplied={onApplied} />));
+
+    fireEvent.click(screen.getAllByRole('button', { name: /New/ })[1]);
+    fireEvent.click(screen.getByText('Save new group'));
+    fireEvent.click(screen.getByRole('button', { name: 'Apply to 2' }));
+
+    await waitFor(() => expect(onApplied).toHaveBeenCalled());
+    expect(updates).toEqual([{ patch: { group_id: 'g-new' }, ids: ['d1', 'c1'] }]);
   });
 });
