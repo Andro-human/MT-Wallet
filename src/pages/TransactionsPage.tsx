@@ -1,7 +1,7 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link, useSearchParams, useNavigate } from 'react-router-dom';
-import { Search, SlidersHorizontal, X, ChevronDown, ChevronRight, ChevronLeft, ArrowLeft, Plus, Calendar as CalendarIcon, Trash2, Building2, Inbox, CheckCheck, RotateCcw, Layers, Eye, EyeOff } from 'lucide-react';
+import { Search, SlidersHorizontal, X, ChevronDown, ChevronRight, ChevronLeft, ArrowLeft, Plus, Calendar as CalendarIcon, Trash2, Building2, Inbox, CheckCheck, RotateCcw, Layers, Eye, EyeOff, Pencil } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -50,6 +50,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useQueryClient } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
 import { updateSearchParams } from '@/lib/searchParams';
+import { BulkEditDialog } from '@/components/transactions/BulkEditDialog';
 import { useProfile } from '@/hooks/useProfile';
 import { useReviewBookmark, useSetReviewBookmark } from '@/hooks/useReviewBookmark';
 import { countNewSince } from '@/lib/countNewSince';
@@ -501,6 +502,11 @@ export default function TransactionsPage() {
   };
 
   const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
+  const [showBulkEdit, setShowBulkEdit] = useState(false);
+  const selectedTransactions = useMemo(
+    () => sortedTransactions.filter((t) => selectedIds.has(t.id)),
+    [sortedTransactions, selectedIds],
+  );
 
   const handleDeleteSelected = async () => {
     if (!user || selectedIds.size === 0) return;
@@ -639,6 +645,16 @@ export default function TransactionsPage() {
                 <Button
                   variant="outline"
                   size="sm"
+                  disabled={selectedIds.size === 0}
+                  onClick={() => setShowBulkEdit(true)}
+                  className="gap-1.5 rounded-xl border-border/50"
+                >
+                  <Pencil className="w-3.5 h-3.5" />
+                  Edit
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
                   disabled={selectedIds.size < 2 || createCombine.isPending}
                   onClick={handleCombineSelected}
                   className="gap-1.5 rounded-xl border-primary/40 text-primary hover:bg-primary/10"
@@ -709,6 +725,13 @@ export default function TransactionsPage() {
             </motion.div>
           )}
         </AnimatePresence>
+
+        <BulkEditDialog
+          open={showBulkEdit}
+          onOpenChange={setShowBulkEdit}
+          transactions={selectedTransactions}
+          onApplied={exitSelectMode}
+        />
 
         {/* Header */}
         {!isSelectMode && (
