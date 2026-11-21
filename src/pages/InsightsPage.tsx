@@ -26,6 +26,7 @@ import { LONG_TAIL_COLOR, FOLD_STACK, FOLD_LABEL, assignColors } from '@/lib/cat
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { updateSearchParams } from '@/lib/searchParams';
 import { monthsTouched } from '@/lib/monthsTouched';
 
 type TimeRange = '1-month' | '3-months' | '6-months' | 'custom';
@@ -37,15 +38,13 @@ function useInsightParam(key: string, defaultValue: string) {
   const value = searchParams.get(key) || defaultValue;
 
   const setValue = useCallback((newValue: string) => {
-    setSearchParams(prev => {
-      const next = new URLSearchParams(prev);
+    updateSearchParams(setSearchParams, (next) => {
       if (newValue === defaultValue) {
         next.delete(key);
       } else {
         next.set(key, newValue);
       }
-      return next;
-    }, { replace: true });
+    });
   }, [key, defaultValue, setSearchParams]);
 
   return [value, setValue] as const;
@@ -77,20 +76,16 @@ export default function InsightsPage() {
 
   const setCustomStart = useCallback((d: Date) => {
     setCustomStartState(d);
-    setSearchParams(prev => {
-      const next = new URLSearchParams(prev);
+    updateSearchParams(setSearchParams, (next) => {
       next.set('from', format(d, 'yyyy-MM-dd'));
-      return next;
-    }, { replace: true });
+    });
   }, [setSearchParams]);
 
   const setCustomEnd = useCallback((d: Date) => {
     setCustomEndState(d);
-    setSearchParams(prev => {
-      const next = new URLSearchParams(prev);
+    updateSearchParams(setSearchParams, (next) => {
       next.set('to', format(d, 'yyyy-MM-dd'));
-      return next;
-    }, { replace: true });
+    });
   }, [setSearchParams]);
 
   const [showCustomPicker, setShowCustomPicker] = useState(timeRange === 'custom');
@@ -945,13 +940,11 @@ export default function InsightsPage() {
                     setCustomEndState(end);
                     setShowCustomPicker(false);
                       
-                    setSearchParams(prev => {
-                      const next = new URLSearchParams(prev);
+                    updateSearchParams(setSearchParams, (next) => {
                       next.set('range', 'custom');
                       next.set('from', format(start, 'yyyy-MM-dd'));
                       next.set('to', format(end, 'yyyy-MM-dd'));
-                      return next;
-                    }, { replace: true });
+                    });
                   }} className="cursor-pointer">
                     <defs>
                       {/* Neo Gradient: Transparent to Lime */}
