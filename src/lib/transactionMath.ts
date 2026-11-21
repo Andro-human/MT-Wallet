@@ -189,6 +189,21 @@ export function sumCashback(
   return total;
 }
 
+// Keyed 'yyyy-MM' by the month each cashback lowers, not the month it arrived.
+export function cashbackByMonth(
+  txns: AnyTxn[],
+  duplicateExcludeIds: DuplicateExcludeSet,
+): Map<string, number> {
+  const byMonth = new Map<string, number>();
+  for (const t of txns) {
+    if (!t.cashback_month) continue;
+    if (!isCountable(t, duplicateExcludeIds)) continue;
+    const key = t.cashback_month.slice(0, 7);
+    byMonth.set(key, (byMonth.get(key) ?? 0) + Number(t.amount));
+  }
+  return byMonth;
+}
+
 // Clamped at 0: a cashback larger than the month's spending is not negative spend.
 export function netOfCashback(spent: number, cashback: number): number {
   return Math.max(spent - cashback, 0);
