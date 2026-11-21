@@ -14,10 +14,12 @@ import { useFinanceContext } from '@/hooks/useFinanceData';
 import { MonthlySummaryCard } from '@/components/insights/MonthlySummaryCard';
 import { MonthDifferences } from '@/components/insights/MonthDifferences';
 import { useMonthlySummary } from '@/hooks/useMonthlySummary';
+import { useCashbackTotal } from '@/hooks/useCashbackTotal';
 import {
   netAmount as computeNetAmount,
   creditNet,
   filterOutDuplicates,
+  netOfCashback,
 } from '@/lib/transactionMath';
 import { formatINR, formatINRCompact } from '@/lib/formatCurrency';
 import { LONG_TAIL_COLOR, FOLD_STACK, FOLD_LABEL, assignColors } from '@/lib/categoryColors';
@@ -133,12 +135,17 @@ export default function InsightsPage() {
   }, [dateRange]);
 
   const { data: prevTransactions = [] } = useTransactions(prevRange);
+  const {
+    total: rangeCashback,
+    byMonth: cashbackMonths,
+    isLoading: cashbackLoading,
+  } = useCashbackTotal(dateRange.startDate, dateRange.endDate);
 
   const { refundTotals, refundAllocations, duplicateExcludeIds, isReady: contextReady } = useFinanceContext();
   const [expandedAlloc, setExpandedAlloc] = useState<string | null>(null);
   const TOP_TXNS_PAGE = 8;
   const [txnLimit, setTxnLimit] = useState(TOP_TXNS_PAGE);
-  const isLoading = txnsLoading || !contextReady;
+  const isLoading = txnsLoading || cashbackLoading || !contextReady;
 
   const netAmount = useCallback(
     (t: { id: string; amount: number | string; is_expense?: boolean | null; is_income?: boolean | null; category_id?: string | null }) =>
@@ -330,8 +337,15 @@ export default function InsightsPage() {
       }
     });
 
+    // Segments stay gross: cashback lowers a month's total, never a category.
+    for (const [key, month] of Object.entries(months)) {
+      const cashback = cashbackMonths.get(key) ?? 0;
+      month.cashback = cashback;
+      month.expense = netOfCashback(month.expense, cashback);
+    }
+
     return Object.values(months);
-  }, [transactions, dateRange, chartMode, activeGroups, activeCategories, keptSegKeys, netAmount, refundAllocations]);
+  }, [transactions, dateRange, chartMode, activeGroups, activeCategories, keptSegKeys, netAmount, refundAllocations, cashbackMonths]);
 
 
   // Pure category breakdown — ALL expense (grouped included). Drilling into a slice
@@ -469,7 +483,8 @@ export default function InsightsPage() {
   }, [transactions, netAmount]);
 
   // Summary stats
-  const totalSpent = allocationBreakdown.reduce((sum, c) => sum + c.amount, 0);
+  const grossSpent = allocationBreakdown.reduce((sum, c) => sum + c.amount, 0);
+  const totalSpent = netOfCashback(grossSpent, rangeCashback);
   const totalIncome = transactions
     .filter(t => t.is_income)
     .reduce((sum, t) => sum + creditNet(t as any, refundAllocations), 0);
@@ -480,7 +495,7 @@ export default function InsightsPage() {
   // Active Allocation tab: which breakdown + which denominator for its bars.
   const activeAllocation =
     allocTab === 'categories' ? categoriesBreakdown : allocTab === 'groups' ? groupsBreakdown : allocationBreakdown;
-  const allocationDenom = allocTab === 'groups' ? totalGroupSpent : totalSpent;
+  const allocationDenom = allocTab === 'groups' ? totalGroupSpent : grossSpent;
   // Bars scale to the biggest row, not to the total: with ~27 buckets the top
   // one is only ~12% of spend, so a share-of-total bar is a stub at any width.
   // The share still reads as the % on the row.
@@ -665,6 +680,7 @@ export default function InsightsPage() {
         .sort((a: any, b: any) => b.value - a.value);
       // expense is on the datum whether or not it is drawn as its own bar
       const totalOut = payload[0].payload.expense;
+      const cashback = payload[0].payload.cashback;
 
       return (
         <div className="bg-background border border-border p-3 shadow-2xl">
@@ -703,6 +719,12 @@ export default function InsightsPage() {
             );
           })}
           <div className="mt-2 pt-2 border-t border-border/60 space-y-0.5">
+            {cashback ? (
+              <div className="flex justify-between gap-4 text-xs font-mono">
+                <span className="text-gold">CASHBACK</span>
+                <span className="text-gold">−{formatINR(cashback)}</span>
+              </div>
+            ) : null}
             {totalOut ? (
               <div className="flex justify-between gap-4 text-xs font-mono">
                 <span className="text-muted-foreground">OUT</span>
@@ -831,6 +853,11 @@ export default function InsightsPage() {
             {!isLoading && totalSpent > 0 && (
               <p className="text-2xs font-mono text-muted-foreground mt-1">
                 {avgLabel(avgSpentPerMonth)}
+              </p>
+            )}
+            {!isLoading && rangeCashback > 0 && (
+              <p className="text-2xs font-mono text-muted-foreground mt-0.5">
+                after <span className="text-gold">{formatINRCompact(rangeCashback)}</span> cashback
               </p>
             )}
           </div>

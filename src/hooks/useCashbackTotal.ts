@@ -1,9 +1,10 @@
+import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 import { useFinanceContext } from './useFinanceData';
-import { sumCashback } from '@/lib/transactionMath';
+import { sumCashback, cashbackByMonth } from '@/lib/transactionMath';
 
 /** Cashback attributed to the months inside [startDate, endDate].
  *
@@ -32,5 +33,7 @@ export function useCashbackTotal(startDate: Date | undefined, endDate: Date | un
     staleTime: 30_000,
   });
 
-  return { total: sumCashback(rows as any, duplicateExcludeIds), isLoading };
+  const total = useMemo(() => sumCashback(rows as any, duplicateExcludeIds), [rows, duplicateExcludeIds]);
+  const byMonth = useMemo(() => cashbackByMonth(rows as any, duplicateExcludeIds), [rows, duplicateExcludeIds]);
+  return { total, byMonth, isLoading };
 }

@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
+  cashbackByMonth,
   classifyTransaction,
   defaultCashbackMonth,
   netOfCashback,
@@ -22,6 +23,20 @@ const credit = (over: Record<string, unknown> = {}) => ({
 const noLinks = { duplicateExcludeIds: new Set<string>(), refundTotals: {}, refundAllocations: {} };
 
 describe('cashback', () => {
+  it('groups by the month it lowers and skips duplicates', () => {
+    const byMonth = cashbackByMonth(
+      [
+        credit({ id: 'a', amount: 1246 }),
+        credit({ id: 'b', amount: 54, cashback_month: '2026-09-01' }),
+        credit({ id: 'c', amount: 300, cashback_month: '2026-08-01' }),
+        credit({ id: 'dup', amount: 999 }),
+        credit({ id: 'plain', amount: 5000, cashback_month: null, is_income: true }),
+      ] as any,
+      new Set(['dup']),
+    );
+    expect(Object.fromEntries(byMonth)).toEqual({ '2026-09': 1300, '2026-08': 300 });
+  });
+
   it('defaults to the month before the credit arrived', () => {
     expect(defaultCashbackMonth('2026-10-03T10:00:00+05:30')).toBe('2026-09-01');
     expect(defaultCashbackMonth('2026-01-15T10:00:00+05:30')).toBe('2025-12-01');
