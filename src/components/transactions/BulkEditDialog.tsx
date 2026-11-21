@@ -6,17 +6,21 @@ import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { useCategories } from '@/hooks/useCategories';
 import { useTransactionGroups } from '@/hooks/useTransactionGroups';
+import { useMerchantMappings } from '@/hooks/useMerchantMappings';
 import { visibleGroups } from '@/lib/visibleGroups';
 import { batchByPatch, isEmptyEdit, patchFor, previousFor, type BulkEdit, type BulkEditTxn, type TxnPatch } from '@/lib/bulkEdit';
+import { canRemember, proposeRules, type RuleProposal } from '@/lib/bulkRules';
 import { cn } from '@/lib/utils';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 import { ToastAction } from '@/components/ui/toast';
 import { SearchableSelect } from '@/components/ui/SearchableSelect';
 import { CreateCategoryDialog } from './CreateCategoryDialog';
 import { CreateGroupDialog } from './CreateGroupDialog';
+import { BulkRuleReview } from './BulkRuleReview';
 
 const KEEP = 'keep';
 const NONE = 'none';
@@ -57,6 +61,7 @@ export function BulkEditDialog({ open, onOpenChange, transactions, onApplied }: 
   const queryClient = useQueryClient();
   const { data: categories = [] } = useCategories();
   const { data: groups = [] } = useTransactionGroups();
+  const { data: mappings = [] } = useMerchantMappings();
 
   const [categoryId, setCategoryId] = useState(KEEP);
   const [groupId, setGroupId] = useState(KEEP);
@@ -65,6 +70,8 @@ export function BulkEditDialog({ open, onOpenChange, transactions, onApplied }: 
   const [isSaving, setIsSaving] = useState(false);
   const [showCreateCategory, setShowCreateCategory] = useState(false);
   const [showCreateGroup, setShowCreateGroup] = useState(false);
+  const [rememberRules, setRememberRules] = useState(false);
+  const [proposals, setProposals] = useState<RuleProposal[] | null>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -72,7 +79,19 @@ export function BulkEditDialog({ open, onOpenChange, transactions, onApplied }: 
     setGroupId(KEEP);
     setCounted(KEEP);
     setMerchant('');
+    setRememberRules(false);
+    setProposals(null);
   }, [open]);
+
+  const finish = () => {
+    onOpenChange(false);
+    onApplied();
+  };
+
+  const handleOpenChange = (next: boolean) => {
+    if (!next && proposals) finish();
+    else onOpenChange(next);
+  };
 
   const n = transactions.length;
   const hasCredits = transactions.some((t) => t.direction === 'credit');
@@ -117,12 +136,14 @@ export function BulkEditDialog({ open, onOpenChange, transactions, onApplied }: 
     const undo = changes.map(({ txn, patch }) => ({ id: txn.id, patch: previousFor(txn, patch) }));
     const userId = user.id;
 
+    const ruleProposals = rememberRules && canRemember(edit) ? proposeRules(transactions, edit, mappings) : [];
+
     setIsSaving(true);
     try {
       await applyPatches(changes.map(({ txn, patch }) => ({ id: txn.id, patch })), userId);
       refresh();
-      onOpenChange(false);
-      onApplied();
+      if (ruleProposals.length > 0) setProposals(ruleProposals);
+      else finish();
       toast({
         title: `Updated ${n} transaction${n === 1 ? '' : 's'}`,
         action: (
@@ -151,97 +172,122 @@ export function BulkEditDialog({ open, onOpenChange, transactions, onApplied }: 
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="glass-elevated border-border/50 max-w-md max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="text-lg font-semibold">
-            Edit {n} transaction{n === 1 ? '' : 's'}
-          </DialogTitle>
-          <DialogDescription className="text-xs">
-            Only the fields you change are applied. The rest stay as they are on each transaction.
-          </DialogDescription>
-        </DialogHeader>
+        {proposals ? (
+          <BulkRuleReview proposals={proposals} onDone={finish} />
+        ) : (
+          <>
+            <DialogHeader>
+              <DialogTitle className="text-lg font-semibold">
+                Edit {n} transaction{n === 1 ? '' : 's'}
+              </DialogTitle>
+              <DialogDescription className="text-xs">
+                Only the fields you change are applied. The rest stay as they are on each transaction.
+              </DialogDescription>
+            </DialogHeader>
 
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label>Category</Label>
-              <button
-                type="button"
-                onClick={() => setShowCreateCategory(true)}
-                className="text-xs text-primary hover:underline flex items-center gap-1"
-              >
-                <Plus className="w-3 h-3" />
-                New
-              </button>
-            </div>
-            <SearchableSelect value={categoryId} onValueChange={setCategoryId} options={categoryOptions} />
-          </div>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label>Category</Label>
+                  <button
+                    type="button"
+                    onClick={() => setShowCreateCategory(true)}
+                    className="text-xs text-primary hover:underline flex items-center gap-1"
+                  >
+                    <Plus className="w-3 h-3" />
+                    New
+                  </button>
+                </div>
+                <SearchableSelect value={categoryId} onValueChange={setCategoryId} options={categoryOptions} />
+              </div>
 
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label>Group</Label>
-              <button
-                type="button"
-                onClick={() => setShowCreateGroup(true)}
-                className="text-xs text-primary hover:underline flex items-center gap-1"
-              >
-                <Plus className="w-3 h-3" />
-                New
-              </button>
-            </div>
-            <SearchableSelect value={groupId} onValueChange={setGroupId} options={groupOptions} />
-          </div>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label>Group</Label>
+                  <button
+                    type="button"
+                    onClick={() => setShowCreateGroup(true)}
+                    className="text-xs text-primary hover:underline flex items-center gap-1"
+                  >
+                    <Plus className="w-3 h-3" />
+                    New
+                  </button>
+                </div>
+                <SearchableSelect value={groupId} onValueChange={setGroupId} options={groupOptions} />
+              </div>
 
-          <div className="space-y-2">
-            <Label>Counted</Label>
-            <div role="radiogroup" aria-label="Counted" className="grid grid-cols-3 gap-1 p-1 rounded-lg border border-border/50">
-              {COUNTED_OPTIONS.map((o) => (
-                <button
-                  key={o.value}
-                  type="button"
-                  role="radio"
-                  aria-checked={counted === o.value}
-                  onClick={() => setCounted(o.value)}
-                  className={cn(
-                    'h-10 rounded-md text-sm transition-colors duration-150',
-                    counted === o.value
-                      ? 'bg-muted text-foreground'
-                      : 'text-muted-foreground hover:text-foreground hover:bg-muted/50',
+              <div className="space-y-2">
+                <Label>Counted</Label>
+                <div role="radiogroup" aria-label="Counted" className="grid grid-cols-3 gap-1 p-1 rounded-lg border border-border/50">
+                  {COUNTED_OPTIONS.map((o) => (
+                    <button
+                      key={o.value}
+                      type="button"
+                      role="radio"
+                      aria-checked={counted === o.value}
+                      onClick={() => setCounted(o.value)}
+                      className={cn(
+                        'h-10 rounded-md text-sm transition-colors duration-150',
+                        counted === o.value
+                          ? 'bg-muted text-foreground'
+                          : 'text-muted-foreground hover:text-foreground hover:bg-muted/50',
+                      )}
+                    >
+                      {o.label}
+                    </button>
+                  ))}
+                </div>
+                {counted !== KEEP && hasCredits && (
+                  <p className="text-xs text-muted-foreground">
+                    {hasDebits ? 'Debits count as spending, credits as income. ' : 'Credits count as income. '}
+                    Any cashback among them stops being cashback.
+                  </p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="bulk-merchant">Merchant name</Label>
+                <Input
+                  id="bulk-merchant"
+                  value={merchant}
+                  onChange={(e) => setMerchant(e.target.value)}
+                  placeholder="Keep as is"
+                  className="bg-muted/30 border-border/50 rounded-xl"
+                />
+              </div>
+
+              {canRemember(edit) && (
+                <div className="space-y-1.5">
+                  <label className="flex items-start gap-3 cursor-pointer">
+                    <Checkbox
+                      checked={rememberRules}
+                      onCheckedChange={(c) => setRememberRules(c === true)}
+                      className="mt-0.5"
+                    />
+                    <span className="text-sm">Also apply to future transactions from these merchants</span>
+                  </label>
+                  {rememberRules && (
+                    <p className="pl-7 text-xs text-muted-foreground">
+                      You'll choose which merchants get a rule after applying.
+                      {edit.groupId !== undefined && ' Groups can’t be remembered, so only the other changes become rules.'}
+                    </p>
                   )}
-                >
-                  {o.label}
-                </button>
-              ))}
+                </div>
+              )}
             </div>
-            {counted !== KEEP && hasCredits && (
-              <p className="text-xs text-muted-foreground">
-                {hasDebits ? 'Debits count as spending, credits as income. ' : 'Credits count as income. '}
-                Any cashback among them stops being cashback.
-              </p>
-            )}
-          </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="bulk-merchant">Merchant name</Label>
-            <Input
-              id="bulk-merchant"
-              value={merchant}
-              onChange={(e) => setMerchant(e.target.value)}
-              placeholder="Keep as is"
-              className="bg-muted/30 border-border/50 rounded-xl"
-            />
-          </div>
-        </div>
-
-        <div className="flex gap-3 pt-2">
-          <Button variant="outline" className="flex-1 rounded-xl border-border/50" onClick={() => onOpenChange(false)}>
-            Cancel
-          </Button>
-          <Button className="flex-1 rounded-xl" onClick={handleApply} disabled={isSaving || isEmptyEdit(edit)}>
-            {isSaving ? 'Saving...' : `Apply to ${n}`}
-          </Button>
-        </div>
+            <div className="flex gap-3 pt-2">
+              <Button variant="outline" className="flex-1 rounded-xl border-border/50" onClick={() => onOpenChange(false)}>
+                Cancel
+              </Button>
+              <Button className="flex-1 rounded-xl" onClick={handleApply} disabled={isSaving || isEmptyEdit(edit)}>
+                {isSaving ? 'Saving...' : `Apply to ${n}`}
+              </Button>
+            </div>
+          </>
+        )}
       </DialogContent>
 
       <CreateCategoryDialog
